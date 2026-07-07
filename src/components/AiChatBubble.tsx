@@ -197,7 +197,10 @@ export function AiChatBubble({ screen, onBookingNav }: Props) {
   const currentHint = screen ? SCREEN_HINTS[screen] : null;
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Scroll ONLY the messages container — never scrollIntoView (it drags the
+    // parent .app up and pushes the chat header off-screen).
+    const box = messagesEndRef.current?.parentElement;
+    if (box) box.scrollTop = box.scrollHeight;
   }, [messages, isTyping]);
 
   useEffect(() => {
@@ -209,7 +212,7 @@ export function AiChatBubble({ screen, onBookingNav }: Props) {
       );
       setInputValue('');
       document.body.setAttribute('data-sheet-open', '');
-      setTimeout(() => inputRef.current?.focus(), 350);
+      setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 400);
       return () => document.body.removeAttribute('data-sheet-open');
     }
   }, [isOpen]);
@@ -266,7 +269,9 @@ export function AiChatBubble({ screen, onBookingNav }: Props) {
                 <span className="ai-chat-header-title">AI-ассистент</span>
                 <span className="ai-chat-header-sub">ANZH Cosmetology</span>
               </div>
-              <button className="ai-chat-close" onClick={() => setIsOpen(false)} aria-label="Закрыть">✕</button>
+              <button className="ai-chat-close" onClick={() => setIsOpen(false)} aria-label="Закрыть">
+                <Icon name="x" size={18} strokeWidth={2.4} />
+              </button>
             </div>
             <div className="ai-messages">
               {messages.map((m) => (

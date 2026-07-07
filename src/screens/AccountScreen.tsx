@@ -40,7 +40,7 @@ export function AccountScreen({
   const openReview = (defaultServiceId?: string) =>
     openSheet({
       title: 'Оставить отзыв',
-      subtitle: 'Anjelika Club · копится в кабинете',
+      subtitle: 'Скидка на следующую процедуру',
       body: <ReviewSheet defaultServiceId={defaultServiceId} onAwardPoints={onAwardPoints} />,
     });
   const showSettings = () =>
@@ -66,7 +66,7 @@ export function AccountScreen({
             <div className="eyebrow" style={{ marginBottom: 8 }}>как зарабатывать</div>
             <ul className="info-list">
               <li>5% от чека возвращается баллами</li>
-              <li>Отзыв 5★ → +200 баллов</li>
+              <li>Отзыв → −10% на следующую процедуру</li>
               <li>День рождения → +500 баллов</li>
               <li>Приведи подругу → +1000 баллов обоим</li>
             </ul>
@@ -167,7 +167,7 @@ export function AccountScreen({
             className="btn btn-ghost btn-block"
             onClick={() => openReview(h.id.startsWith('h') ? undefined : h.id)}
           >
-            Оставить отзыв · +200 баллов
+            Оставить отзыв · −10%
           </button>
         </>
       ),
@@ -262,7 +262,7 @@ export function AccountScreen({
         <div className="loyalty-tier">★ Silver · Anjelika Club</div>
         <div className="loyalty-points">{points}<small> баллов</small></div>
         <div className="loyalty-progress"><div className="loyalty-progress-fill" style={{ width: `${Math.min(100, Math.round((points / 600) * 100))}%` }} /></div>
-        <div className="loyalty-hint">До Gold-тира ещё {Math.max(0, 600 - points)} баллов — отзыв даёт +200, фото +100.</div>
+        <div className="loyalty-hint">До Gold-тира ещё {Math.max(0, 600 - points)} баллов · отзыв и сторис — скидки на процедуры.</div>
       </button>
 
       <button className="next-appt" onClick={showAppointment}>
@@ -309,34 +309,42 @@ export function AccountScreen({
       <section className="section" style={{ paddingTop: 0 }}>
         <div className="section-head">
           <div>
-            <div className="eyebrow">Паспорт здоровья</div>
-            <h2 className="section-title">Анкета</h2>
+            <div className="eyebrow">{t('account.passport', lang)}</div>
+            <h2 className="section-title">{t('account.form', lang)}</h2>
           </div>
           <button className="section-link" onClick={showHealth} style={{ background: 'none', border: 0 }}>
-            правка
+            {lang === 'ru' ? 'правка' : 'edit'}
           </button>
         </div>
-        <button
-          onClick={showHealth}
-          className="card"
-          style={{ padding: 18, width: '100%', textAlign: 'left', cursor: 'pointer' }}
-        >
-          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-            <span className="chip chip-gold">Без аллергий</span>
-            <span className="chip">Не беременна</span>
-            <span className="chip chip-amber">⚠ Лидокаин — слабая реакция</span>
-            <span className="chip">Тип кожи II</span>
-            <span className="chip">Без хроник</span>
+        <button onClick={showHealth} className="patient-card">
+          <div className="patient-head">
+            <div className="patient-avatar">{userName.slice(0, 1).toUpperCase()}</div>
+            <div className="patient-id">
+              <div className="patient-name">{userName}</div>
+              <div className="patient-meta">ID ANZH-0342 · {lang === 'ru' ? 'клиент с 2024' : 'client since 2024'}</div>
+            </div>
+            <div className="patient-badge">Fitzpatrick II</div>
           </div>
-          <div className="faint" style={{ fontSize: 12, marginTop: 12 }}>
-            Анжелика видит флаги перед каждой записью.
+          <div className="patient-vitals">
+            <div className="pv"><span className="pv-label">{lang === 'ru' ? 'Тип кожи' : 'Skin type'}</span><span className="pv-val">{lang === 'ru' ? 'Комбинированная' : 'Combination'}</span></div>
+            <div className="pv"><span className="pv-label">{lang === 'ru' ? 'Чувствит.' : 'Sensitivity'}</span><span className="pv-val">{lang === 'ru' ? 'Средняя' : 'Medium'}</span></div>
+            <div className="pv"><span className="pv-label">{lang === 'ru' ? 'Купероз' : 'Couperose'}</span><span className="pv-val">{lang === 'ru' ? 'Нет' : 'No'}</span></div>
+          </div>
+          <div className="patient-flags">
+            <span className="flag warn"><Icon name="warning" size={13} strokeWidth={2} /> {lang === 'ru' ? 'Лидокаин — слабая реакция' : 'Lidocaine — mild reaction'}</span>
+            <span className="flag ok"><Icon name="check" size={13} strokeWidth={2.4} /> {lang === 'ru' ? 'Без аллергий' : 'No allergies'}</span>
+            <span className="flag ok"><Icon name="check" size={13} strokeWidth={2.4} /> {lang === 'ru' ? 'Не беременна · без хроник' : 'Not pregnant · no chronic'}</span>
+          </div>
+          <div className="patient-foot">
+            <Icon name="shield-check" size={14} strokeWidth={1.8} />
+            {lang === 'ru' ? 'Анжелика проверяет флаги перед каждой записью' : 'Anjelika reviews these flags before every visit'}
           </div>
         </button>
       </section>
 
       <div style={{ padding: '0 20px 8px' }}>
         <button className="btn btn-primary btn-block" onClick={onBook}>
-          Записаться снова
+          {t('account.rebook', lang)}
         </button>
       </div>
       <div style={{ padding: '0 20px 20px' }}>
@@ -344,7 +352,7 @@ export function AccountScreen({
           className="btn btn-ghost btn-block"
           onClick={() => openReview()}
         >
-          Оставить отзыв · +200 баллов
+          Оставить отзыв · −10%
         </button>
       </div>
     </div>

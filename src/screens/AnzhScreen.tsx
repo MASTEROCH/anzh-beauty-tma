@@ -178,41 +178,46 @@ export function AnzhScreen() {
         style={{ marginTop: 22 }}
         onClick={() => {
           openSheet({
-            title: 'Узнай всё о своей коже',
-            subtitle: 'Персональный квиз ANZH · 4 минуты',
+            title: lang === 'ru' ? 'Узнай всё о своей коже' : 'Discover your skin',
+            subtitle: lang === 'ru' ? 'Персональный квиз ANZH · 4 минуты' : 'Personal ANZH quiz · 4 min',
             body: (
               <>
                 <p className="muted" style={{ lineHeight: 1.65 }}>
-                  Ответь на 12 вопросов о коже, образе жизни и целях — Анжелика подберёт индивидуальный протокол ухода и список процедур, которые тебе действительно нужны.
+                  {lang === 'ru'
+                    ? 'Ответь на 12 вопросов о коже, образе жизни и целях — Анжелика подберёт индивидуальный протокол ухода и список процедур, которые тебе действительно нужны.'
+                    : 'Answer 12 questions about your skin, lifestyle and goals — Anjelika will build a personal care protocol and the exact treatments you actually need.'}
                 </p>
                 <ul className="info-list" style={{ marginTop: 14 }}>
-                  <li>Тип кожи · фототип · реакции</li>
-                  <li>Аллергии и противопоказания</li>
-                  <li>Текущие средства ухода</li>
-                  <li>Цели: anti-age / acne / сияние</li>
-                  <li>Бюджет и темп</li>
+                  <li>{lang === 'ru' ? 'Тип кожи · фототип · реакции' : 'Skin type · phototype · reactions'}</li>
+                  <li>{lang === 'ru' ? 'Аллергии и противопоказания' : 'Allergies and contraindications'}</li>
+                  <li>{lang === 'ru' ? 'Текущие средства ухода' : 'Current skincare routine'}</li>
+                  <li>{lang === 'ru' ? 'Цели: anti-age / acne / сияние' : 'Goals: anti-age / acne / glow'}</li>
+                  <li>{lang === 'ru' ? 'Бюджет и темп' : 'Budget and pace'}</li>
                 </ul>
                 <p className="faint" style={{ fontSize: 12, marginTop: 14 }}>
-                  Результат — PDF-отчёт с подбором уходовой линейки и плана процедур.
+                  {lang === 'ru' ? 'Результат — PDF-отчёт с подбором уходовой линейки и плана процедур.' : 'Result — a PDF report with a curated routine and treatment plan.'}
                 </p>
               </>
             ),
             actions: (
               <button
                 className="btn btn-primary btn-block"
-                onClick={() => toast('Начинаю квиз — открываю первый шаг', 'success')}
+                onClick={() => {
+                  window.open('https://www.anzh.store', '_blank', 'noopener');
+                  toast(lang === 'ru' ? 'Открываю квиз на anzh.store' : 'Opening the quiz on anzh.store', 'success');
+                }}
               >
-                Начать квиз
+                {lang === 'ru' ? 'Начать квиз на anzh.store' : 'Start the quiz on anzh.store'}
               </button>
             ),
           });
         }}
       >
-        Узнай всё о своей коже →
+        {lang === 'ru' ? 'Узнай всё о своей коже →' : 'Discover your skin →'}
       </button>
 
       <p className="faint" style={{ fontSize: 12, marginTop: 14 }}>
-        Персональный подбор от Анжелики
+        {lang === 'ru' ? 'Персональный подбор от Анжелики' : 'Personal picks by Anjelika'}
       </p>
     </div>
   );

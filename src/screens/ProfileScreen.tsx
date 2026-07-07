@@ -22,11 +22,66 @@ export function ProfileScreen({
   onLang: (l: Lang) => void;
   onAwardPoints: (points: number) => void;
 }) {
+  const ru = lang === 'ru';
   const openReview = () =>
     openSheet({
-      title: 'Оставить отзыв',
-      subtitle: 'Anjelika Club · копится в кабинете',
+      title: ru ? 'Оставить отзыв' : 'Leave a review',
+      subtitle: ru ? 'Скидка на следующую процедуру' : 'Discount on your next treatment',
       body: <ReviewSheet onAwardPoints={onAwardPoints} />,
+    });
+
+  const showStoriesShare = () =>
+    openSheet({
+      title: ru ? '−15% на первое посещение' : '−15% off your first visit',
+      subtitle: ru ? 'За сторис с отметкой @dr.domnich' : 'For a Story tagging @dr.domnich',
+      body: (
+        <>
+          <div className="stories-hero">
+            <div className="stories-hero-glow" aria-hidden />
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2.5" y="2.5" width="19" height="19" rx="5.5" />
+              <circle cx="12" cy="12" r="4.2" />
+              <circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" stroke="none" />
+            </svg>
+            <div className="stories-discount">−15%</div>
+          </div>
+          <ol className="stories-steps">
+            <li><span>1</span>{ru ? 'Сними сторис в кабинете или с результатом' : 'Post a Story at the studio or of your result'}</li>
+            <li><span>2</span>{ru ? 'Отметь @dr.domnich и поставь геометку' : 'Tag @dr.domnich and add the location'}</li>
+            <li><span>3</span>{ru ? 'Покажи сторис на ресепшене — скидка твоя' : 'Show the Story at the desk — the discount is yours'}</li>
+          </ol>
+          <button
+            className="promo-code"
+            onClick={() => {
+              navigator.clipboard?.writeText('STORIES15');
+              toast(ru ? 'Промокод STORIES15 скопирован' : 'Promo STORIES15 copied', 'success');
+            }}
+          >
+            <span className="promo-code-label">{ru ? 'Промокод' : 'Promo code'}</span>
+            <span className="promo-code-value">STORIES15</span>
+            <Icon name="share" size={16} strokeWidth={1.9} />
+          </button>
+          <p className="faint" style={{ fontSize: 12, marginTop: 10, textAlign: 'center' }}>
+            {ru ? 'Действует на первую процедуру · нельзя суммировать с другими акциями' : 'Valid on your first treatment · not combinable with other offers'}
+          </p>
+        </>
+      ),
+      actions: (
+        <button
+          className="btn btn-primary btn-block"
+          onClick={() => {
+            const url = 'https://instagram.com/dr.domnich';
+            const nav = navigator as Navigator & { share?: (d: { title?: string; text?: string; url?: string }) => Promise<void> };
+            if (nav.share) nav.share({ title: 'ANZH Cosmetology', text: ru ? 'Косметолог Анжелика · Батуми' : 'Cosmetologist Anjelika · Batumi', url }).catch(() => {});
+            else window.open(url, '_blank');
+            toast(ru ? 'Открываю Instagram Анжелики' : 'Opening Anjelika’s Instagram', 'success');
+          }}
+        >
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <Icon name="share" size={17} strokeWidth={2} /> {ru ? 'Открыть Instagram' : 'Open Instagram'}
+          </span>
+        </button>
+      ),
     });
   const showAllReviews = () =>
     openSheet({
@@ -280,8 +335,23 @@ export function ProfileScreen({
         <button className="review-cta" onClick={openReview}>
           <div className="review-cta-icon"><Icon name="gift" size={22} strokeWidth={1.8} /></div>
           <div className="review-cta-text">
-            <div className="review-cta-title">Поделись впечатлением</div>
-            <div className="review-cta-sub">+200 баллов в Anjelika Club за отзыв · +100 за фото</div>
+            <div className="review-cta-title">{lang === 'ru' ? 'Поделись впечатлением' : 'Share your experience'}</div>
+            <div className="review-cta-sub">{lang === 'ru' ? '−10% на следующую процедуру за отзыв · −15% с фото' : '−10% off your next treatment for a review · −15% with a photo'}</div>
+          </div>
+          <Icon name="chevron-right" size={20} strokeWidth={2} className="review-cta-arrow" />
+        </button>
+
+        <button className="review-cta stories-cta" onClick={showStoriesShare}>
+          <div className="review-cta-icon stories-icon">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2.5" y="2.5" width="19" height="19" rx="5.5" />
+              <circle cx="12" cy="12" r="4.2" />
+              <circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" stroke="none" />
+            </svg>
+          </div>
+          <div className="review-cta-text">
+            <div className="review-cta-title">{lang === 'ru' ? 'Отметь в сторис' : 'Tag us in Stories'}</div>
+            <div className="review-cta-sub">{lang === 'ru' ? '−15% на первое посещение за сторис с @dr.domnich' : '−15% off your first visit for a Story with @dr.domnich'}</div>
           </div>
           <Icon name="chevron-right" size={20} strokeWidth={2} className="review-cta-arrow" />
         </button>
