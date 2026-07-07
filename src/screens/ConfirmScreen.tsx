@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { Icon } from '../components/Icon';
 import { toast } from '../lib/ui';
 
 export function ConfirmScreen({ onDone, onAccount }: { onDone: () => void; onAccount: () => void }) {
@@ -14,16 +15,16 @@ export function ConfirmScreen({ onDone, onAccount }: { onDone: () => void; onAcc
           <div className="eyebrow">подтверждение</div>
           <div className="header-title">Готово</div>
         </div>
-        <span className="chip chip-gold">✓ записано</span>
+        <span className="chip chip-gold"><Icon name="check" size={12} strokeWidth={2.4} /> записано</span>
       </header>
 
       <section style={{ padding: '36px 20px 0', textAlign: 'center' }}>
-        <div className="confirm-icon">✓</div>
-        <h1 style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: 30, fontWeight: 600, letterSpacing: '-0.015em' }}>
+        <div className="confirm-icon"><Icon name="check" size={42} strokeWidth={2.6} /></div>
+        <h1 style={{ fontFamily: 'Space Grotesk, system-ui, sans-serif', fontSize: 30, fontWeight: 600, letterSpacing: '-0.015em' }}>
           Записала тебя 💛
         </h1>
         <p className="muted" style={{ marginTop: 8, maxWidth: 320, marginInline: 'auto' }}>
-          Пятница 24 мая · 16:30 · Чавчавадзе 12, 3 этаж.
+          Пятница 24 мая · 16:30 · Parnavaz Mepe 92/94, 3 этаж.
           За 24 часа я пришлю напоминание и подготовку, за 2 часа — финальный пинг.
         </p>
       </section>
@@ -49,7 +50,7 @@ export function ConfirmScreen({ onDone, onAccount }: { onDone: () => void; onAcc
               toast('Календарь обновлён ✓', 'success');
             }}
           >
-            📅 В календарь
+            <Icon name="calendar" size={16} strokeWidth={1.9} /> В календарь
           </button>
           <button
             className="btn btn-ghost"
@@ -59,7 +60,7 @@ export function ConfirmScreen({ onDone, onAccount }: { onDone: () => void; onAcc
               toast('Ссылка скопирована — можно поделиться', 'success');
             }}
           >
-            ↗ Поделиться
+            <Icon name="share" size={16} strokeWidth={1.9} /> Поделиться
           </button>
         </div>
         <div className="row" style={{ gap: 10 }}>

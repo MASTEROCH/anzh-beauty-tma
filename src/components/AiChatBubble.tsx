@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { type MascotEmotion } from './Mascot';
-import { ConciergeOrb } from './ConciergeOrb';
+import { Mascot, type MascotEmotion } from './Mascot';
 import { onMascotMood } from '../lib/mascot-events';
 import { onAskMascot } from '../lib/chat-events';
 import { Icon } from './Icon';
@@ -55,7 +54,7 @@ function mockResponse(message: string): string {
     return '💸 Цены — от $40 (LED-терапия) до $180 (PDRN). Каталог открой во вкладке «Каталог», там USD↔GEL переключаются.';
   }
   if (/(адрес|где|как до|кабин|чавчав)/i.test(lower)) {
-    return '📍 Батуми, ул. Чавчавадзе 12, 3 этаж. 10 минут от Boulevard, парковка у входа. Открою карту?';
+    return '📍 Батуми, ул. Parnavaz Mepe 92/94, 3 этаж. 10 минут от Boulevard, парковка у входа. Открою карту?';
   }
   if (/(пуш|напомин|жди|ждать)/i.test(lower)) {
     return '🔔 Я пришлю пуш-напоминание за 24 часа и за 2 часа до процедуры. После — серия post-care сообщений: 24ч, 3д, 7д.';
@@ -188,12 +187,6 @@ export function AiChatBubble({ screen, onBookingNav }: Props) {
       ? (isTyping ? 'think' : inputFocused && inputValue.length > 0 ? 'listen' : 'idle')
       : 'idle';
 
-  // Map the rich mascot mood down to the orb's 3 subtle states
-  const orbState: 'idle' | 'think' | 'listen' =
-    isTyping || currentMood === 'think' ? 'think'
-    : currentMood === 'listen' ? 'listen'
-    : 'idle';
-
   useEffect(() => {
     if (!screen || isOpen) { setHintVisible(false); return; }
     const showDelay = setTimeout(() => setHintVisible(true), 700);
@@ -257,7 +250,7 @@ export function AiChatBubble({ screen, onBookingNav }: Props) {
 
       {!isOpen && (
         <button className="ai-bubble" onClick={() => setIsOpen(true)} aria-label="Открыть AI-ассистента">
-          <ConciergeOrb state={orbState} size={54} className="ai-bubble-mascot" onTap={() => {}} />
+          <Mascot mood={currentMood} size={56} className="ai-bubble-mascot" onTap={() => {}} />
         </button>
       )}
 
@@ -267,7 +260,7 @@ export function AiChatBubble({ screen, onBookingNav }: Props) {
           <div className="ai-chat-panel" role="dialog" aria-label="AI-ассистент">
             <div className="ai-chat-header">
               <div className="ai-chat-header-avatar-wrap" role="button" tabIndex={-1}>
-                <ConciergeOrb state={orbState} size={52} className="ai-chat-header-avatar" />
+                <Mascot mood={currentMood} size={56} className="ai-chat-header-avatar" />
               </div>
               <div className="ai-chat-header-info">
                 <span className="ai-chat-header-title">AI-ассистент</span>

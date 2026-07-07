@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BottomNav } from './components/BottomNav';
 import { AiChatBubble } from './components/AiChatBubble';
-import { SheetHost, ToastHost } from './components/UIHost';
+import { SheetHost, ToastHost, LightboxHost } from './components/UIHost';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { CatalogScreen } from './screens/CatalogScreen';
 import { ServiceScreen } from './screens/ServiceScreen';
@@ -11,6 +11,7 @@ import { AnzhScreen } from './screens/AnzhScreen';
 import { ConfirmScreen } from './screens/ConfirmScreen';
 import { OnboardingScreen } from './screens/OnboardingScreen';
 import { toast } from './lib/ui';
+import { getLang, setLang as setI18nLang } from './lib/i18n';
 
 const ONB_KEY = 'anzh_onboarded';
 
@@ -37,7 +38,7 @@ function navigate(setter: () => void) {
 export function App() {
   const [screen, setScreenRaw] = useState<Screen>(initialScreen);
   const [serviceId, setServiceId] = useState<string | undefined>();
-  const [lang, setLang] = useState<Lang>('ru');
+  const [lang, setLang] = useState<Lang>(getLang);
   const [currency, setCurrency] = useState<Currency>('usd');
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [loyaltyPoints, setLoyaltyPoints] = useState(380);
@@ -116,6 +117,7 @@ export function App() {
 
   const handleLang = (l: Lang) => {
     setLang(l);
+    setI18nLang(l);
     toast(l === 'ru' ? 'Язык: русский' : 'Language: English', 'success');
   };
 
@@ -184,6 +186,8 @@ export function App() {
       )}
       {screen === 'anzh' && <AnzhScreen />}
 
+      <div className="nav-veil" aria-hidden />
+
       <BottomNav
         current={screen === 'service' || screen === 'confirm' ? 'catalog' : screen}
         onChange={(s) => {
@@ -195,6 +199,7 @@ export function App() {
       <AiChatBubble screen={screen} onBookingNav={() => openBooking()} />
 
       <SheetHost />
+      <LightboxHost />
       <ToastHost />
     </div>
   );

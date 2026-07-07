@@ -1,16 +1,19 @@
 import { openSheet, toast } from '../lib/ui';
+import { Icon } from '../components/Icon';
 import { ReviewSheet } from '../components/ReviewSheet';
+import { SettingsSheet } from '../components/SettingsSheet';
+import { t } from '../lib/i18n';
 
 type Lang = 'ru' | 'en';
 type Currency = 'usd' | 'gel';
 
-type HistoryItem = { id: string; icon: string; name: string; when: string; sub: string; amount: number };
+type HistoryItem = { id: string; photo: string; name: string; when: string; sub: string; amount: number };
 
 const HISTORY: HistoryItem[] = [
-  { id: 'h1', icon: '✨', name: 'Биоревитализация', when: '12 апр', sub: 'IAL-System · оплачено', amount: 110 },
-  { id: 'h2', icon: '🌿', name: 'Глубокая чистка лица', when: '8 мар', sub: 'оплачено', amount: 80 },
-  { id: 'h3', icon: '💋', name: 'Контурная пластика губ', when: '21 фев', sub: 'Restylane Kysse', amount: 150 },
-  { id: 'h4', icon: '💧', name: 'PDRN · ДНК-терапия', when: '14 янв', sub: 'оплачено', amount: 180 },
+  { id: 'h1', photo: '/photos/biorevit.jpg', name: 'Биоревитализация', when: '12 апр', sub: 'IAL-System · оплачено', amount: 110 },
+  { id: 'h2', photo: '/photos/deep-cleansing.jpg', name: 'Глубокая чистка лица', when: '8 мар', sub: 'оплачено', amount: 80 },
+  { id: 'h3', photo: '/photos/lip-filler.jpg', name: 'Контурная пластика губ', when: '21 фев', sub: 'Restylane Kysse', amount: 150 },
+  { id: 'h4', photo: '/photos/pdrn.jpg', name: 'PDRN · ДНК-терапия', when: '14 янв', sub: 'оплачено', amount: 180 },
 ];
 
 export function AccountScreen({
@@ -42,61 +45,9 @@ export function AccountScreen({
     });
   const showSettings = () =>
     openSheet({
-      title: 'Настройки',
+      title: t('settings.title', lang),
       subtitle: 'ANZH Cosmetology',
-      body: (
-        <div className="col" style={{ gap: 18 }}>
-          <div>
-            <div className="eyebrow" style={{ marginBottom: 8 }}>язык</div>
-            <div className="row" style={{ gap: 8 }}>
-              <button
-                className={`chip ${lang === 'ru' ? 'active' : ''}`}
-                onClick={() => {
-                  onLang('ru');
-                  toast('Язык: русский', 'success');
-                }}
-              >🇷🇺 Русский</button>
-              <button
-                className={`chip ${lang === 'en' ? 'active' : ''}`}
-                onClick={() => {
-                  onLang('en');
-                  toast('Language: English', 'success');
-                }}
-              >🇬🇧 English</button>
-            </div>
-          </div>
-
-          <div>
-            <div className="eyebrow" style={{ marginBottom: 8 }}>валюта</div>
-            <div className="row" style={{ gap: 8 }}>
-              <button
-                className={`chip ${currency === 'usd' ? 'active' : ''}`}
-                onClick={() => {
-                  onCurrency('usd');
-                  toast('Цены в USD', 'success');
-                }}
-              >$ USD</button>
-              <button
-                className={`chip ${currency === 'gel' ? 'active' : ''}`}
-                onClick={() => {
-                  onCurrency('gel');
-                  toast('Цены в GEL', 'success');
-                }}
-              >₾ GEL</button>
-            </div>
-          </div>
-
-          <div>
-            <div className="eyebrow" style={{ marginBottom: 8 }}>уведомления</div>
-            <ul className="info-list">
-              <li>Напоминание за 24 ч — ✓</li>
-              <li>Напоминание за 2 ч — ✓</li>
-              <li>Post-care после процедуры — ✓</li>
-              <li>Акции и подарки — ✓</li>
-            </ul>
-          </div>
-        </div>
-      ),
+      body: <SettingsSheet lang={lang} onLang={onLang} currency={currency} onCurrency={onCurrency} />,
     });
 
   const showLoyalty = () =>
@@ -153,7 +104,7 @@ export function AccountScreen({
           <ul className="info-list">
             <li>Restylane Kysse · 1 мл</li>
             <li>Длительность 90 мин</li>
-            <li>Чавчавадзе 12, 3 этаж · домофон 12</li>
+            <li>Parnavaz Mepe 92/94, 3 этаж · домофон 12</li>
             <li>Депозит $15 удержан, к оплате на месте $135</li>
           </ul>
           <p className="muted" style={{ fontSize: 13, marginTop: 12 }}>
@@ -169,7 +120,7 @@ export function AccountScreen({
           <button
             className="btn btn-ghost btn-block"
             onClick={() => {
-              window.open('https://maps.google.com/?q=Chavchavadze+12+Batumi', '_blank');
+              window.open('https://www.google.com/maps/search/?api=1&query=41.6462,41.6324', '_blank');
               toast('Открываю маршрут', 'success');
             }}
           >
@@ -191,13 +142,13 @@ export function AccountScreen({
 
   const showHistory = (h: HistoryItem) =>
     openSheet({
-      title: `${h.icon} ${h.name}`,
+      title: h.name,
       subtitle: `${h.when} 2026 · оплачено`,
       body: (
         <>
           <div className="beforeafter">
-            <div className="beforeafter-tile before" data-label="ДО" />
-            <div className="beforeafter-tile after" data-label="ПОСЛЕ" />
+            <div className="beforeafter-tile before" data-label="ДО" style={{ backgroundImage: `url(${h.photo})` }} />
+            <div className="beforeafter-tile after" data-label="ПОСЛЕ" style={{ backgroundImage: `url(${h.photo})` }} />
           </div>
           <ul className="info-list" style={{ marginTop: 14 }}>
             <li>{h.sub}</li>
@@ -234,7 +185,7 @@ export function AccountScreen({
               className="history-row"
               onClick={() => showHistory(h)}
             >
-              <div className="history-icon">{h.icon}</div>
+              <div className="history-icon" style={{ backgroundImage: `url(${h.photo})` }} />
               <div className="history-body">
                 <div className="history-name">{h.name}</div>
                 <div className="history-when">{h.when} · {h.sub}</div>
@@ -296,15 +247,15 @@ export function AccountScreen({
     <div className="screen">
       <header className="header">
         <div className="header-lede">
-          <div className="eyebrow">кабинет</div>
+          <div className="eyebrow">{t('account.title', lang)}</div>
           <div className="header-title">{userName}</div>
         </div>
-        <button className="chip" onClick={showSettings} aria-label="Настройки">⚙ Настройки</button>
+        <button className="chip" onClick={showSettings} aria-label="Настройки"><Icon name="settings" size={14} strokeWidth={1.8} /> {t('settings.title', lang)}</button>
       </header>
 
       <section className="account-hero">
-        <h1 className="account-hello">Привет, {userName} 💛</h1>
-        <div className="account-sub">Клиент с 2024 · 7 процедур · VIP</div>
+        <h1 className="account-hello">{t('account.hello', lang)}, {userName} <Icon name="heart-filled" size={22} strokeWidth={0} style={{ color: 'var(--brand-gold)', verticalAlign: '-2px' }} /></h1>
+        <div className="account-sub">{t('account.clientSince', lang)} 2024 · 7 {t('account.procs', lang)} · VIP</div>
       </section>
 
       <button className="loyalty-card" onClick={showLoyalty}>
@@ -320,9 +271,9 @@ export function AccountScreen({
           <span className="m">МАЙ</span>
         </div>
         <div className="next-appt-body">
-          <div className="t">Ближайшая запись</div>
-          <div className="what">Контурная пластика губ</div>
-          <div className="when">пятница · 16:30 · Чавчавадзе 12</div>
+          <div className="t">{t('account.next', lang)}</div>
+          <div className="what">{lang === 'ru' ? 'Контурная пластика губ' : 'Lip contouring'}</div>
+          <div className="when">{lang === 'ru' ? 'пятница' : 'Friday'} · 16:30 · Parnavaz Mepe 92/94</div>
         </div>
         <div style={{ color: 'var(--tl)', fontSize: 18, paddingRight: 4 }}>›</div>
       </button>
@@ -330,11 +281,11 @@ export function AccountScreen({
       <section className="section">
         <div className="section-head">
           <div>
-            <div className="eyebrow">История</div>
-            <h2 className="section-title">Что было</h2>
+            <div className="eyebrow">{t('account.history', lang)}</div>
+            <h2 className="section-title">{t('account.historyTitle', lang)}</h2>
           </div>
           <button className="section-link" onClick={showAllHistory} style={{ background: 'none', border: 0 }}>
-            все 7 →
+            {t('account.allN', lang)} 7 →
           </button>
         </div>
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -344,7 +295,7 @@ export function AccountScreen({
               className="history-row"
               onClick={() => showHistory(h)}
             >
-              <div className="history-icon">{h.icon}</div>
+              <div className="history-icon" style={{ backgroundImage: `url(${h.photo})` }} />
               <div className="history-body">
                 <div className="history-name">{h.name}</div>
                 <div className="history-when">{h.when} · {h.sub}</div>

@@ -1,5 +1,23 @@
 import { useEffect } from 'react';
-import { closeSheet, useSheet, useToasts } from '../lib/ui';
+import { closeSheet, closeLightbox, useLightbox, useSheet, useToasts } from '../lib/ui';
+
+export function LightboxHost() {
+  const lb = useLightbox();
+  useEffect(() => {
+    if (!lb) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeLightbox(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [lb]);
+  if (!lb) return null;
+  return (
+    <div className="lightbox" role="dialog" aria-modal="true" onClick={closeLightbox}>
+      <button className="lightbox-close" aria-label="Закрыть" onClick={closeLightbox}>✕</button>
+      <img className="lightbox-img" src={lb.src} alt={lb.caption ?? ''} onClick={(e) => e.stopPropagation()} />
+      {lb.caption && <div className="lightbox-caption">{lb.caption}</div>}
+    </div>
+  );
+}
 
 export function ToastHost() {
   const items = useToasts();

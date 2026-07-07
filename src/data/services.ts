@@ -185,3 +185,24 @@ export const services: Service[] = [
 export function findService(id: string) {
   return services.find((s) => s.id === id);
 }
+
+/* ── English titles/shorts for i18n ── */
+const SERVICE_EN: Record<string, { title: string; short: string }> = {
+  'lip-filler':     { title: 'Lip contouring',        short: 'Restylane Kysse · 1 ml' },
+  'biorevit':       { title: 'Biorevitalization',     short: 'Hyaluronic acid · glow' },
+  'deep-cleansing': { title: 'Deep facial cleansing', short: 'Atraumatic · ultrasound + manual' },
+  'pdrn':           { title: 'PDRN · DNA therapy',    short: 'Regeneration & anti-age' },
+  'almagold-peel':  { title: 'PRX-T33 peel',          short: 'Non-ablative · even tone' },
+  'rf-lifting':     { title: 'RF face lifting',       short: 'INDIBA · needle-free lift' },
+  'led-therapy':    { title: 'LED therapy',           short: 'Anti-acne / anti-age' },
+};
+
+export function sTitle(s: Service, lang: 'ru' | 'en') {
+  return lang === 'en' ? SERVICE_EN[s.id]?.title ?? s.title : s.title;
+}
+export function sShort(s: Service, lang: 'ru' | 'en') {
+  return lang === 'en' ? SERVICE_EN[s.id]?.short ?? s.short : s.short;
+}
+export const CATEGORY_KEY: Record<string, string> = {
+  all: 'cat.all', inj: 'cat.inj', clean: 'cat.clean', peel: 'cat.peel', apparatus: 'cat.apparatus', care: 'cat.care',
+};

@@ -1,12 +1,15 @@
 import { useMemo, useState } from 'react';
-import { findService, services } from '../data/services';
+import { findService, services, sTitle, sShort } from '../data/services';
 import { openSheet, toast } from '../lib/ui';
 import { Icon } from '../components/Icon';
+import { useLang, t } from '../lib/i18n';
 
 type Currency = 'usd' | 'gel';
 
 const DAYS_RU = ['ВС', 'ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ'];
 const MON_RU = ['ЯНВ', 'ФЕВ', 'МАР', 'АПР', 'МАЙ', 'ИЮН', 'ИЮЛ', 'АВГ', 'СЕН', 'ОКТ', 'НОЯ', 'ДЕК'];
+const DAYS_EN = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+const MON_EN = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
 const SLOTS = ['09:00', '10:30', '12:00', '13:30', '15:00', '16:30', '18:00', '19:30'];
 const DISABLED = new Set(['09:00', '15:00']);
@@ -33,6 +36,9 @@ export function BookingScreen({
   onChooseService: () => void;
   currency: Currency;
 }) {
+  const lang = useLang();
+  const DAYS = lang === 'ru' ? DAYS_RU : DAYS_EN;
+  const MON = lang === 'ru' ? MON_RU : MON_EN;
   const dates = useMemo(() => nextDays(14), []);
   const [serviceId, setServiceId] = useState<string>(initialServiceId ?? services[0].id);
   const [dateIdx, setDateIdx] = useState(1);
@@ -53,7 +59,7 @@ export function BookingScreen({
       body: (
         <>
           <img
-            src="/brand/anzhelika.webp"
+            src="/photos/anjelika.jpg"
             alt=""
             style={{ width: 96, height: 96, borderRadius: '50%', objectFit: 'cover', margin: '0 auto 14px', display: 'block', border: '2px solid var(--border-strong)' }}
           />
@@ -87,11 +93,11 @@ export function BookingScreen({
     <div className="screen has-cta">
       <header className="header">
         <div className="header-lede">
-          <div className="eyebrow">запись</div>
-          <div className="header-title">Выбор времени</div>
+          <div className="eyebrow">{t('booking.eyebrow', lang)}</div>
+          <div className="header-title">{t('booking.title', lang)}</div>
         </div>
         <button className="chip chip-gold" onClick={showMaster} aria-label="О мастере">
-          🪷 мастер
+          <Icon name="lotus" size={13} strokeWidth={1.8} /> {t('common.master', lang)}
         </button>
       </header>
 
@@ -101,55 +107,67 @@ export function BookingScreen({
           onClick={onChooseService}
           style={{ background: 'none', border: 0, padding: 0, color: 'inherit', cursor: 'pointer' }}
         >
-          <span className="step-dot">✓</span>
-          <span>Услуга</span>
+          <span className="step-dot"><Icon name="check" size={11} strokeWidth={2.6} /></span>
+          <span>{t('booking.step.service', lang)}</span>
         </button>
         <div className="sep" />
         <div className="step active">
           <span className="step-dot">2</span>
-          <span>Дата / слот</span>
+          <span>{t('booking.step.date', lang)}</span>
         </div>
         <div className="sep" />
         <div className="step">
           <span className="step-dot">3</span>
-          <span>Подтверждение</span>
+          <span>{t('booking.step.confirm', lang)}</span>
         </div>
       </div>
 
       <section style={{ padding: '14px 20px 0' }}>
-        <div className="eyebrow" style={{ marginBottom: 8 }}>выбранная услуга</div>
+        <div className="eyebrow" style={{ marginBottom: 8 }}>{t('booking.chosen', lang)}</div>
         <button
           onClick={onChooseService}
           className="card service-card"
           style={{ marginBottom: 4, width: '100%', cursor: 'pointer', textAlign: 'left' }}
         >
-          <div className="service-image"><Icon name={service.icon} size={36} strokeWidth={1.6} /></div>
+          <div className="service-image" style={{ backgroundImage: `url(/photos/${service.id}.jpg)` }}>
+            <span className="service-image-badge"><Icon name={service.icon} size={16} strokeWidth={1.9} /></span>
+          </div>
           <div className="service-body">
-            <h3 className="service-title">{service.title}</h3>
-            <p className="service-desc">{service.short}</p>
+            <h3 className="service-title">{sTitle(service, lang)}</h3>
+            <p className="service-desc">{sShort(service, lang)}</p>
             <div className="service-meta">
               <span className="service-price">{price}</span>
-              <span className="faint" style={{ fontSize: 12 }}>· {service.duration} мин</span>
+              <span className="faint" style={{ fontSize: 12 }}>· {service.duration} {t('common.min', lang)}</span>
             </div>
           </div>
           <span style={{ position: 'absolute', top: '50%', right: 14, transform: 'translateY(-50%)', color: 'var(--tl)', fontSize: 18 }}>›</span>
         </button>
-        <div className="row" style={{ gap: 8, overflowX: 'auto', padding: '8px 0 4px', scrollbarWidth: 'none' }}>
-          {services.map((s) => (
-            <button
-              key={s.id}
-              className={`chip ${serviceId === s.id ? 'active' : ''}`}
-              onClick={() => setServiceId(s.id)}
-            >
-              <Icon name={s.icon} size={14} strokeWidth={1.8} />
-              <span>{s.title.length > 18 ? s.title.slice(0, 16) + '…' : s.title}</span>
-            </button>
-          ))}
+        <div className="trust-row marquee chip-marquee" style={{ marginTop: 8 }} aria-label="Услуги">
+          <div className="marquee-track">
+            {[0, 1].map((dup) => (
+              <div className="marquee-group" key={dup} aria-hidden={dup === 1 ? true : undefined}>
+                {services.map((s) => {
+                  const title = sTitle(s, lang);
+                  return (
+                    <button
+                      key={s.id}
+                      className={`chip ${serviceId === s.id ? 'active' : ''}`}
+                      onClick={() => setServiceId(s.id)}
+                      tabIndex={dup === 1 ? -1 : undefined}
+                    >
+                      <Icon name={s.icon} size={14} strokeWidth={1.8} />
+                      <span>{title.length > 18 ? title.slice(0, 16) + '…' : title}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
       <section>
-        <div className="eyebrow" style={{ padding: '18px 20px 0' }}>выбери день</div>
+        <div className="eyebrow" style={{ padding: '18px 20px 0' }}>{t('booking.pickDay', lang)}</div>
         <div className="date-strip">
           {dates.map((d, i) => (
             <button
@@ -160,16 +178,16 @@ export function BookingScreen({
                 setSlot(null);
               }}
             >
-              <div className="dow">{DAYS_RU[d.getDay()]}</div>
+              <div className="dow">{DAYS[d.getDay()]}</div>
               <div className="day">{d.getDate()}</div>
-              <div className="mon">{MON_RU[d.getMonth()]}</div>
+              <div className="mon">{MON[d.getMonth()]}</div>
             </button>
           ))}
         </div>
       </section>
 
       <section>
-        <div className="eyebrow" style={{ padding: '6px 20px 8px' }}>свободное время</div>
+        <div className="eyebrow" style={{ padding: '6px 20px 8px' }}>{t('booking.freeTime', lang)}</div>
         <div className="slot-grid">
           {SLOTS.map((s) => {
             const disabled = DISABLED.has(s);
@@ -186,36 +204,36 @@ export function BookingScreen({
           })}
         </div>
         <div className="faint" style={{ fontSize: 12, padding: '10px 20px 0' }}>
-          Серые слоты — заняты, можно тапнуть и я подскажу ближайший свободный.
+          {t('booking.slotsNote', lang)}
         </div>
       </section>
 
       <section className="booking-summary">
-        <div className="eyebrow" style={{ marginBottom: 10 }}>детали записи</div>
+        <div className="eyebrow" style={{ marginBottom: 10 }}>{t('booking.details', lang)}</div>
         <div className="summary-row">
-          <span className="k">Процедура</span>
-          <span className="v">{service.title}</span>
+          <span className="k">{t('booking.sum.service', lang)}</span>
+          <span className="v">{sTitle(service, lang)}</span>
         </div>
         <div className="summary-row">
-          <span className="k">Длительность</span>
-          <span className="v">{service.duration} мин</span>
+          <span className="k">{t('booking.sum.duration', lang)}</span>
+          <span className="v">{service.duration} {t('common.min', lang)}</span>
         </div>
         <div className="summary-row">
-          <span className="k">Дата</span>
+          <span className="k">{t('booking.sum.date', lang)}</span>
           <span className="v">
-            {date.getDate()} {MON_RU[date.getMonth()].toLowerCase()} · {DAYS_RU[date.getDay()]}
+            {date.getDate()} {MON[date.getMonth()].toLowerCase()} · {DAYS[date.getDay()]}
           </span>
         </div>
         <div className="summary-row">
-          <span className="k">Время</span>
+          <span className="k">{t('booking.sum.time', lang)}</span>
           <span className="v">{slot ?? '—'}</span>
         </div>
         <div className="summary-row">
-          <span className="k">Адрес</span>
-          <span className="v" style={{ textAlign: 'right', fontSize: 13 }}>Чавчавадзе 12 · 3 эт.</span>
+          <span className="k">{t('booking.sum.address', lang)}</span>
+          <span className="v" style={{ textAlign: 'right', fontSize: 13 }}>Parnavaz Mepe 92/94 · 3 эт.</span>
         </div>
         <div className="summary-row total">
-          <span className="k">К оплате</span>
+          <span className="k">{t('booking.sum.total', lang)}</span>
           <span className="v">{price}</span>
         </div>
       </section>
@@ -249,7 +267,11 @@ export function BookingScreen({
         onClick={submit}
         disabled={!slot || submitting}
       >
-        {submitting ? 'Записываю…' : slot ? `Записаться · ${slot}` : 'Выбери слот'}
+        {submitting
+          ? (lang === 'ru' ? 'Записываю…' : 'Booking…')
+          : slot
+            ? `${t('common.book', lang)} · ${slot}`
+            : (lang === 'ru' ? 'Выбери слот' : 'Pick a slot')}
       </button>
     </div>
     </>

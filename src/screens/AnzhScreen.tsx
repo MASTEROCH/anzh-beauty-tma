@@ -1,15 +1,18 @@
 import { openSheet, toast } from '../lib/ui';
+import { Icon } from '../components/Icon';
+import { useLang } from '../lib/i18n';
 
-type Product = { id: string; name: string; sub: string; price: string; emoji: string; description: string };
+type Product = { id: string; name: string; sub: string; price: string; photo: string; description: string };
 
 const PRODUCTS: Product[] = [
-  { id: 'serum',  name: 'Skin Reset Serum', sub: 'Ниацинамид · 30 мл', price: '49 USD', emoji: '🧴', description: 'Сыворотка с 10% ниацинамидом и цинком. Снимает воспаления, выравнивает тон. Можно использовать утром под SPF.' },
-  { id: 'cream',  name: 'Glow Cream',       sub: 'Гиалурон · SPF 30',  price: '38 USD', emoji: '🤍', description: 'Дневной крем с гиалуроновой кислотой и физическими фильтрами. Лёгкая текстура, без липкости.' },
-  { id: 'mask',   name: 'Calm Mask',        sub: 'Алоэ · после процедур', price: '22 USD', emoji: '🌿', description: 'Восстанавливающая маска после инъекций, пилингов, чисток. Алоэ + пантенол + центелла.' },
-  { id: 'recovery', name: 'Lip Recovery',   sub: 'После контурной',    price: '18 USD', emoji: '💋', description: 'Бальзам для губ после контурной пластики. Снимает отёк, ускоряет заживление за 48 часов.' },
+  { id: 'serum',  name: 'Skin Reset Serum', sub: 'Ниацинамид · 30 мл', price: '49 USD', photo: '/photos/prod-serum.jpg', description: 'Сыворотка с 10% ниацинамидом и цинком. Снимает воспаления, выравнивает тон. Можно использовать утром под SPF.' },
+  { id: 'cream',  name: 'Glow Cream',       sub: 'Гиалурон · SPF 30',  price: '38 USD', photo: '/photos/prod-cream.jpg', description: 'Дневной крем с гиалуроновой кислотой и физическими фильтрами. Лёгкая текстура, без липкости.' },
+  { id: 'mask',   name: 'Calm Mask',        sub: 'Алоэ · после процедур', price: '22 USD', photo: '/photos/prod-mask.jpg', description: 'Восстанавливающая маска после инъекций, пилингов, чисток. Алоэ + пантенол + центелла.' },
+  { id: 'recovery', name: 'Lip Recovery',   sub: 'После контурной',    price: '18 USD', photo: '/photos/prod-lip.jpg', description: 'Бальзам для губ после контурной пластики. Снимает отёк, ускоряет заживление за 48 часов.' },
 ];
 
 export function AnzhScreen() {
+  const lang = useLang();
   const showProduct = (p: Product) =>
     openSheet({
       title: p.name,
@@ -20,17 +23,13 @@ export function AnzhScreen() {
             style={{
               height: 180,
               borderRadius: 16,
-              background: 'linear-gradient(135deg, var(--t), var(--gd))',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 80,
+              backgroundImage: `url(${p.photo})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
               boxShadow: 'var(--glow-teal)',
               border: '0.5px solid var(--border)',
             }}
-          >
-            {p.emoji}
-          </div>
+          />
           <p style={{ marginTop: 16, lineHeight: 1.6 }}>{p.description}</p>
           <div className="row" style={{ marginTop: 14, gap: 10 }}>
             <span className="chip chip-amber">−10% по ANZH Pass</span>
@@ -38,7 +37,7 @@ export function AnzhScreen() {
           </div>
           <div
             style={{
-              fontFamily: 'Playfair Display, Georgia, serif',
+              fontFamily: 'Space Grotesk, system-ui, sans-serif',
               fontSize: 28,
               color: 'var(--gdl)',
               marginTop: 14,
@@ -62,9 +61,9 @@ export function AnzhScreen() {
           </button>
           <button
             className="btn btn-ghost btn-block"
-            onClick={() => toast('Сохранено в желаемое 🤍', 'success')}
+            onClick={() => toast('Сохранено в желаемое', 'success')}
           >
-            ♡ Сохранить
+            <Icon name="heart" size={16} strokeWidth={1.9} /> Сохранить
           </button>
         </>
       ),
@@ -87,7 +86,7 @@ export function AnzhScreen() {
             <div className="loyalty-tier" style={{ marginBottom: 6 }}>★ PASS</div>
             <div
               style={{
-                fontFamily: 'Playfair Display, Georgia, serif',
+                fontFamily: 'Space Grotesk, system-ui, sans-serif',
                 fontSize: 32,
                 fontWeight: 600,
                 letterSpacing: '-0.02em',
@@ -133,16 +132,17 @@ export function AnzhScreen() {
         <img
           src="/brand/anzh-back.png"
           alt="ANZH"
-          style={{ width: 60, height: 60, objectFit: 'contain', filter: 'drop-shadow(0 4px 18px rgba(47,118,122,0.5))' }}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit', display: 'block' }}
         />
       </button>
 
-      <h1 style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: 28, fontWeight: 600, letterSpacing: '-0.015em' }}>
+      <h1 style={{ fontFamily: 'Space Grotesk, system-ui, sans-serif', fontSize: 28, fontWeight: 600, letterSpacing: '-0.015em' }}>
         ANZH.store
       </h1>
       <p className="muted" style={{ fontSize: 14, marginTop: 6, maxWidth: 320, marginInline: 'auto' }}>
-        Домашний уход, который Анжелика назначает после процедур.
-        Покупки в один тап, цена клиента — −10%.
+        {lang === 'ru'
+          ? 'Домашний уход, который Анжелика назначает после процедур. Покупки в один тап, цена клиента — −10%.'
+          : 'Home care Anjelika prescribes after treatments. One-tap checkout, client price — −10%.'}
       </p>
 
       <div className="anzh-grid">
@@ -155,20 +155,17 @@ export function AnzhScreen() {
           >
             <div
               style={{
-                width: 44,
-                height: 44,
+                width: '100%',
+                height: 104,
                 borderRadius: 14,
-                background: 'linear-gradient(135deg, var(--t), var(--gd))',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 22,
+                backgroundImage: `url(${p.photo})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
                 marginBottom: 10,
-                boxShadow: 'var(--glow-teal)',
+                border: '0.5px solid var(--border)',
+                boxShadow: '0 8px 22px -12px rgba(0,0,0,0.6)',
               }}
-            >
-              {p.emoji}
-            </div>
+            />
             <div style={{ fontWeight: 600, fontSize: 14, lineHeight: 1.3 }}>{p.name}</div>
             <div className="faint" style={{ fontSize: 12, marginTop: 2 }}>{p.sub}</div>
             <div className="px">{p.price}</div>

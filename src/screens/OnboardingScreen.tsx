@@ -129,7 +129,7 @@ function WelcomeSlide() {
       <div className="onb-welcome">
         <div className="onb-avatar-wrap">
           <span className="onb-avatar-glow" aria-hidden />
-          <img src="/brand/anzhelika.webp" alt="Anjelika" className="onb-avatar" />
+          <img src="/photos/anjelika.jpg" alt="Anjelika" className="onb-avatar" />
           <span className="onb-avatar-badge">
             <Icon name="check" size={14} strokeWidth={2.4} />
           </span>
@@ -152,7 +152,7 @@ function WelcomeSlide() {
           </span>
           <span className="onb-meta-chip">
             <Icon name="pin" size={12} strokeWidth={1.8} />
-            Чавчавадзе 12
+            Parnavaz Mepe 92/94
           </span>
         </div>
       </div>

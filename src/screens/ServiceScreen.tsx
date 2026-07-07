@@ -1,6 +1,7 @@
-import { findService, services } from '../data/services';
-import { openSheet, toast } from '../lib/ui';
+import { findService, services, sTitle } from '../data/services';
+import { openSheet, openLightbox, toast } from '../lib/ui';
 import { Icon } from '../components/Icon';
+import { useLang, t } from '../lib/i18n';
 
 type Currency = 'usd' | 'gel';
 
@@ -19,6 +20,7 @@ export function ServiceScreen({
   favorites: Set<string>;
   onToggleFavorite: (id: string) => void;
 }) {
+  const lang = useLang();
   const s = findService(serviceId) ?? services[0];
   const isFav = favorites.has(s.id);
   const price = currency === 'usd' ? `$${s.priceUsd}` : `${s.priceGel} GEL`;
@@ -41,7 +43,7 @@ export function ServiceScreen({
       body: (
         <>
           <img
-            src="/brand/anzhelika.webp"
+            src="/photos/anjelika.jpg"
             alt="Anjelika"
             style={{
               width: 96,
@@ -79,40 +81,29 @@ export function ServiceScreen({
       ),
     });
 
-  const showBeforeAfter = () =>
-    openSheet({
-      title: s.title,
-      subtitle: 'Реальный кейс · фото с согласия клиента',
-      body: (
-        <>
-          <div className="beforeafter" style={{ marginTop: 4 }}>
-            <div className="beforeafter-tile before" data-label="ДО" />
-            <div className="beforeafter-tile after" data-label="ПОСЛЕ" />
-          </div>
-          <p className="muted" style={{ fontSize: 13, marginTop: 12 }}>
-            Срок наблюдения — 14 дней. Окончательный результат виден через 2-3 недели после спадения отёка.
-          </p>
-        </>
-      ),
-      actions: <button className="btn btn-primary btn-block" onClick={() => onBook(s.id)}>Записаться</button>,
-    });
-
   return (
     <>
     <div className="screen has-cta">
       <header className="header">
-        <button className="header-back" onClick={onBack} aria-label="Назад">‹</button>
-        <div className="header-title">Подробнее</div>
-        <button className="header-back" onClick={share} aria-label="Поделиться">↗</button>
+        <button className="header-back" onClick={onBack} aria-label="Назад"><Icon name="chevron-left" size={20} strokeWidth={2} /></button>
+        <div className="header-title">{t('service.details', lang)}</div>
+        <button className="header-back" onClick={share} aria-label="Поделиться"><Icon name="share" size={17} strokeWidth={1.9} /></button>
       </header>
 
-      <div className="service-hero">
-        <div className="service-hero-emoji"><Icon name={s.icon} size={96} strokeWidth={1.4} /></div>
+      <div
+        className="service-hero service-hero--zoom"
+        style={{ backgroundImage: `url(/photos/${s.id}.jpg)` }}
+        onClick={() => openLightbox(`/photos/${s.id}.jpg`, s.title)}
+        role="button"
+        aria-label={`Открыть фото: ${s.title}`}
+      >
+        <div className="service-hero-badge"><Icon name={s.icon} size={20} strokeWidth={1.8} /></div>
         <button
           className="fav-btn"
           aria-pressed={isFav}
           aria-label={isFav ? 'Убрать из избранного' : 'В избранное'}
-          onClick={() => {
+          onClick={(e) => {
+            e.stopPropagation();
             onToggleFavorite(s.id);
             toast(isFav ? 'Убрала из избранного' : 'Добавила в избранное', 'success');
           }}
@@ -123,16 +114,16 @@ export function ServiceScreen({
       </div>
 
       <div className="service-detail-body">
-        <h1 className="service-detail-title">{s.title}</h1>
+        <h1 className="service-detail-title">{sTitle(s, lang)}</h1>
         <div className="service-detail-meta">
           <strong>{price}</strong>
           <span>· {altPrice}</span>
-          <span>· ⏱ {s.duration} мин</span>
+          <span className="svc-dur"><Icon name="clock" size={13} strokeWidth={2} /> {s.duration} {t('common.min', lang)}</span>
         </div>
         <p className="service-detail-text">{s.description}</p>
 
         <div className="info-block">
-          <div className="info-block-title">Что входит</div>
+          <div className="info-block-title">{t('service.includes', lang)}</div>
           <ul className="info-list">
             {s.includes.map((i) => (
               <li key={i}>{i}</li>
@@ -141,7 +132,7 @@ export function ServiceScreen({
         </div>
 
         <div className="info-block">
-          <div className="info-block-title">Противопоказания</div>
+          <div className="info-block-title">{t('service.contra', lang)}</div>
           <ul className="info-list contra">
             {s.contraindications.map((i) => (
               <li key={i}>{i}</li>
@@ -150,24 +141,18 @@ export function ServiceScreen({
         </div>
 
         <div className="info-block">
-          <div className="info-block-title">Результат до / после</div>
-          <button
-            onClick={showBeforeAfter}
-            style={{ background: 'none', border: 0, padding: 0, width: '100%', cursor: 'pointer' }}
-            aria-label="Увеличить"
-          >
-            <div className="beforeafter">
-              <div className="beforeafter-tile before" data-label="ДО" />
-              <div className="beforeafter-tile after" data-label="ПОСЛЕ" />
-            </div>
-          </button>
+          <div className="info-block-title">{t('service.result', lang)}</div>
+          <div className="beforeafter">
+            <button className="beforeafter-tile before" data-label="ДО" style={{ backgroundImage: `url(/photos/${s.id}.jpg)`, border: 0, padding: 0, cursor: 'zoom-in' }} onClick={() => openLightbox(`/photos/${s.id}.jpg`, `${s.title} · до`)} aria-label="Увеличить: до" />
+            <button className="beforeafter-tile after" data-label="ПОСЛЕ" style={{ backgroundImage: `url(/photos/${s.id}.jpg)`, border: 0, padding: 0, cursor: 'zoom-in' }} onClick={() => openLightbox(`/photos/${s.id}.jpg`, `${s.title} · после`)} aria-label="Увеличить: после" />
+          </div>
           <div className="faint" style={{ fontSize: 12, marginTop: 8 }}>
-            Тап чтобы увеличить · фото с согласия клиента
+            {t('service.tapZoom', lang)}
           </div>
         </div>
 
         <div className="info-block">
-          <div className="info-block-title">Кабинет</div>
+          <div className="info-block-title">{t('service.cabinet', lang)}</div>
           <button
             onClick={showMaster}
             className="card"
@@ -175,7 +160,7 @@ export function ServiceScreen({
           >
             <div className="row" style={{ gap: 12 }}>
               <img
-                src="/brand/anzhelika.webp"
+                src="/photos/anjelika.jpg"
                 alt=""
                 style={{
                   flex: '0 0 44px',
@@ -198,7 +183,7 @@ export function ServiceScreen({
     </div>
     <div className="bottom-cta">
       <button className="btn btn-primary btn-block" data-bottom-cta onClick={() => onBook(s.id)}>
-        Выбрать время · {price}
+        {t('service.pickTime', lang)} · {price}
       </button>
     </div>
     </>
