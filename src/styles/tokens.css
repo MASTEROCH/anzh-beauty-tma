@@ -1,0 +1,129 @@
+/* ════════════════════════════════════════════════════════════════════
+   Beauty TMA · Design Tokens  ·  v2 «ANZH × roch-art × Liquid Glass»
+   ROCH pass 2026-07-07 — petrol-teal luxe canvas (anzh.store) +
+   green/gold ambient (roch-art) + Apple iOS-26 Liquid Glass materials.
+   Emerald #10B981 + Gold #F5C842 identity preserved.
+   ════════════════════════════════════════════════════════════════════ */
+
+@property --tglow { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+
+:root {
+  /* ── Brand · Emerald + Gold (Anjelika identity) ────────── */
+  --brand-primary:        #12C088;   /* jewel emerald — a touch deeper/richer */
+  --brand-primary-bright: #35E4A6;   /* emerald light */
+  --brand-primary-deep:   #05684C;   /* emerald deep (petrol side) */
+  --brand-mint:           #8FF3D4;   /* soft mint — serif-italic accent word (anzh vibe) */
+  --brand-secondary:      #F5C842;   /* gold */
+  --brand-gold:           #F5C842;
+  --brand-gold-bright:    #FBE08A;
+  --brand-gold-deep:      #C9A52F;
+  --brand-cyan:           #22d3ee;
+  --accent-rgb:           18, 192, 136;   /* emerald RGB for rgba() halo */
+  --gold-rgb:             245, 200, 66;
+  --teal-rgb:             40, 120, 118;    /* petrol-teal for ambient */
+
+  /* Semantic aliases used throughout the prototype */
+  --t:   var(--brand-primary);
+  --tl:  var(--brand-primary-bright);
+  --tm:  var(--brand-primary-deep);
+  --gd:  var(--brand-gold);
+  --gdl: var(--brand-gold-bright);
+  --gdd: var(--brand-gold-deep);
+  --accent:       var(--brand-gold);
+  --accent-light: var(--brand-gold-bright);
+  --accent-dark:  var(--brand-gold-deep);
+  --iv: #f0ece4;
+
+  /* ── Backgrounds · Deep petrol-teal + glass layers ─────── */
+  --bg-app: #061417;                       /* petrol-black canvas (anzh) */
+  --dk:  #08191c;
+  --dk2: #0d2226;
+  --dk3: #050f11;
+  /* Ambient wash: emerald top, gold bottom-right, petrol depth (roch-art glow) */
+  --bg-app-grad:
+    radial-gradient(ellipse 120% 80% at 50% -12%, rgba(18,192,136,0.14), transparent 58%),
+    radial-gradient(ellipse 90% 70% at 108% 8%,  rgba(40,120,118,0.16), transparent 60%),
+    radial-gradient(ellipse 90% 60% at -8% 108%, rgba(18,192,136,0.08), transparent 60%),
+    radial-gradient(ellipse 80% 60% at 100% 104%, rgba(245,200,66,0.08), transparent 60%),
+    #061417;
+
+  --bg-card:        rgba(255,255,255,0.04);
+  --bg-card-2:      rgba(255,255,255,0.065);
+  --bg-card-3:      rgba(255,255,255,0.10);
+  --bg-elevated:    rgba(255,255,255,0.05);
+  --bg-header:      rgba(6,20,23,0.55);
+  --bg-glass:       linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02));
+  --bg-glass-strong:linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.025));
+
+  /* ── Text ─────────────────────────────────────────────── */
+  --text-primary:   rgba(255,255,255,0.96);
+  --text-secondary: rgba(226,240,236,0.64);
+  --text-hint:      rgba(226,240,236,0.40);
+  --text-muted:     rgba(226,240,236,0.40);
+  --text-faint:     rgba(226,240,236,0.28);
+
+  /* ── Hairlines & borders ──────────────────────────────── */
+  --border:        rgba(255,255,255,0.09);
+  --border-strong: rgba(255,255,255,0.16);
+  --border-focus:  rgba(53,228,166,0.55);
+
+  /* ── Sizing ───────────────────────────────────────────── */
+  --nav-h:   64px;                 /* floating pill height */
+  --nav-gap: 12px;                 /* pill inset from edges (float) */
+  --max-w: 430px;
+  --radius-sm:  10px;
+  --radius:     16px;
+  --radius-md:  16px;
+  --radius-lg:  22px;
+  --radius-full:999px;
+  --pill:       999px;
+
+  /* ── Shadows ──────────────────────────────────────────── */
+  --shadow-card:        0 1px 0 rgba(255,255,255,0.05) inset, 0 10px 30px -12px rgba(0,0,0,0.66);
+  --shadow-glow-lime:   0 8px 32px -8px rgba(18,192,136,0.42), 0 0 0 0.5px rgba(255,255,255,0.04) inset;
+  --shadow-glow-emerald: 0 8px 32px -8px rgba(18,192,136,0.42), 0 0 0 0.5px rgba(255,255,255,0.04) inset;
+  --shadow-glow-gold:   0 8px 32px -8px rgba(245,200,66,0.42);
+  --shadow-glow-violet: 0 8px 32px -8px rgba(245,200,66,0.42);
+  --shadow-pop:         0 18px 52px -12px rgba(0,0,0,0.72), 0 1px 0 rgba(255,255,255,0.07) inset;
+  --spec-top:           inset 0 0.5px 0 rgba(255,255,255,0.12);
+
+  /* Legacy glow aliases (used across components — point to new ones) */
+  --glow-teal:  var(--shadow-glow-lime);
+  --glow-gold:  var(--shadow-glow-gold);
+  --glow-amber: var(--shadow-glow-violet);
+
+  /* ── Glass blur (frosted fallback) ────────────────────── */
+  --blur-glass:  blur(24px) saturate(180%);
+  --blur-strong: blur(40px) saturate(185%);
+
+  /* ── Liquid Glass · Apple iOS-26/27 material system ────── *
+     Refraction happens in Chromium (Android TMA); Safari/iOS TMA
+     degrades to a thin frosted lens. Both look premium. Rule of the
+     Lab: glass needs something behind it to bend — hence the ambient orbs. */
+  --lg-tint:        rgba(255,255,255,0.055);              /* thin material body */
+  --lg-tint-strong: rgba(255,255,255,0.085);
+  --lg-frost:       blur(20px) saturate(180%) brightness(1.05);   /* Safari fallback */
+  --lg-refract:     brightness(1.08) blur(2px) saturate(165%) url(#lgDisplace); /* Chromium */
+  --lg-rim:                                                 /* specular edge — light from top-left */
+    inset 5px 5px 0 -5px rgba(255,255,255,0.55),
+    inset -3px -3px 0 -4px rgba(255,255,255,0.16),
+    inset 0 0 7px 0.5px rgba(255,255,255,0.10);
+  --lg-depth:       0 18px 44px -18px rgba(0,0,0,0.62);
+
+  /* ── Motion ───────────────────────────────────────────── */
+  --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration:      220ms;
+  --duration-fast: 150ms;
+
+  /* ── Z-index scale ────────────────────────────────────── */
+  --z-ambient:      0;
+  --z-sticky:        100;
+  --z-bottom-cta:    150;
+  --z-bottom-nav:    200;
+  --z-mascot:        210;
+  --z-mascot-hint:   220;
+  --z-sheet-bg:      500;
+  --z-sheet:         501;
+  --z-modal:        8500;
+}
