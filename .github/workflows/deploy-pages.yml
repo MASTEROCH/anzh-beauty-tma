@@ -1,8 +1,11 @@
 name: Deploy to GitHub Pages
 
+# Only master can deploy: the github-pages environment restricts deployments
+# to the default branch, so a run from any other branch fails at that gate —
+# and, sharing the concurrency group below, would cancel a real deploy.
 on:
   push:
-    branches: [master, claude/anzh-beauty-tma-gtc9jt]
+    branches: [master]
   workflow_dispatch:
 
 permissions:
