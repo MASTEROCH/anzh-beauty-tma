@@ -8,25 +8,71 @@ Emerald `#12C088` + Gold `#F5C842` на petrol-teal `#061417`, плавающи�
 serif-акценты (Playfair) поверх читабельного Inter, concierge-орб вместо маскота.
 
 ## Стек
-Vite · React 18 · TypeScript. Без бэкенда — интерактивный прототип.
+Vite · React 19 · TypeScript. Без бэкенда — интерактивный прототип
+с состоянием в `localStorage` и полноценной интеграцией Telegram Mini App SDK.
 
 ## Запуск
 ```bash
 npm install
-npm run dev      # http://localhost:5173
+npm run dev      # http://localhost:5179
 npm run build    # production build → dist/
 ```
 `?seed=1` в URL пропускает онбординг (для скриншот-тестов).
+
+## Деплой (Vercel)
+
+Конфиг лежит в `vercel.json` — SPA-rewrite, кэш-заголовки и отсутствие
+`X-Frame-Options` (Telegram рендерит Mini App в своём webview, фрейминг должен
+остаться разрешённым). Настраивать в дашборде ничего не нужно.
+
+**Из дашборда:** [vercel.com/new](https://vercel.com/new) → Import Git Repository →
+`MASTEROCH/anzh-beauty-tma` → в поле Branch выбрать ветку → Deploy.
+Framework определится как Vite сам.
+
+**Из CLI:**
+```bash
+npx vercel            # preview-деплой, выдаст ссылку
+npx vercel --prod     # продакшен
+```
+
+Полученный HTTPS-URL вставить в @BotFather → `/setmenubutton` (или в Web App URL
+кнопки бота) — Mini App откроется внутри Telegram уже с haptics, BackButton и
+safe-area.
 
 ## Структура
 ```
 src/
 ├── screens/      Onboarding · Profile · Catalog · Service · Booking · Confirm · Account · Anzh
-├── components/   BottomNav · ConciergeOrb · AiChatBubble · UIHost · Icon
-├── data/         services · profile
-├── lib/          ui · chat/mascot events
+├── components/   BottomNav · Mascot · AiChatBubble · ReviewSheet · SettingsSheet · UIHost · Icon
+├── data/         services · profile · clinic
+├── lib/          store · telegram · date · ics · i18n · ui · chat/mascot events
 └── styles/       tokens.css (design system) · global.css
 ```
+
+## Как это работает
+
+**Состояние — `lib/store.ts`.** Записи, избранное, баллы, имя и валюта живут в одном
+сторе с подпиской (`useStore()`) и сохраняются в `localStorage` под ключом `anzh_state_v1`.
+Запись, созданная в Booking, тут же появляется в Confirm и в «Ближайшей записи» Кабинета;
+перенос и отмена меняют её на месте, отмена возвращает начисленные баллы.
+`?seed=1` всегда стартует с одинакового состояния — для скриншот-тестов.
+
+**Лояльность.** Тиры Bronze → Silver → Gold → Diamond (0 / 300 / 600 / 1200 баллов),
+кэшбэк 5–15% определяет, сколько баллов даёт визит. Прогресс-бар, подсказки и
+ответы AI-ассистента считаются из текущего тира, а не из констант.
+
+**Слоты.** Воскресенье закрыто, прошедшие сегодня часы недоступны, занятые слоты
+детерминированы по дате — сетка не «прыгает» между рендерами. Тап по занятому слоту
+переставляет на ближайший свободный.
+
+**Telegram — `lib/telegram.ts`.** `ready/expand`, цвет хедера, safe-area из
+`safeAreaInset` в CSS-переменные, нативный BackButton (сначала закрывает шторку,
+потом возвращает по стеку экранов), тактильная отдача одним делегированным
+слушателем, имя и язык из `initDataUnsafe`. Вне Telegram всё превращается в no-op —
+прототип одинаково работает на localhost.
+
+**Календарь — `lib/ics.ts`.** Кнопка «В календарь» отдаёт настоящий `.ics`
+с адресом, гео-меткой и напоминанием за 2 часа.
 
 ---
 

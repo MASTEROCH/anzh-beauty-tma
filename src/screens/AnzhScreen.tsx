@@ -1,14 +1,15 @@
 import { openSheet, toast } from '../lib/ui';
 import { Icon } from '../components/Icon';
 import { useLang } from '../lib/i18n';
+import { asset } from '../lib/asset';
 
 type Product = { id: string; name: string; sub: string; price: string; photo: string; description: string };
 
 const PRODUCTS: Product[] = [
-  { id: 'serum',  name: 'Skin Reset Serum', sub: 'Ниацинамид · 30 мл', price: '49 USD', photo: '/photos/prod-serum.jpg', description: 'Сыворотка с 10% ниацинамидом и цинком. Снимает воспаления, выравнивает тон. Можно использовать утром под SPF.' },
-  { id: 'cream',  name: 'Glow Cream',       sub: 'Гиалурон · SPF 30',  price: '38 USD', photo: '/photos/prod-cream.jpg', description: 'Дневной крем с гиалуроновой кислотой и физическими фильтрами. Лёгкая текстура, без липкости.' },
-  { id: 'mask',   name: 'Calm Mask',        sub: 'Алоэ · после процедур', price: '22 USD', photo: '/photos/prod-mask.jpg', description: 'Восстанавливающая маска после инъекций, пилингов, чисток. Алоэ + пантенол + центелла.' },
-  { id: 'recovery', name: 'Lip Recovery',   sub: 'После контурной',    price: '18 USD', photo: '/photos/prod-lip.jpg', description: 'Бальзам для губ после контурной пластики. Снимает отёк, ускоряет заживление за 48 часов.' },
+  { id: 'serum',  name: 'Skin Reset Serum', sub: 'Ниацинамид · 30 мл', price: '49 USD', photo: asset('photos/prod-serum.jpg'), description: 'Сыворотка с 10% ниацинамидом и цинком. Снимает воспаления, выравнивает тон. Можно использовать утром под SPF.' },
+  { id: 'cream',  name: 'Glow Cream',       sub: 'Гиалурон · SPF 30',  price: '38 USD', photo: asset('photos/prod-cream.jpg'), description: 'Дневной крем с гиалуроновой кислотой и физическими фильтрами. Лёгкая текстура, без липкости.' },
+  { id: 'mask',   name: 'Calm Mask',        sub: 'Алоэ · после процедур', price: '22 USD', photo: asset('photos/prod-mask.jpg'), description: 'Восстанавливающая маска после инъекций, пилингов, чисток. Алоэ + пантенол + центелла.' },
+  { id: 'recovery', name: 'Lip Recovery',   sub: 'После контурной',    price: '18 USD', photo: asset('photos/prod-lip.jpg'), description: 'Бальзам для губ после контурной пластики. Снимает отёк, ускоряет заживление за 48 часов.' },
 ];
 
 export function AnzhScreen() {
@@ -119,7 +120,7 @@ export function AnzhScreen() {
   return (
     <div className="screen anzh-screen">
       <header className="header">
-        <img src="/brand/anzh-logo.svg" alt="ANZH" style={{ height: 22 }} />
+        <img src={asset("brand/anzh-logo.svg")} alt="ANZH" style={{ height: 22 }} />
         <button className="chip chip-amber" onClick={showPass}>★ −10% Pass</button>
       </header>
 
@@ -130,7 +131,7 @@ export function AnzhScreen() {
         aria-label="О бренде"
       >
         <img
-          src="/brand/anzh-back.png"
+          src={asset("brand/anzh-back.png")}
           alt="ANZH"
           style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit', display: 'block' }}
         />

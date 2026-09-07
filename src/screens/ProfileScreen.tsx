@@ -3,6 +3,7 @@ import { openSheet, openLightbox, toast } from '../lib/ui';
 import { ReviewSheet } from '../components/ReviewSheet';
 import { Icon } from '../components/Icon';
 import { t } from '../lib/i18n';
+import { asset } from '../lib/asset';
 
 const TRUST_KEYS = ['trust.certified', 'trust.mdcodes', 'trust.clients', 'trust.lidocaine'];
 const GALLERY_KEYS = ['gal.contour', 'gal.biorevit', 'gal.cleaning', 'gal.meso', 'gal.peel', 'gal.care'];
@@ -206,7 +207,7 @@ export function ProfileScreen({
           aria-label="ANZH"
           style={{ background: 'none', border: 0, padding: 0, width: 'auto', height: 'auto' }}
         >
-          <img src="/brand/anzh-logo.svg" alt="ANZH" style={{ height: 24 }} />
+          <img src={asset("brand/anzh-logo.svg")} alt="ANZH" style={{ height: 24 }} />
         </button>
         <div className="header-lang">
           <button className={lang === 'ru' ? 'active' : ''} onClick={() => onLang('ru')}>RU</button>
@@ -216,7 +217,7 @@ export function ProfileScreen({
 
       <section className="profile-hero">
         <div className="profile-avatar-wrap">
-          <img src="/photos/anjelika.jpg" alt="Anjelika" className="profile-avatar" />
+          <img src={asset("photos/anjelika.jpg")} alt="Anjelika" className="profile-avatar" />
           <span className="profile-status" aria-label="принимает записи" />
         </div>
         <h1 className="profile-name">{profile.name}</h1>
