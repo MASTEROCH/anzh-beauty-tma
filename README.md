@@ -19,9 +19,17 @@ npm run build    # production build → dist/
 ```
 `?seed=1` в URL пропускает онбординг (для скриншот-тестов).
 
-## Деплой (Vercel)
+## Деплой
 
-Конфиг лежит в `vercel.json` — SPA-rewrite, кэш-заголовки и отсутствие
+**GitHub Pages** — `.github/workflows/deploy-pages.yml`. Пуш в `master`
+собирает проект с `--base=/<repo>/` и публикует на
+[masteroch.github.io/anzh-beauty-tma](https://masteroch.github.io/anzh-beauty-tma/).
+Пути к картинкам резолвятся через `src/lib/asset.ts`, поэтому одна и та же
+сборка живёт и от корня домена, и от подпути.
+
+### Vercel
+
+Альтернатива. Конфиг лежит в `vercel.json` — SPA-rewrite, кэш-заголовки и отсутствие
 `X-Frame-Options` (Telegram рендерит Mini App в своём webview, фрейминг должен
 остаться разрешённым). Настраивать в дашборде ничего не нужно.
 
