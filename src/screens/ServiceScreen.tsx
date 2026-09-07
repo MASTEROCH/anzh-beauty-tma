@@ -3,6 +3,7 @@ import { openSheet, openLightbox, toast } from '../lib/ui';
 import { money } from '../lib/store';
 import { Icon } from '../components/Icon';
 import { useLang, t } from '../lib/i18n';
+import { asset } from '../lib/asset';
 
 type Currency = 'usd' | 'gel';
 
@@ -44,7 +45,7 @@ export function ServiceScreen({
       body: (
         <>
           <img
-            src="/photos/anjelika.jpg"
+            src={asset("photos/anjelika.jpg")}
             alt="Anjelika"
             style={{
               width: 96,
@@ -93,8 +94,8 @@ export function ServiceScreen({
 
       <div
         className="service-hero service-hero--zoom"
-        style={{ backgroundImage: `url(/photos/${s.id}.jpg)` }}
-        onClick={() => openLightbox(`/photos/${s.id}.jpg`, s.title)}
+        style={{ backgroundImage: `url(${asset(`photos/${s.id}.jpg`)})` }}
+        onClick={() => openLightbox(asset(`photos/${s.id}.jpg`), s.title)}
         role="button"
         aria-label={`Открыть фото: ${s.title}`}
       >
@@ -144,8 +145,8 @@ export function ServiceScreen({
         <div className="info-block">
           <div className="info-block-title">{t('service.result', lang)}</div>
           <div className="beforeafter">
-            <button className="beforeafter-tile before" data-label="ДО" style={{ backgroundImage: `url(/photos/${s.id}.jpg)`, border: 0, padding: 0, cursor: 'zoom-in' }} onClick={() => openLightbox(`/photos/${s.id}.jpg`, `${s.title} · до`)} aria-label="Увеличить: до" />
-            <button className="beforeafter-tile after" data-label="ПОСЛЕ" style={{ backgroundImage: `url(/photos/${s.id}.jpg)`, border: 0, padding: 0, cursor: 'zoom-in' }} onClick={() => openLightbox(`/photos/${s.id}.jpg`, `${s.title} · после`)} aria-label="Увеличить: после" />
+            <button className="beforeafter-tile before" data-label="ДО" style={{ backgroundImage: `url(${asset(`photos/${s.id}.jpg`)})`, border: 0, padding: 0, cursor: 'zoom-in' }} onClick={() => openLightbox(asset(`photos/${s.id}.jpg`), `${s.title} · до`)} aria-label="Увеличить: до" />
+            <button className="beforeafter-tile after" data-label="ПОСЛЕ" style={{ backgroundImage: `url(${asset(`photos/${s.id}.jpg`)})`, border: 0, padding: 0, cursor: 'zoom-in' }} onClick={() => openLightbox(asset(`photos/${s.id}.jpg`), `${s.title} · после`)} aria-label="Увеличить: после" />
           </div>
           <div className="faint" style={{ fontSize: 12, marginTop: 8 }}>
             {t('service.tapZoom', lang)}
@@ -161,7 +162,7 @@ export function ServiceScreen({
           >
             <div className="row" style={{ gap: 12 }}>
               <img
-                src="/photos/anjelika.jpg"
+                src={asset("photos/anjelika.jpg")}
                 alt=""
                 style={{
                   flex: '0 0 44px',

@@ -4,6 +4,7 @@ import { toast } from '../lib/ui';
 import { money } from '../lib/store';
 import { Icon } from '../components/Icon';
 import { useLang, t } from '../lib/i18n';
+import { asset } from '../lib/asset';
 
 type Currency = 'usd' | 'gel';
 
@@ -108,7 +109,7 @@ export function CatalogScreen({
               <button
                 className="service-image"
                 onClick={() => onOpen(s.id)}
-                style={{ border: 0, cursor: 'pointer', backgroundImage: `url(/photos/${s.id}.jpg)` }}
+                style={{ border: 0, cursor: 'pointer', backgroundImage: `url(${asset(`photos/${s.id}.jpg`)})` }}
                 aria-label={`Открыть ${s.title}`}
               >
                 <span className="service-image-badge">

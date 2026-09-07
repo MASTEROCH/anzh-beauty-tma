@@ -17,6 +17,7 @@ import {
   type Currency,
 } from '../lib/store';
 import { haptic } from '../lib/telegram';
+import { asset } from '../lib/asset';
 
 
 export function BookingScreen({
@@ -69,7 +70,7 @@ export function BookingScreen({
       body: (
         <>
           <img
-            src="/photos/anjelika.jpg"
+            src={asset("photos/anjelika.jpg")}
             alt=""
             style={{ width: 96, height: 96, borderRadius: '50%', objectFit: 'cover', margin: '0 auto 14px', display: 'block', border: '2px solid var(--border-strong)' }}
           />
@@ -154,7 +155,7 @@ export function BookingScreen({
           className="card service-card"
           style={{ marginBottom: 4, width: '100%', cursor: 'pointer', textAlign: 'left' }}
         >
-          <div className="service-image" style={{ backgroundImage: `url(/photos/${service.id}.jpg)` }}>
+          <div className="service-image" style={{ backgroundImage: `url(${asset(`photos/${service.id}.jpg`)})` }}>
             <span className="service-image-badge"><Icon name={service.icon} size={16} strokeWidth={1.9} /></span>
           </div>
           <div className="service-body">

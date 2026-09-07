@@ -22,6 +22,7 @@ import {
 } from '../lib/store';
 import { downloadIcs } from '../lib/ics';
 import { haptic, openExternal } from '../lib/telegram';
+import { asset } from '../lib/asset';
 
 type Lang = 'ru' | 'en';
 
@@ -208,8 +209,8 @@ export function AccountScreen({
       body: (
         <>
           <div className="beforeafter">
-            <div className="beforeafter-tile before" data-label={ru ? 'ДО' : 'BEFORE'} style={{ backgroundImage: `url(/photos/${svc.id}.jpg)` }} />
-            <div className="beforeafter-tile after" data-label={ru ? 'ПОСЛЕ' : 'AFTER'} style={{ backgroundImage: `url(/photos/${svc.id}.jpg)` }} />
+            <div className="beforeafter-tile before" data-label={ru ? 'ДО' : 'BEFORE'} style={{ backgroundImage: `url(${asset(`photos/${svc.id}.jpg`)})` }} />
+            <div className="beforeafter-tile after" data-label={ru ? 'ПОСЛЕ' : 'AFTER'} style={{ backgroundImage: `url(${asset(`photos/${svc.id}.jpg`)})` }} />
           </div>
           <ul className="info-list" style={{ marginTop: 14 }}>
             <li>{sShort(svc, lang)}</li>
@@ -250,7 +251,7 @@ export function AccountScreen({
     if (!svc) return null;
     return (
       <button key={b.id} className="history-row" onClick={() => showHistory(b)}>
-        <div className="history-icon" style={{ backgroundImage: `url(/photos/${svc.id}.jpg)` }} />
+        <div className="history-icon" style={{ backgroundImage: `url(${asset(`photos/${svc.id}.jpg`)})` }} />
         <div className="history-body">
           <div className="history-name">{sTitle(svc, lang)}</div>
           <div className="history-when">

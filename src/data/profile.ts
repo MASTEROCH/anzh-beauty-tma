@@ -1,3 +1,5 @@
+import { asset } from '../lib/asset';
+
 export const profile = {
   name: 'Anjelika',
   role: 'Cosmetologist · Батуми',
@@ -16,12 +18,12 @@ export const profile = {
 } as const;
 
 export const gallery: Array<{ label: string; photo: string }> = [
-  { label: 'Контурная', photo: '/photos/lip-filler.jpg' },
-  { label: 'Биоревит.', photo: '/photos/biorevit.jpg' },
-  { label: 'Чистка', photo: '/photos/deep-cleansing.jpg' },
-  { label: 'Мезо', photo: '/photos/pdrn.jpg' },
-  { label: 'Пилинг', photo: '/photos/almagold-peel.jpg' },
-  { label: 'Уход', photo: '/photos/led-therapy.jpg' },
+  { label: 'Контурная', photo: asset('photos/lip-filler.jpg') },
+  { label: 'Биоревит.', photo: asset('photos/biorevit.jpg') },
+  { label: 'Чистка', photo: asset('photos/deep-cleansing.jpg') },
+  { label: 'Мезо', photo: asset('photos/pdrn.jpg') },
+  { label: 'Пилинг', photo: asset('photos/almagold-peel.jpg') },
+  { label: 'Уход', photo: asset('photos/led-therapy.jpg') },
 ];
 
 export const reviews = [

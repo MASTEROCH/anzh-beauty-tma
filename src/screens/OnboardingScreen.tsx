@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Icon, type IconName } from '../components/Icon';
+import { asset } from '../lib/asset';
 
 interface Props {
   onComplete: (data: { name: string; phone: string }) => void;
@@ -69,7 +70,7 @@ export function OnboardingScreen({ onComplete, onSkip }: Props) {
             <Icon name="chevron-left" size={20} strokeWidth={2.2} />
           </button>
         ) : (
-          <img src="/brand/anzh-logo.svg" alt="ANZH" style={{ height: 22 }} />
+          <img src={asset("brand/anzh-logo.svg")} alt="ANZH" style={{ height: 22 }} />
         )}
         <div className="onb-dots" aria-label={`Шаг ${step + 1} из 4`}>
           {[0, 1, 2, 3].map((i) => (
@@ -129,7 +130,7 @@ function WelcomeSlide() {
       <div className="onb-welcome">
         <div className="onb-avatar-wrap">
           <span className="onb-avatar-glow" aria-hidden />
-          <img src="/photos/anjelika.jpg" alt="Anjelika" className="onb-avatar" />
+          <img src={asset("photos/anjelika.jpg")} alt="Anjelika" className="onb-avatar" />
           <span className="onb-avatar-badge">
             <Icon name="check" size={14} strokeWidth={2.4} />
           </span>

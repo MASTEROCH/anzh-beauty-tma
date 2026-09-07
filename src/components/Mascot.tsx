@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { asset } from '../lib/asset';
 
 export type MascotEmotion =
   | 'idle'
@@ -66,7 +67,7 @@ export function Mascot({ mood = 'idle', size = 72, className, onTap }: Props) {
       if (!cfg) return;
       for (let i = 1; i <= cfg.frames; i++) {
         const img = new Image();
-        img.src = `/mascot/${cfg.folder}/${String(i).padStart(2, '0')}.webp`;
+        img.src = asset(`mascot/${cfg.folder}/${String(i).padStart(2, '0')}.webp`);
       }
     });
   }, [mood]);
@@ -124,7 +125,7 @@ export function Mascot({ mood = 'idle', size = 72, className, onTap }: Props) {
 
   const cfg = EMOTIONS[active];
   const padded = String(frame + 1).padStart(2, '0');
-  const src = `/mascot/${cfg.folder}/${padded}.webp`;
+  const src = asset(`mascot/${cfg.folder}/${padded}.webp`);
 
   return (
     <div
@@ -133,7 +134,7 @@ export function Mascot({ mood = 'idle', size = 72, className, onTap }: Props) {
       onClickCapture={onTap ? handleClick : undefined}
     >
       <span className="mascot-halo" aria-hidden />
-      <img className="mascot-back" src="/mascot/back.webp" alt="" draggable={false} />
+      <img className="mascot-back" src={asset("mascot/back.webp")} alt="" draggable={false} />
       <img className="mascot-frame" src={src} alt="" draggable={false} />
       <span className="mascot-sheen" aria-hidden />
     </div>
