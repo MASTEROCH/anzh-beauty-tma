@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { categories, services, sTitle, sShort, CATEGORY_KEY, type Service } from '../data/services';
 import { toast } from '../lib/ui';
+import { money } from '../lib/store';
 import { Icon } from '../components/Icon';
 import { useLang, t } from '../lib/i18n';
 
@@ -43,9 +44,9 @@ export function CatalogScreen({
           onClick={() => {
             const next = currency === 'usd' ? 'gel' : 'usd';
             onCurrency(next);
-            toast(`Цены в ${next.toUpperCase()}`);
+            toast(lang === 'ru' ? `Цены в ${next.toUpperCase()}` : `Prices in ${next.toUpperCase()}`);
           }}
-          aria-label="Сменить валюту"
+          aria-label={lang === 'ru' ? 'Сменить валюту' : 'Switch currency'}
         >
           {currency === 'usd' ? '$ USD' : '₾ GEL'}
         </button>
@@ -100,8 +101,8 @@ export function CatalogScreen({
           const isFav = favorites.has(s.id);
           const price =
             currency === 'usd'
-              ? { main: `$${s.priceUsd}`, sub: `${s.priceGel} GEL` }
-              : { main: `${s.priceGel} GEL`, sub: `$${s.priceUsd}` };
+              ? { main: money(s.priceUsd, s.priceGel, 'usd'), sub: money(s.priceUsd, s.priceGel, 'gel') }
+              : { main: money(s.priceUsd, s.priceGel, 'gel'), sub: money(s.priceUsd, s.priceGel, 'usd') };
           return (
             <article key={s.id} className="card service-card">
               <button

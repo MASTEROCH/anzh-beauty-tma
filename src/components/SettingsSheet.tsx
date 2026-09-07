@@ -53,7 +53,7 @@ export function SettingsSheet({ lang: initialLang, onLang, currency: initialCurr
             <button
               key={c}
               className={`seg-btn ${currency === c ? 'active' : ''}`}
-              onClick={() => { setCurrency(c); onCurrency(c); toast(c === 'usd' ? 'Цены в USD' : 'Цены в GEL', 'success'); }}
+              onClick={() => { setCurrency(c); onCurrency(c); toast(lang === 'ru' ? (c === 'usd' ? 'Цены в USD' : 'Цены в GEL') : `Prices in ${c.toUpperCase()}`, 'success'); }}
             >
               <span style={{ fontWeight: 800 }}>{c === 'usd' ? '$' : '₾'}</span>
               <span>{c.toUpperCase()}</span>

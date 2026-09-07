@@ -1,61 +1,71 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { findService, services, sTitle, sShort } from '../data/services';
 import { openSheet, toast } from '../lib/ui';
 import { Icon } from '../components/Icon';
 import { useLang, t } from '../lib/i18n';
+import { clinic } from '../data/clinic';
+import { DAYS_SHORT, MON_SHORT, addMinutes, daysFromNow, fmtDateShort, toISODate } from '../lib/date';
+import {
+  SLOTS,
+  createBooking,
+  freeSlots as freeSlotsFor,
+  money,
+  pointsFor,
+  rescheduleBooking,
+  slotTaken,
+  useStore,
+  type Currency,
+} from '../lib/store';
+import { haptic } from '../lib/telegram';
 
-type Currency = 'usd' | 'gel';
-
-const DAYS_RU = ['ВС', 'ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ'];
-const MON_RU = ['ЯНВ', 'ФЕВ', 'МАР', 'АПР', 'МАЙ', 'ИЮН', 'ИЮЛ', 'АВГ', 'СЕН', 'ОКТ', 'НОЯ', 'ДЕК'];
-const DAYS_EN = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-const MON_EN = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-
-const SLOTS = ['09:00', '10:30', '12:00', '13:30', '15:00', '16:30', '18:00', '19:30'];
-const DISABLED = new Set(['09:00', '15:00']);
-
-function nextDays(n: number) {
-  const arr: Date[] = [];
-  const today = new Date();
-  for (let i = 0; i < n; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    arr.push(d);
-  }
-  return arr;
-}
 
 export function BookingScreen({
   initialServiceId,
+  rescheduleId,
   onConfirm,
   onChooseService,
   currency,
 }: {
   initialServiceId?: string;
+  /** When set, the flow moves this booking instead of creating a new one. */
+  rescheduleId?: string;
   onConfirm: () => void;
   onChooseService: () => void;
   currency: Currency;
 }) {
   const lang = useLang();
-  const DAYS = lang === 'ru' ? DAYS_RU : DAYS_EN;
-  const MON = lang === 'ru' ? MON_RU : MON_EN;
-  const dates = useMemo(() => nextDays(14), []);
+  const ru = lang === 'ru';
+  const store = useStore();
+  const DAYS = DAYS_SHORT[lang];
+  const MON = MON_SHORT[lang];
+  const dates = useMemo(() => Array.from({ length: 14 }, (_, i) => daysFromNow(i)), []);
   const [serviceId, setServiceId] = useState<string>(initialServiceId ?? services[0].id);
   const [dateIdx, setDateIdx] = useState(1);
-  const [slot, setSlot] = useState<string | null>('16:30');
+  const [slot, setSlot] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const service = findService(serviceId)!;
   const date = dates[dateIdx];
-  const price = currency === 'usd' ? `$${service.priceUsd}` : `${service.priceGel} GEL`;
-  const deposit = currency === 'usd'
-    ? `$${Math.round(service.priceUsd * 0.1)}`
-    : `${Math.round(service.priceGel * 0.1)} GEL`;
+  const dateISO = toISODate(date);
+  const price = money(service.priceUsd, service.priceGel, currency);
+  const deposit = money(
+    Math.round(service.priceUsd * 0.1),
+    Math.round(service.priceGel * 0.1),
+    currency,
+  );
+  const earns = pointsFor(service.priceUsd, store.points);
+  // store.bookings matters: a slot the user just booked becomes taken
+  const freeSlots = useMemo(() => freeSlotsFor(dateISO, store), [dateISO, store]);
+
+  // Pre-select the first free slot whenever the day changes.
+  useEffect(() => {
+    setSlot((prev) => (prev && freeSlots.includes(prev) ? prev : freeSlots[0] ?? null));
+  }, [freeSlots]);
 
   const showMaster = () =>
     openSheet({
       title: 'Анжелика',
-      subtitle: 'Косметолог · 8 лет практики',
+      subtitle: ru ? 'Косметолог · 8 лет практики' : 'Cosmetologist · 8 years of practice',
       body: (
         <>
           <img
@@ -64,25 +74,40 @@ export function BookingScreen({
             style={{ width: 96, height: 96, borderRadius: '50%', objectFit: 'cover', margin: '0 auto 14px', display: 'block', border: '2px solid var(--border-strong)' }}
           />
           <ul className="info-list">
-            <li>Принимает по вт-сб 09:00–20:00</li>
-            <li>Выходной — воскресенье</li>
-            <li>1 472 завершённые процедуры</li>
-            <li>★ 4.9 · 312 отзывов</li>
+            <li>{ru ? `Принимает ${clinic.hours.ru}` : `Available ${clinic.hours.en}`}</li>
+            <li>{ru ? 'Выходной — воскресенье' : 'Closed on Sundays'}</li>
+            <li>{ru ? '1 472 завершённые процедуры' : '1,472 completed treatments'}</li>
+            <li>{ru ? '★ 4.9 · 312 отзывов' : '★ 4.9 · 312 reviews'}</li>
           </ul>
         </>
       ),
     });
 
-  const onDisabledSlot = (s: string) =>
-    toast(`${s} уже занят — попробуй другое время`);
+  const onDisabledSlot = (taken: string) => {
+    haptic.notify('warning');
+    const near = freeSlots.reduce<string | null>((best, cand) => {
+      if (!best) return cand;
+      const d = (x: string) => Math.abs(Number(x.replace(':', '')) - Number(taken.replace(':', '')));
+      return d(cand) < d(best) ? cand : best;
+    }, null);
+    if (near) {
+      setSlot(near);
+      toast(ru ? `${taken} занят — поставила ${near}` : `${taken} is taken — moved you to ${near}`);
+    } else {
+      toast(ru ? `${taken} занят, и день забит — выбери другой` : `${taken} is taken and the day is full`);
+    }
+  };
 
   const submit = () => {
     if (!slot) {
-      toast('Выбери время');
+      toast(ru ? 'Выбери время' : 'Pick a time');
       return;
     }
     setSubmitting(true);
     setTimeout(() => {
+      if (rescheduleId) rescheduleBooking(rescheduleId, dateISO, slot);
+      else createBooking(serviceId, dateISO, slot);
+      haptic.notify('success');
       setSubmitting(false);
       onConfirm();
     }, 700);
@@ -93,10 +118,10 @@ export function BookingScreen({
     <div className="screen has-cta">
       <header className="header">
         <div className="header-lede">
-          <div className="eyebrow">{t('booking.eyebrow', lang)}</div>
+          <div className="eyebrow">{rescheduleId ? (ru ? 'перенос' : 'reschedule') : t('booking.eyebrow', lang)}</div>
           <div className="header-title">{t('booking.title', lang)}</div>
         </div>
-        <button className="chip chip-gold" onClick={showMaster} aria-label="О мастере">
+        <button className="chip chip-gold" onClick={showMaster} aria-label={ru ? 'О мастере' : 'About the expert'}>
           <Icon name="lotus" size={13} strokeWidth={1.8} /> {t('common.master', lang)}
         </button>
       </header>
@@ -190,7 +215,7 @@ export function BookingScreen({
         <div className="eyebrow" style={{ padding: '6px 20px 8px' }}>{t('booking.freeTime', lang)}</div>
         <div className="slot-grid">
           {SLOTS.map((s) => {
-            const disabled = DISABLED.has(s);
+            const disabled = slotTaken(dateISO, s, store);
             return (
               <button
                 key={s}
@@ -220,17 +245,21 @@ export function BookingScreen({
         </div>
         <div className="summary-row">
           <span className="k">{t('booking.sum.date', lang)}</span>
-          <span className="v">
-            {date.getDate()} {MON[date.getMonth()].toLowerCase()} · {DAYS[date.getDay()]}
-          </span>
+          <span className="v">{fmtDateShort(dateISO, lang)} · {DAYS[date.getDay()]}</span>
         </div>
         <div className="summary-row">
           <span className="k">{t('booking.sum.time', lang)}</span>
-          <span className="v">{slot ?? '—'}</span>
+          <span className="v">{slot ? `${slot}–${addMinutes(slot, service.duration)}` : '—'}</span>
         </div>
         <div className="summary-row">
           <span className="k">{t('booking.sum.address', lang)}</span>
-          <span className="v" style={{ textAlign: 'right', fontSize: 13 }}>Parnavaz Mepe 92/94 · 3 эт.</span>
+          <span className="v" style={{ textAlign: 'right', fontSize: 13 }}>
+            {clinic.street} · {ru ? '3 эт.' : 'fl. 3'}
+          </span>
+        </div>
+        <div className="summary-row">
+          <span className="k">{ru ? 'Баллов за визит' : 'Points earned'}</span>
+          <span className="v" style={{ color: 'var(--brand-gold)' }}>+{earns}</span>
         </div>
         <div className="summary-row total">
           <span className="k">{t('booking.sum.total', lang)}</span>
@@ -241,15 +270,15 @@ export function BookingScreen({
       <button
         onClick={() =>
           openSheet({
-            title: 'Депозит и отмена',
-            subtitle: 'Прозрачная политика',
+            title: ru ? 'Депозит и отмена' : 'Deposit & cancellation',
+            subtitle: ru ? 'Прозрачная политика' : 'A transparent policy',
             body: (
               <ul className="info-list">
-                <li>Депозит {deposit} удерживается при подтверждении</li>
-                <li>Возврат 100% — если отменишь больше чем за 24 часа</li>
-                <li>Меньше 24 часов — депозит сгорает</li>
-                <li>Перенос всегда бесплатный</li>
-                <li>3 no-show подряд → потребуем 50% предоплату</li>
+                <li>{ru ? `Депозит ${deposit} удерживается при подтверждении` : `A ${deposit} deposit is held on confirmation`}</li>
+                <li>{ru ? 'Возврат 100% — если отменишь больше чем за 24 часа' : 'Full refund if you cancel more than 24 h ahead'}</li>
+                <li>{ru ? 'Меньше 24 часов — депозит сгорает' : 'Under 24 h — the deposit is forfeited'}</li>
+                <li>{ru ? 'Перенос всегда бесплатный' : 'Rescheduling is always free'}</li>
+                <li>{ru ? '3 no-show подряд → потребуем 50% предоплату' : '3 no-shows in a row → 50% prepayment required'}</li>
               </ul>
             ),
           })
@@ -257,7 +286,7 @@ export function BookingScreen({
         className="faint"
         style={{ background: 'none', border: 0, fontSize: 12, padding: '12px 20px 0', textAlign: 'center', width: '100%', cursor: 'pointer', textDecoration: 'underline dotted' }}
       >
-        Депозит {deposit} · политика отмены
+        {ru ? `Депозит ${deposit} · политика отмены` : `${deposit} deposit · cancellation policy`}
       </button>
     </div>
     <div className="bottom-cta">
@@ -268,10 +297,10 @@ export function BookingScreen({
         disabled={!slot || submitting}
       >
         {submitting
-          ? (lang === 'ru' ? 'Записываю…' : 'Booking…')
+          ? (ru ? 'Записываю…' : 'Booking…')
           : slot
-            ? `${t('common.book', lang)} · ${slot}`
-            : (lang === 'ru' ? 'Выбери слот' : 'Pick a slot')}
+            ? `${rescheduleId ? (ru ? 'Перенести' : 'Move') : t('common.book', lang)} · ${slot}`
+            : (ru ? 'Все слоты заняты' : 'No slots left')}
       </button>
     </div>
     </>

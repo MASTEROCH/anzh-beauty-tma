@@ -1,5 +1,6 @@
 import { findService, services, sTitle } from '../data/services';
 import { openSheet, openLightbox, toast } from '../lib/ui';
+import { money } from '../lib/store';
 import { Icon } from '../components/Icon';
 import { useLang, t } from '../lib/i18n';
 
@@ -23,8 +24,8 @@ export function ServiceScreen({
   const lang = useLang();
   const s = findService(serviceId) ?? services[0];
   const isFav = favorites.has(s.id);
-  const price = currency === 'usd' ? `$${s.priceUsd}` : `${s.priceGel} GEL`;
-  const altPrice = currency === 'usd' ? `${s.priceGel} GEL` : `$${s.priceUsd}`;
+  const price = money(s.priceUsd, s.priceGel, currency);
+  const altPrice = money(s.priceUsd, s.priceGel, currency === 'usd' ? 'gel' : 'usd');
 
   const share = () => {
     const url = `https://anzh.tma/service/${s.id}`;

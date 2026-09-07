@@ -5,6 +5,17 @@ import { onAskMascot } from '../lib/chat-events';
 import { Icon } from './Icon';
 import { toast } from '../lib/ui';
 import type { Screen } from '../App';
+import { getLang, pts } from '../lib/i18n';
+import { getState, nearestFreeSlot, nextBooking, tierFor } from '../lib/store';
+import { findService, sTitle } from '../data/services';
+import { fmtDateLong, fmtRelative } from '../lib/date';
+
+/** «пятницу 12 сентября в 16:30» — read out of the live schedule, never hardcoded. */
+function nearestSlotPhrase(): string {
+  const near = nearestFreeSlot();
+  if (!near) return 'ближайшие две недели забиты — напиши Анжелике напрямую';
+  return `${fmtDateLong(near.date, 'ru')} в ${near.slot}`;
+}
 
 const SCREEN_MOODS: Partial<Record<Screen, MascotEmotion>> = {
   profile: 'adoration',
@@ -33,7 +44,7 @@ function mockResponse(message: string): string {
     return '💋 Для первого раза обычно 0.5–0.7 мл Restylane Kysse — естественный объём, без «утиного» эффекта. Записать на консультацию + разметку?';
   }
   if (/(чистк|почист)/i.test(lower)) {
-    return '🌿 Глубокая чистка — 90 мин, без боли. Ближайший слот пятница 24 мая в 16:30. Подходит?';
+    return `🌿 Глубокая чистка — 90 мин, без боли. Ближайший слот — ${nearestSlotPhrase()}. Подходит?`;
   }
   if (/(биорев|увлажн|сухость)/i.test(lower)) {
     return '✨ Биоревитализация курсом 3 процедуры с интервалом 2 недели. Препарат IAL-System. Спросить ближайшие даты?';
@@ -50,6 +61,11 @@ function mockResponse(message: string): string {
   if (/(беремен|лактац|кормл)/i.test(lower)) {
     return '🤰 При беременности и лактации большинство инъекций нельзя. Подберём безопасные уходовые процедуры — спроси список?';
   }
+  if (/(балл|лояль|skid|скидк)/i.test(lower)) {
+    const st = getState();
+    const tier = tierFor(st.points);
+    return `⭐ У тебя ${st.points} ${pts(st.points, 'ru')}, тир ${tier.label} — ${tier.cashback}% от каждого чека возвращается баллами. Тиры: Bronze → Silver → Gold → Diamond. Реферал подруги — +1000 баллов обоим.`;
+  }
   if (/(аденд|цен|стоим|сколько)/i.test(lower)) {
     return '💸 Цены — от $40 (LED-терапия) до $180 (PDRN). Каталог открой во вкладке «Каталог», там USD↔GEL переключаются.';
   }
@@ -62,8 +78,14 @@ function mockResponse(message: string): string {
   if (/(депоз|отмен|перенес|перенос)/i.test(lower)) {
     return '📅 Депозит 10%, возврат полный — если отменяешь больше чем за 24 часа. Перенос бесплатный и в любой момент.';
   }
-  if (/(балл|лояль|skid|скидк)/i.test(lower)) {
-    return '⭐ 5% от каждого чека возвращаются баллами. Тиры: Bronze → Silver → Gold → Diamond. Реферал друга — +1000 баллов обоим.';
+  if (/(когда|мо[яё] запись|записан|во сколько|напомни)/i.test(lower)) {
+    const b = nextBooking();
+    if (!b) return `🗓 Активных записей нет. Ближайшее свободное окно — ${nearestSlotPhrase()}. Записать?`;
+    const svc = findService(b.serviceId);
+    return `🗓 ${svc ? sTitle(svc, getLang()) : 'Процедура'} — ${fmtDateLong(b.date, 'ru')} в ${b.slot} (${fmtRelative(b.date, 'ru')}). Напомню за 24 часа и за 2 часа.`;
+  }
+  if (/(свобод|слот|окно|ближайш)/i.test(lower)) {
+    return `⏱ Ближайшее свободное окно — ${nearestSlotPhrase()}. Открыть запись?`;
   }
   if (/(спас|благод|круто|супер)/i.test(lower)) {
     return 'Рада помочь! 💛 Если что-то ещё — спрашивай. Анжелика тоже всегда рядом.';
