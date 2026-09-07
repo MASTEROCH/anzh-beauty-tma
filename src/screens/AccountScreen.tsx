@@ -71,7 +71,7 @@ export function AccountScreen({
 
   const showSettings = () =>
     openSheet({
-      title: t('settings.title', lang),
+      title: (l) => t('settings.title', l),
       subtitle: 'ANZH Cosmetology',
       body: <SettingsSheet lang={lang} onLang={onLang} currency={currency} onCurrency={onCurrency} />,
     });

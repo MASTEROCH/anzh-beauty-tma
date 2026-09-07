@@ -1,11 +1,23 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import type { Lang } from './i18n';
+
+/**
+ * A value that may depend on the current language. A sheet's body re-renders
+ * on a switch because it is a component, but its title and subtitle are
+ * captured at openSheet() time — pass a function for those to stay reactive.
+ */
+export type Localized<T> = T | ((lang: Lang) => T);
 
 export type SheetContent = {
-  title: string;
-  subtitle?: string;
+  title: Localized<ReactNode>;
+  subtitle?: Localized<ReactNode>;
   body: ReactNode;
   actions?: ReactNode;
 } | null;
+
+export function resolve<T>(v: Localized<T>, lang: Lang): T {
+  return typeof v === 'function' ? (v as (l: Lang) => T)(lang) : v;
+}
 
 type ToastEntry = { id: number; text: string; kind?: 'info' | 'success' };
 

@@ -1,8 +1,10 @@
 import { useEffect } from 'react';
-import { closeSheet, closeLightbox, useLightbox, useSheet, useToasts } from '../lib/ui';
+import { closeSheet, closeLightbox, resolve, useLightbox, useSheet, useToasts } from '../lib/ui';
+import { t, useLang } from '../lib/i18n';
 
 export function LightboxHost() {
   const lb = useLightbox();
+  const lang = useLang();
   useEffect(() => {
     if (!lb) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeLightbox(); };
@@ -12,7 +14,7 @@ export function LightboxHost() {
   if (!lb) return null;
   return (
     <div className="lightbox" role="dialog" aria-modal="true" onClick={closeLightbox}>
-      <button className="lightbox-close" aria-label="Закрыть" onClick={closeLightbox}>✕</button>
+      <button className="lightbox-close" aria-label={t('common.close', lang)} onClick={closeLightbox}>✕</button>
       <img className="lightbox-img" src={lb.src} alt={lb.caption ?? ''} onClick={(e) => e.stopPropagation()} />
       {lb.caption && <div className="lightbox-caption">{lb.caption}</div>}
     </div>
@@ -35,6 +37,7 @@ export function ToastHost() {
 
 export function SheetHost() {
   const s = useSheet();
+  const lang = useLang();
   useEffect(() => {
     if (s) {
       document.body.setAttribute('data-sheet-open', '');
@@ -47,14 +50,14 @@ export function SheetHost() {
       <div className="sheet-overlay" onClick={closeSheet} />
       <div className="sheet sheet-host" role="dialog" aria-modal="true">
         <div className="sheet-handle" onClick={closeSheet} />
-        <h3>{s.title}</h3>
-        {s.subtitle && <div className="faint" style={{ fontSize: 12, marginBottom: 6 }}>{s.subtitle}</div>}
+        <h3>{resolve(s.title, lang)}</h3>
+        {s.subtitle && <div className="faint" style={{ fontSize: 12, marginBottom: 6 }}>{resolve(s.subtitle, lang)}</div>}
         <div style={{ marginTop: 12 }}>{s.body}</div>
         {s.actions ? (
           <div className="sheet-actions" style={{ marginTop: 16 }}>{s.actions}</div>
         ) : (
           <div style={{ marginTop: 16 }}>
-            <button className="btn btn-ghost btn-block" onClick={closeSheet}>Закрыть</button>
+            <button className="btn btn-ghost btn-block" onClick={closeSheet}>{t('common.close', lang)}</button>
           </div>
         )}
       </div>
