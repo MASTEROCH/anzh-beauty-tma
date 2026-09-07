@@ -1,0 +1,32 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": "vite",
+  "rewrites": [{ "source": "/((?!assets/|mascot/|photos/|brand/|favicon).*)", "destination": "/index.html" }],
+  "headers": [
+    {
+      "comment": "Vite writes a content hash into every asset filename, so these can never go stale.",
+      "source": "/assets/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "comment": "Unhashed static media — cache hard at the edge, revalidate in the background.",
+      "source": "/(mascot|photos|brand)/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800" }]
+    },
+    {
+      "comment": "The shell must never be cached, or a deploy won't reach open Mini Apps.",
+      "source": "/",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }]
+    },
+    {
+      "comment": "Telegram renders the Mini App inside its own webview, so framing must stay allowed (no X-Frame-Options).",
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+      ]
+    }
+  ]
+}

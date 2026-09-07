@@ -19,6 +19,26 @@ npm run build    # production build → dist/
 ```
 `?seed=1` в URL пропускает онбординг (для скриншот-тестов).
 
+## Деплой (Vercel)
+
+Конфиг лежит в `vercel.json` — SPA-rewrite, кэш-заголовки и отсутствие
+`X-Frame-Options` (Telegram рендерит Mini App в своём webview, фрейминг должен
+остаться разрешённым). Настраивать в дашборде ничего не нужно.
+
+**Из дашборда:** [vercel.com/new](https://vercel.com/new) → Import Git Repository →
+`MASTEROCH/anzh-beauty-tma` → в поле Branch выбрать ветку → Deploy.
+Framework определится как Vite сам.
+
+**Из CLI:**
+```bash
+npx vercel            # preview-деплой, выдаст ссылку
+npx vercel --prod     # продакшен
+```
+
+Полученный HTTPS-URL вставить в @BotFather → `/setmenubutton` (или в Web App URL
+кнопки бота) — Mini App откроется внутри Telegram уже с haptics, BackButton и
+safe-area.
+
 ## Структура
 ```
 src/
