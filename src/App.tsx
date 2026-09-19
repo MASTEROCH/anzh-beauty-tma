@@ -17,7 +17,7 @@ import { StudioScreen } from './screens/StudioScreen';
 import { toast } from './lib/ui';
 import { getLang, setLang as setI18nLang } from './lib/i18n';
 import type { OnboardingResult } from './screens/OnboardingScreen';
-import { getTgUser, tgReady } from './lib/telegram';
+import { getTgUser, initTelegram } from './lib/telegram';
 import { g } from './lib/gender';
 import { installEdgeSwipeGuard } from './lib/gestures';
 
@@ -137,7 +137,7 @@ export function App() {
   }, [screen]);
 
   useEffect(() => {
-    tgReady();
+    initTelegram();
     // Свайп от края в iOS WebKit = «назад» = закрыть мини-апп вместе с
     // несохранённым вводом. Официального API нет, гасим жест руками.
     return installEdgeSwipeGuard();

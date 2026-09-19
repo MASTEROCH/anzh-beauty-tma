@@ -13,6 +13,7 @@
 // проходился целиком.
 
 import { useEffect, useState } from 'react';
+import { isTelegram } from './telegram';
 
 export type InvoiceStatus = 'paid' | 'cancelled' | 'failed' | 'pending';
 
@@ -40,7 +41,11 @@ function webApp(): TgWebAppPayments | undefined {
   return (window as unknown as { Telegram?: { WebApp?: TgWebAppPayments } }).Telegram?.WebApp;
 }
 
-export const canPayWithStars = () => typeof webApp()?.openInvoice === 'function';
+/* НЕ по наличию метода: скрипт telegram-web-app.js подключён в index.html
+   всегда и создаёт `Telegram.WebApp` даже в обычном браузере — вместе с
+   `openInvoice`, который там ничего не откроет. Признак настоящего
+   Telegram — присутствие initData, его подделать нечем. */
+export const canPayWithStars = () => isTelegram() && typeof webApp()?.openInvoice === 'function';
 
 /** Сервер: POST /api/invoice { productId } → { link } (createInvoiceLink, currency XTR) */
 async function fetchInvoiceLink(productId: string): Promise<string | null> {
@@ -65,7 +70,7 @@ export async function payWithStars(productId: string): Promise<InvoiceStatus> {
   // уходил всегда, и в браузере каждая «покупка» оставляла в консоли красный
   // 404 от несуществующего /api/invoice — свой же шум, в котором тонет чужая
   // настоящая ошибка.
-  if (tg?.openInvoice) {
+  if (canPayWithStars() && tg?.openInvoice) {
     const link = await fetchInvoiceLink(productId);
     if (link) return new Promise<InvoiceStatus>((resolve) => tg.openInvoice!(link, resolve));
     return 'failed';

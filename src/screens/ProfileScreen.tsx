@@ -6,6 +6,7 @@ import { StudioMap } from '../components/StudioMap';
 import { Gallery } from '../components/Gallery';
 import { Icon } from '../components/Icon';
 import { t } from '../lib/i18n';
+import { asset } from '../lib/asset';
 
 const TRUST_KEYS = ['trust.certified', 'trust.mdcodes', 'trust.clients', 'trust.lidocaine'];
 
@@ -155,13 +156,13 @@ export function ProfileScreen({
           aria-label="ANZH"
           style={{ background: 'none', border: 0, padding: 0, width: 'auto', height: 'auto' }}
         >
-          <img src="/brand/anzh-logo.svg" alt="ANZH" style={{ height: 24 }} />
+          <img src={asset("brand/anzh-logo.svg")} alt="ANZH" style={{ height: 24 }} />
         </button>
       </header>
 
       <section className="profile-hero">
         <div className="profile-avatar-wrap">
-          <img src="/photos/anjelika.jpg" alt="Anjelika" className="profile-avatar" />
+          <img src={asset("photos/anjelika.jpg")} alt="Anjelika" className="profile-avatar" />
           <span className="profile-status" aria-label="принимает записи" />
         </div>
         <h1 className="profile-name">{profile.name}</h1>

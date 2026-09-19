@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { Icon } from '../components/Icon';
 import { toast } from '../lib/ui';
 import { useAppointments, formatLongDate, fromISODate } from '../lib/appointments';
+import { downloadIcs } from '../lib/ics';
 import { findService, sTitle } from '../data/services';
 import { useLang } from '../lib/i18n';
 
@@ -107,8 +108,26 @@ export function ConfirmScreen({ onDone, onAccount }: { onDone: () => void; onAcc
             <Icon name="message" size={16} strokeWidth={1.9} /> {ru ? 'Написать' : 'Message'}
           </button>
         </div>
+        {/* Календарь с напоминанием за два часа: до этого «мы напомним»
+            было обещанием, которое приложение не могло сдержать — пушей нет */}
+        <button
+          className="btn btn-secondary btn-block"
+          style={{ marginBottom: 10 }}
+          onClick={() => {
+            const ok = downloadIcs(appt, lang);
+            toast(
+              ok
+                ? (ru ? 'Визит добавлен в календарь' : 'Added to your calendar')
+                : (ru ? 'Календарь не открылся — время есть в кабинете' : 'Calendar blocked — the time is in your passport'),
+              ok ? 'success' : 'info',
+            );
+          }}
+        >
+          <Icon name="calendar" size={16} strokeWidth={1.9} /> {ru ? 'Добавить в календарь' : 'Add to calendar'}
+        </button>
+
         <div className="row" style={{ gap: 10 }}>
-          <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onDone}>{ru ? 'На главную' : 'Home'}</button>
+          <button className="btn btn-quiet" style={{ flex: 1 }} onClick={onDone}>{ru ? 'На главную' : 'Home'}</button>
           <button className="btn btn-primary" style={{ flex: 1 }} onClick={onAccount}>{ru ? 'В кабинет →' : 'My account →'}</button>
         </div>
       </section>
