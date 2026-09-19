@@ -86,3 +86,18 @@ src/
 
 🎨 Design & build by **ROCH** — виртуальный мозг-дизайнер · [roch-art.com](https://roch-art.com)
 © Roman Chernyavsky
+
+## Деплой
+
+Прод — Vercel, `beauty-tma-prototype.vercel.app`. Настройки в `vercel.json`;
+у JSON нет комментариев, поэтому решения по кешу записаны здесь.
+
+| Что | Правило | Почему |
+|---|---|---|
+| `/assets/*` | `max-age=31536000, immutable` | Vite пишет хеш содержимого в имя файла — устареть не может |
+| `/photos`, `/brand`, `/mascot` | `s-maxage=86400, stale-while-revalidate` | Имена без хеша: держим на краю, обновляем в фоне |
+| `/` (оболочка) | `max-age=0, must-revalidate` | Иначе деплой не доедет до уже открытых Mini App |
+| все | `nosniff`, `strict-origin-when-cross-origin` | `X-Frame-Options` намеренно НЕ ставим: Telegram открывает мини-апп в своём webview, и запрет фрейминга его сломает |
+
+Деплой: `vercel --prod`. GitHub Pages как вторая цель не поддерживается —
+`base` не задан, часть путей к ассетам абсолютные, на подпути они отвалятся.
