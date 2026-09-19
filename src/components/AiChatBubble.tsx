@@ -3,7 +3,8 @@ import { Mascot, type MascotEmotion } from './Mascot';
 import { onMascotMood } from '../lib/mascot-events';
 import { onAskMascot } from '../lib/chat-events';
 import { Icon } from './Icon';
-import { toast } from '../lib/ui';
+import { openSheet, closeSheet, toast } from '../lib/ui';
+import { respond, clinicOpen, nextOpening, type AiAction } from '../lib/ai';
 import type { Screen } from '../App';
 
 const SCREEN_MOODS: Partial<Record<Screen, MascotEmotion>> = {
@@ -16,75 +17,25 @@ const SCREEN_MOODS: Partial<Record<Screen, MascotEmotion>> = {
   anzh: 'fun',
 };
 
-const SCREEN_HINTS: Partial<Record<Screen, string>> = {
-  profile: 'Привет 💛 я ассистент Анжелики',
-  catalog: 'Подсказать процедуру?',
-  service: 'Можно записаться прямо сейчас',
-  booking: 'Помогу выбрать слот',
-  account: 'Хочешь записаться повторно?',
-  anzh: 'Подобрать домашний уход?',
-};
-
-interface Message { id: number; role: 'user' | 'assistant'; text: string }
-
-function mockResponse(message: string): string {
-  const lower = message.toLowerCase();
-  if (/(губ|конт|пласт|филлер)/i.test(lower)) {
-    return '💋 Для первого раза обычно 0.5–0.7 мл Restylane Kysse — естественный объём, без «утиного» эффекта. Записать на консультацию + разметку?';
-  }
-  if (/(чистк|почист)/i.test(lower)) {
-    return '🌿 Глубокая чистка — 90 мин, без боли. Ближайший слот пятница 24 мая в 16:30. Подходит?';
-  }
-  if (/(биорев|увлажн|сухость)/i.test(lower)) {
-    return '✨ Биоревитализация курсом 3 процедуры с интервалом 2 недели. Препарат IAL-System. Спросить ближайшие даты?';
-  }
-  if (/(пилинг|кисло)/i.test(lower)) {
-    return '🍃 PRX-T33 — биоревитализирующий пилинг без слущивания. Идеален в любой сезон. 45 минут, $75.';
-  }
-  if (/(лифтинг|подтяжк|rf|апп)/i.test(lower)) {
-    return '⚡ RF-лифтинг INDIBA — мгновенный визуальный эффект, накопительный — через 3-4 процедуры. Без реабилитации.';
-  }
-  if (/(аллерг|лидокаин|реакц)/i.test(lower)) {
-    return '⚠ Анжелика всегда сверяется с твоим паспортом здоровья перед процедурой. Лидокаин-фри протокол доступен по запросу — без проблем.';
-  }
-  if (/(беремен|лактац|кормл)/i.test(lower)) {
-    return '🤰 При беременности и лактации большинство инъекций нельзя. Подберём безопасные уходовые процедуры — спроси список?';
-  }
-  if (/(аденд|цен|стоим|сколько)/i.test(lower)) {
-    return '💸 Цены — от $40 (LED-терапия) до $180 (PDRN). Каталог открой во вкладке «Каталог», там USD↔GEL переключаются.';
-  }
-  if (/(адрес|где|как до|кабин|чавчав)/i.test(lower)) {
-    return '📍 Батуми, ул. Parnavaz Mepe 92/94, 3 этаж. 10 минут от Boulevard, парковка у входа. Открою карту?';
-  }
-  if (/(пуш|напомин|жди|ждать)/i.test(lower)) {
-    return '🔔 Я пришлю пуш-напоминание за 24 часа и за 2 часа до процедуры. После — серия post-care сообщений: 24ч, 3д, 7д.';
-  }
-  if (/(депоз|отмен|перенес|перенос)/i.test(lower)) {
-    return '📅 Депозит 10%, возврат полный — если отменяешь больше чем за 24 часа. Перенос бесплатный и в любой момент.';
-  }
-  if (/(балл|лояль|skid|скидк)/i.test(lower)) {
-    return '⭐ 5% от каждого чека возвращаются баллами. Тиры: Bronze → Silver → Gold → Diamond. Реферал друга — +1000 баллов обоим.';
-  }
-  if (/(спас|благод|круто|супер)/i.test(lower)) {
-    return 'Рада помочь! 💛 Если что-то ещё — спрашивай. Анжелика тоже всегда рядом.';
-  }
-  return 'Спасибо за вопрос! Я подскажу про процедуры, цены, противопоказания, запись, баллы и адрес. Что интересует?';
-}
+interface Message { id: number; role: 'user' | 'assistant'; text: string; actions?: AiAction[] }
 
 let _msgCounter = 0;
 const nextId = () => ++_msgCounter;
 
 interface Props {
   screen?: Screen;
-  onBookingNav?: () => void;
+  onBookingNav?: (serviceId?: string) => void;
+  onOpenService?: (id: string) => void;
+  onOpenCatalog?: () => void;
+  onOpenPlan?: () => void;
+  onOpenPassport?: () => void;
 }
 
-export function AiChatBubble({ screen, onBookingNav }: Props) {
+export function AiChatBubble({ screen, onBookingNav, onOpenService, onOpenCatalog, onOpenPlan, onOpenPassport }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [hintVisible, setHintVisible] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
   const [transientMood, setTransientMood] = useState<MascotEmotion | null>(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -174,7 +125,8 @@ export function AiChatBubble({ screen, onBookingNav }: Props) {
       setIsTyping(true);
       playTransient('think', 1500);
       setTimeout(() => {
-        setMessages((prev) => [...prev, { id: nextId(), role: 'assistant', text: mockResponse(question) }]);
+        const reply = respond(question);
+        setMessages((prev) => [...prev, { id: nextId(), role: 'assistant', text: reply.text, actions: reply.actions }]);
         setIsTyping(false);
         playTransient('fun', 2200);
       }, 800 + Math.random() * 400);
@@ -186,15 +138,6 @@ export function AiChatBubble({ screen, onBookingNav }: Props) {
     : isOpen
       ? (isTyping ? 'think' : inputFocused && inputValue.length > 0 ? 'listen' : 'idle')
       : 'idle';
-
-  useEffect(() => {
-    if (!screen || isOpen) { setHintVisible(false); return; }
-    const showDelay = setTimeout(() => setHintVisible(true), 700);
-    const hideDelay = setTimeout(() => setHintVisible(false), 6500);
-    return () => { clearTimeout(showDelay); clearTimeout(hideDelay); };
-  }, [screen, isOpen]);
-
-  const currentHint = screen ? SCREEN_HINTS[screen] : null;
 
   useEffect(() => {
     // Scroll ONLY the messages container — never scrollIntoView (it drags the
@@ -217,15 +160,83 @@ export function AiChatBubble({ screen, onBookingNav }: Props) {
     }
   }, [isOpen]);
 
+  const lastQuestion = useRef('');
+
+  /** Передача живому человеку — то, чего в чате не было вовсе: когда бот
+      не справлялся, разговор просто упирался в стену. */
+  function handoff() {
+    const open = clinicOpen();
+    const q = lastQuestion.current;
+    openSheet({
+      title: 'Написать Анжелике',
+      subtitle: open ? 'Сейчас на связи' : `Нерабочее время · ${nextOpening()}`,
+      body: (
+        <>
+          <div className={`handoff-status ${open ? 'open' : 'closed'}`}>
+            <span className="handoff-dot" />
+            {open ? 'Анжелика принимает — обычно отвечает в течение часа' : `Ответит, когда откроется: ${nextOpening()}`}
+          </div>
+          {q && (
+            <div className="handoff-quote">
+              <div className="eyebrow" style={{ marginBottom: 6 }}>перешлю твой вопрос</div>
+              «{q}»
+            </div>
+          )}
+          <ul className="info-list" style={{ marginTop: 14 }}>
+            <li>Работает вт–сб, 09:00–20:00</li>
+            <li>Каждую заявку подтверждает лично</li>
+          </ul>
+        </>
+      ),
+      actions: (
+        <>
+          <button
+            className="btn btn-primary btn-block"
+            onClick={() => {
+              window.open(`https://t.me/anzh_cosmetology?text=${encodeURIComponent(q)}`, '_blank');
+              closeSheet();
+              toast('Открываю Telegram', 'success');
+            }}
+          >
+            Написать в Telegram
+          </button>
+          <button
+            className="btn btn-ghost btn-block"
+            onClick={() => {
+              window.open(`https://wa.me/995500000000?text=${encodeURIComponent(q)}`, '_blank');
+              closeSheet();
+            }}
+          >
+            Написать в WhatsApp
+          </button>
+        </>
+      ),
+    });
+  }
+
+  function runAction(a: AiAction) {
+    setIsOpen(false);
+    switch (a.kind) {
+      case 'book': onBookingNav?.(a.serviceId); break;
+      case 'service': if (a.serviceId) onOpenService?.(a.serviceId); break;
+      case 'catalog': onOpenCatalog?.(); break;
+      case 'plan': onOpenPlan?.(); break;
+      case 'passport': onOpenPassport?.(); break;
+      case 'handoff': setTimeout(handoff, 220); break;
+    }
+  }
+
   function send(text: string) {
     const trimmed = text.trim();
     if (!trimmed || isTyping) return;
+    lastQuestion.current = trimmed;
     setMessages((prev) => [...prev, { id: nextId(), role: 'user', text: trimmed }]);
     setInputValue('');
     setIsTyping(true);
     playTransient('think', 1500);
     setTimeout(() => {
-      setMessages((prev) => [...prev, { id: nextId(), role: 'assistant', text: mockResponse(trimmed) }]);
+      const reply = respond(trimmed);
+      setMessages((prev) => [...prev, { id: nextId(), role: 'assistant', text: reply.text, actions: reply.actions }]);
       setIsTyping(false);
       const lower = trimmed.toLowerCase();
       const m: MascotEmotion =
@@ -239,18 +250,6 @@ export function AiChatBubble({ screen, onBookingNav }: Props) {
 
   return (
     <>
-      {hintVisible && currentHint && !isOpen && (
-        <div className="ai-bubble-hint" onClick={() => setIsOpen(true)} role="button" tabIndex={0}>
-          <span className="ai-bubble-hint-text">{currentHint}</span>
-          <button
-            className="ai-bubble-hint-close"
-            onClick={(e) => { e.stopPropagation(); setHintVisible(false); }}
-            aria-label="Закрыть"
-          >✕</button>
-          <span className="ai-bubble-hint-tail" aria-hidden />
-        </div>
-      )}
-
       {!isOpen && (
         <button className="ai-bubble" onClick={() => setIsOpen(true)} aria-label="Открыть AI-ассистента">
           <Mascot mood={currentMood} size={56} className="ai-bubble-mascot" onTap={() => {}} />
@@ -273,9 +272,27 @@ export function AiChatBubble({ screen, onBookingNav }: Props) {
                 <Icon name="x" size={18} strokeWidth={2.4} />
               </button>
             </div>
+
             <div className="ai-messages">
               {messages.map((m) => (
-                <div key={m.id} className={`ai-message ${m.role}`}>{m.text}</div>
+                <div key={m.id} className={`ai-msg-wrap ${m.role}`}>
+                  <div className={`ai-message ${m.role}`}>{m.text}</div>
+                  {m.actions && m.actions.length > 0 && (
+                    <div className="ai-msg-actions">
+                      {m.actions.map((a) => (
+                        <button
+                          key={a.label}
+                          className={`ai-msg-action${a.kind === 'handoff' ? ' handoff' : ''}`}
+                          onClick={() => runAction(a)}
+                        >
+                          {a.kind === 'handoff' && <Icon name="message" size={13} strokeWidth={2} />}
+                          {a.kind === 'book' && <Icon name="calendar" size={13} strokeWidth={2} />}
+                          {a.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               ))}
               {messages.length === 1 && !isTyping && (
                 <div className="ai-suggestions">

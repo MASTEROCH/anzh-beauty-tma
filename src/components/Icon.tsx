@@ -7,9 +7,9 @@ export type IconName =
   | 'lotus' | 'sparkles' | 'calendar' | 'user' | 'shopping-bag'
   | 'chevron-right' | 'chevron-left' | 'arrow-right' | 'arrow-up-right' | 'arrow-back'
   | 'x' | 'check' | 'star' | 'heart' | 'heart-filled' | 'share' | 'settings' | 'pencil' | 'search'
-  | 'lip' | 'droplet' | 'leaf' | 'wave' | 'bolt' | 'sun' | 'syringe' | 'bottle' | 'cream' | 'mask'
+  | 'lip' | 'droplet' | 'leaf' | 'wave' | 'bolt' | 'sun' | 'moon' | 'syringe' | 'bottle' | 'cream' | 'mask'
   | 'send' | 'mic' | 'message' | 'globe' | 'pin' | 'clock' | 'gift' | 'crown' | 'shield-check'
-  | 'plus' | 'minus' | 'info' | 'warning' | 'flower';
+  | 'plus' | 'minus' | 'info' | 'warning' | 'flower' | 'lash' | 'stethoscope';
 
 interface Props {
   name: IconName;
@@ -136,6 +136,7 @@ const PATHS: Record<IconName, React.ReactNode> = {
     </>
   ),
   'bolt': <path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" />,
+  'moon': <path d="M20.5 14.3A8.5 8.5 0 019.7 3.5a8.5 8.5 0 1010.8 10.8z" />,
   'sun': (
     <>
       <circle cx="12" cy="12" r="4" />
@@ -224,6 +225,22 @@ const PATHS: Record<IconName, React.ReactNode> = {
     <>
       <path d="M12 3l10 18H2L12 3z" />
       <path d="M12 10v4M12 17v0.5" />
+    </>
+  ),
+  // Бровь с волосками — ламинирование и окрашивание
+  'lash': (
+    <>
+      <path d="M3 13c3-5 7-7 10-7s6 1.6 8 4.6" />
+      <path d="M6 11.3L4.6 8.2M9.4 9.6L8.6 6.3M13 9.2l.2-3.3M16.6 9.9l1.1-3.1" />
+    </>
+  ),
+  // Стетоскоп — врачебный приём, не косметологическая процедура
+  'stethoscope': (
+    <>
+      <path d="M5 3v5a4.5 4.5 0 0 0 9 0V3" />
+      <path d="M3.4 3h3.2M12.4 3h3.2" />
+      <path d="M9.5 12.5v2a5.5 5.5 0 0 0 11 0v-2.2" />
+      <circle cx="20.5" cy="10.2" r="2.1" />
     </>
   ),
   'flower': (

@@ -1,8 +1,5 @@
 const EVT = 'chat:ask';
 
-export function askMascot(question: string) {
-  window.dispatchEvent(new CustomEvent(EVT, { detail: { question } }));
-}
 
 export function onAskMascot(handler: (question: string) => void): () => void {
   function listener(e: Event) {

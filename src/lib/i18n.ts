@@ -31,9 +31,9 @@ type Entry = { ru: string; en: string };
 const DICT: Record<string, Entry> = {
   // nav
   'nav.profile':  { ru: 'Профиль', en: 'Profile' },
-  'nav.catalog':  { ru: 'Каталог', en: 'Catalog' },
+  'nav.catalog':  { ru: 'Услуги', en: 'Services' },
   'nav.booking':  { ru: 'Запись',  en: 'Booking' },
-  'nav.account':  { ru: 'Кабинет', en: 'Account' },
+  'nav.account':  { ru: 'Паспорт', en: 'Passport' },
   'nav.anzh':     { ru: 'ANZH',    en: 'ANZH' },
   // common
   'common.book':        { ru: 'Записаться', en: 'Book now' },
@@ -54,8 +54,8 @@ const DICT: Record<string, Entry> = {
   'profile.stat.years':      { ru: 'лет практики', en: 'years practising' },
   'profile.stat.procedures': { ru: 'процедур', en: 'procedures' },
   'profile.stat.rating':     { ru: 'рейтинг', en: 'rating' },
-  'profile.gallery.eyebrow': { ru: 'Галерея до/после', en: 'Before / after gallery' },
-  'profile.gallery.title':   { ru: 'Работы Анжелики', en: "Anjelika's work" },
+  'profile.gallery.eyebrow': { ru: 'Направления', en: 'Directions' },
+  'profile.gallery.title':   { ru: 'Как проходят процедуры', en: 'How the treatments go' },
   'profile.reviews.eyebrow': { ru: 'Отзывы', en: 'Reviews' },
   'profile.reviews.title':   { ru: 'Говорят клиенты', en: 'What clients say' },
   'profile.addr.eyebrow':    { ru: 'Адрес', en: 'Location' },
@@ -90,6 +90,9 @@ const DICT: Record<string, Entry> = {
   'cat.peel':      { ru: 'Пилинги', en: 'Peels' },
   'cat.apparatus': { ru: 'Аппарат', en: 'Apparatus' },
   'cat.care':      { ru: 'Уход', en: 'Care' },
+  'cat.brows':     { ru: 'Брови', en: 'Brows' },
+  'cat.derma':     { ru: 'Дерматолог', en: 'Dermatology' },
+  'cat.training':  { ru: 'Обучение', en: 'Training' },
   // service detail
   'service.details':   { ru: 'Подробнее', en: 'Details' },
   'service.includes':  { ru: 'Что входит', en: "What's included" },
@@ -136,7 +139,7 @@ const DICT: Record<string, Entry> = {
   'settings.about':      { ru: 'ANZH Cosmetology · Батуми', en: 'ANZH Cosmetology · Batumi' },
   'settings.version':    { ru: 'Версия 1.0 · Beauty TMA', en: 'Version 1.0 · Beauty TMA' },
   // account
-  'account.title':     { ru: 'Кабинет', en: 'Account' },
+  'account.title':     { ru: 'Паспорт', en: 'Passport' },
   'account.clientSince': { ru: 'Клиент с', en: 'Client since' },
   'account.procs':     { ru: 'процедур', en: 'treatments' },
   'account.rebook':    { ru: 'Записаться снова', en: 'Book again' },

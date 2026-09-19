@@ -1,6 +1,7 @@
-import { findService, services, sTitle } from '../data/services';
+import { findService, services, sTitle, servicePhoto, serviceResultPair } from '../data/services';
 import { openSheet, openLightbox, toast } from '../lib/ui';
 import { Icon } from '../components/Icon';
+import { BeforeAfterSlider } from '../components/BeforeAfterSlider';
 import { useLang, t } from '../lib/i18n';
 
 type Currency = 'usd' | 'gel';
@@ -23,6 +24,9 @@ export function ServiceScreen({
   const lang = useLang();
   const s = findService(serviceId) ?? services[0];
   const isFav = favorites.has(s.id);
+  const photo = servicePhoto(s.id);
+  // Иллюстрация процедуры и доказательство результата — разные вещи
+  const pair = serviceResultPair(s.id);
   const price = currency === 'usd' ? `$${s.priceUsd}` : `${s.priceGel} GEL`;
   const altPrice = currency === 'usd' ? `${s.priceGel} GEL` : `$${s.priceUsd}`;
 
@@ -91,13 +95,15 @@ export function ServiceScreen({
       </header>
 
       <div
-        className="service-hero service-hero--zoom"
-        style={{ backgroundImage: `url(/photos/${s.id}.jpg)` }}
-        onClick={() => openLightbox(`/photos/${s.id}.jpg`, s.title)}
-        role="button"
-        aria-label={`Открыть фото: ${s.title}`}
+        className={`service-hero${photo ? ' service-hero--zoom' : ' service-hero--blank'}`}
+        style={photo ? { backgroundImage: `url(${photo})` } : undefined}
+        onClick={() => { if (photo) openLightbox(photo, s.title); }}
+        role={photo ? 'button' : undefined}
+        aria-label={photo ? `Открыть фото: ${s.title}` : undefined}
       >
-        <div className="service-hero-badge"><Icon name={s.icon} size={20} strokeWidth={1.8} /></div>
+        {photo
+          ? <div className="service-hero-badge"><Icon name={s.icon} size={20} strokeWidth={1.8} /></div>
+          : <Icon name={s.icon} size={56} strokeWidth={1.3} className="service-image-glyph" />}
         <button
           className="fav-btn"
           aria-pressed={isFav}
@@ -142,13 +148,22 @@ export function ServiceScreen({
 
         <div className="info-block">
           <div className="info-block-title">{t('service.result', lang)}</div>
-          <div className="beforeafter">
-            <button className="beforeafter-tile before" data-label="ДО" style={{ backgroundImage: `url(/photos/${s.id}.jpg)`, border: 0, padding: 0, cursor: 'zoom-in' }} onClick={() => openLightbox(`/photos/${s.id}.jpg`, `${s.title} · до`)} aria-label="Увеличить: до" />
-            <button className="beforeafter-tile after" data-label="ПОСЛЕ" style={{ backgroundImage: `url(/photos/${s.id}.jpg)`, border: 0, padding: 0, cursor: 'zoom-in' }} onClick={() => openLightbox(`/photos/${s.id}.jpg`, `${s.title} · после`)} aria-label="Увеличить: после" />
-          </div>
-          <div className="faint" style={{ fontSize: 12, marginTop: 8 }}>
-            {t('service.tapZoom', lang)}
-          </div>
+          {pair ? (
+            <>
+              <BeforeAfterSlider before={pair.before} after={pair.after} height={250} />
+              <div className="faint" style={{ fontSize: 12, marginTop: 8 }}>
+                {lang === 'ru'
+                  ? 'Потяни шторку — сравнение до и после · фото с согласия клиента'
+                  : 'Drag the handle to compare · shared with client consent'}
+              </div>
+            </>
+          ) : (
+            <p className="muted" style={{ fontSize: 13.5, lineHeight: 1.55 }}>
+              {lang === 'ru'
+                ? 'Снимков «до и после» по этой процедуре пока нет — Анжелика покажет свои работы на приёме. Фото выше иллюстрирует процедуру, это не чужой результат.'
+                : 'No before/after shots for this treatment yet — Anjelika will show her work at the visit. The photo above illustrates the procedure, it is not someone else’s result.'}
+            </p>
+          )}
         </div>
 
         <div className="info-block">

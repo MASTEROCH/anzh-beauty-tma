@@ -1,8 +1,17 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Icon, type IconName } from '../components/Icon';
+import { getTgUser } from '../lib/telegram';
+import { setGender, type Gender, g as gg } from '../lib/gender';
+
+export interface OnboardingResult {
+  name: string;
+  gender: Gender;
+  instagram: string;
+  phone: string;
+}
 
 interface Props {
-  onComplete: (data: { name: string; phone: string }) => void;
+  onComplete: (data: OnboardingResult) => void;
   onSkip: () => void;
 }
 
@@ -12,13 +21,13 @@ const BENEFITS: Benefit[] = [
   {
     icon: 'calendar',
     title: 'Запись в 1 тап',
-    sub: 'Без звонков, без WhatsApp. Слот — мгновенное подтверждение.',
+    sub: 'Без звонков и переписок. Выбираешь слот — Анжелика подтверждает.',
     accent: 'gold',
   },
   {
     icon: 'gift',
     title: 'Баллы за каждый визит',
-    sub: 'Копятся в Anjelika Club. Отзыв = +200, фото = +100. Тиры до Diamond.',
+    sub: 'Копятся в Anjelika Club. Отзыв с фото — бонус на следующую процедуру.',
     accent: 'emerald',
   },
   {
@@ -35,34 +44,52 @@ const BENEFITS: Benefit[] = [
   },
 ];
 
-type Step = { num: number; title: string; sub: string };
-const STEPS: Step[] = [
-  { num: 1, title: 'Выбери процедуру', sub: 'Каталог с ценами и противопоказаниями.' },
-  { num: 2, title: 'Тапни удобный слот', sub: 'Анжелика подтвердит, забронируешь за 30 секунд.' },
-  { num: 3, title: 'Приходи готовой', sub: 'Пушу подготовку за 24 ч и план ухода после.' },
-];
+const STEP_COUNT = 5;
 
 export function OnboardingScreen({ onComplete, onSkip }: Props) {
-  const [step, setStep] = useState<0 | 1 | 2 | 3>(0);
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('+995 ');
+  const tg = getTgUser();
+  const [step, setStep] = useState(0);
+  const [name, setName] = useState(tg?.firstName ?? '');
+  const [gender, setGenderLocal] = useState<Gender | null>(null);
+  const [instagram, setInstagram] = useState('');
+  const [phone, setPhone] = useState('');
   const [agree, setAgree] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const bodyRef = useRef<HTMLDivElement>(null);
 
-  const next = () => setStep((s) => (s < 3 ? ((s + 1) as 0 | 1 | 2 | 3) : s));
-  const prev = () => setStep((s) => (s > 0 ? ((s - 1) as 0 | 1 | 2 | 3) : s));
+  // Каждый шаг начинается сверху: без сброса скролла шаг с формой открывается
+  // на середине предыдущего слайда.
+  useEffect(() => { bodyRef.current?.scrollTo({ top: 0 }); }, [step]);
+
+  // Пол уходит в глобальный стор сразу, как его выбрали — все следующие экраны
+  // (включая «3 шага — и ты записана») читают уже его.
+  useEffect(() => {
+    if (gender) setGender(gender);
+  }, [gender]);
+
+  const next = () => setStep((s) => Math.min(STEP_COUNT - 1, s + 1));
+  const prev = () => setStep((s) => Math.max(0, s - 1));
 
   const submit = () => {
-    if (!name.trim() || !agree || submitting) return;
+    if (!agree || submitting || !gender) return;
     setSubmitting(true);
-    setTimeout(() => onComplete({ name: name.trim(), phone: phone.trim() }), 700);
+    setGender(gender);
+    setTimeout(() => onComplete({
+      name: name.trim() || (tg?.firstName ?? ''),
+      gender,
+      instagram: instagram.trim().replace(/^@/, ''),
+      phone: phone.trim(),
+    }), 700);
   };
 
-  const canContinue = step < 3 || (name.trim().length > 1 && agree);
+  const canContinue =
+    step === 1 ? name.trim().length > 1 && gender !== null :
+    step === 4 ? agree :
+    true;
 
   return (
     <div className="onb-screen">
-      {/* Header — skip on first 3 steps, back arrow on later steps */}
+      <div className="onb-orbs" aria-hidden />
       <header className="onb-header">
         {step > 0 ? (
           <button className="header-back" onClick={prev} aria-label="Назад">
@@ -71,27 +98,37 @@ export function OnboardingScreen({ onComplete, onSkip }: Props) {
         ) : (
           <img src="/brand/anzh-logo.svg" alt="ANZH" style={{ height: 22 }} />
         )}
-        <div className="onb-dots" aria-label={`Шаг ${step + 1} из 4`}>
-          {[0, 1, 2, 3].map((i) => (
+        <div className="onb-dots" aria-label={`Шаг ${step + 1} из ${STEP_COUNT}`}>
+          {Array.from({ length: STEP_COUNT }, (_, i) => (
             <span key={i} className={`onb-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} />
           ))}
         </div>
-        {step < 3 ? (
+        {step < STEP_COUNT - 1 ? (
           <button className="onb-skip" onClick={onSkip}>Пропустить</button>
         ) : (
           <div style={{ width: 36 }} />
         )}
       </header>
 
-      {/* Slides */}
-      <div className="onb-body">
-        {step === 0 && <WelcomeSlide />}
-        {step === 1 && <BenefitsSlide />}
-        {step === 2 && <HowItWorksSlide />}
-        {step === 3 && (
-          <SignupSlide
+      <div className="onb-body" ref={bodyRef}>
+        {step === 0 && <WelcomeSlide firstName={tg?.firstName} />}
+        {step === 1 && (
+          <IdentitySlide
             name={name}
             setName={setName}
+            gender={gender}
+            setGender={setGenderLocal}
+            tgHandle={tg?.username}
+          />
+        )}
+        {step === 2 && <BenefitsSlide />}
+        {step === 3 && <HowItWorksSlide gender={gender ?? 'f'} />}
+        {step === 4 && (
+          <SignupSlide
+            name={name}
+            gender={gender ?? 'f'}
+            instagram={instagram}
+            setInstagram={setInstagram}
             phone={phone}
             setPhone={setPhone}
             agree={agree}
@@ -100,19 +137,19 @@ export function OnboardingScreen({ onComplete, onSkip }: Props) {
         )}
       </div>
 
-      {/* Bottom CTA */}
       <div className="onb-cta">
         <button
           className="btn btn-primary btn-block"
-          onClick={step === 3 ? submit : next}
-          disabled={step === 3 ? !canContinue || submitting : false}
+          onClick={step === STEP_COUNT - 1 ? submit : next}
+          disabled={!canContinue || submitting}
         >
           {step === 0 && 'Знакомимся →'}
           {step === 1 && 'Дальше →'}
-          {step === 2 && 'Создать кабинет →'}
-          {step === 3 && (submitting ? 'Создаю…' : 'Создать кабинет · +50 баллов')}
+          {step === 2 && 'Дальше →'}
+          {step === 3 && 'Создать кабинет →'}
+          {step === 4 && (submitting ? 'Создаю…' : 'Создать кабинет · +50 баллов')}
         </button>
-        {step === 3 && (
+        {step === 4 && (
           <p className="onb-fine">
             Создавая кабинет — соглашаешься на хранение паспорта здоровья. Видит только Анжелика.
           </p>
@@ -122,8 +159,8 @@ export function OnboardingScreen({ onComplete, onSkip }: Props) {
   );
 }
 
-/* ─── Step 0 · Welcome ─────────────────────────────────────── */
-function WelcomeSlide() {
+/* ─── Шаг 0 · Приветствие ──────────────────────────────────── */
+function WelcomeSlide({ firstName }: { firstName?: string }) {
   return (
     <div className="onb-slide">
       <div className="onb-welcome">
@@ -136,7 +173,7 @@ function WelcomeSlide() {
         </div>
         <div className="onb-eyebrow">ANZH · cosmetology</div>
         <h1 className="onb-title">
-          Привет, я <span className="onb-name-accent">Анжелика</span>
+          {firstName ? <>{firstName}, привет —<br />я <span className="onb-name-accent">Анжелика</span></> : <>Привет, я <span className="onb-name-accent">Анжелика</span></>}
         </h1>
         <p className="onb-lead">
           Косметолог в Батуми · 8 лет практики · 1 472 процедуры
@@ -160,7 +197,77 @@ function WelcomeSlide() {
   );
 }
 
-/* ─── Step 1 · Benefits ────────────────────────────────────── */
+/* ─── Шаг 1 · Знакомство: имя + обращение ──────────────────── */
+function IdentitySlide({
+  name, setName, gender, setGender, tgHandle,
+}: {
+  name: string; setName: (v: string) => void;
+  gender: Gender | null; setGender: (g: Gender) => void;
+  tgHandle?: string;
+}) {
+  return (
+    <div className="onb-slide">
+      <div className="onb-eyebrow">знакомство</div>
+      <h2 className="onb-title onb-title-sm">Давай познакомимся</h2>
+      <p className="onb-text onb-text-sm">
+        {tgHandle
+          ? 'Имя забрала из Telegram — поправь, если зовут иначе.'
+          : 'Скажи, как тебя зовут и как к тебе обращаться.'}
+      </p>
+
+      {tgHandle && (
+        <div className="onb-tg-badge">
+          <Icon name="check" size={14} strokeWidth={2.4} />
+          <span>@{tgHandle}</span>
+          <span className="faint">· Telegram</span>
+        </div>
+      )}
+
+      <div className="onb-form">
+        <label className="onb-field">
+          <span className="onb-label">имя</span>
+          <input
+            className="onb-input"
+            type="text"
+            placeholder="Как тебя зовут"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoComplete="given-name"
+          />
+        </label>
+
+        <div className="onb-field">
+          <span className="onb-label">пол</span>
+          <div className="seg">
+            <button
+              className={`seg-btn ${gender === 'f' ? 'active' : ''}`}
+              onClick={() => setGender('f')}
+              aria-pressed={gender === 'f'}
+            >
+              <span>Женский</span>
+              {gender === 'f' && <Icon name="check" size={14} strokeWidth={2.6} className="seg-check" />}
+            </button>
+            <button
+              className={`seg-btn ${gender === 'm' ? 'active' : ''}`}
+              onClick={() => setGender('m')}
+              aria-pressed={gender === 'm'}
+            >
+              <span>Мужской</span>
+              {gender === 'm' && <Icon name="check" size={14} strokeWidth={2.6} className="seg-check" />}
+            </button>
+          </div>
+          <span className="onb-hint">
+            {gender
+              ? `Буду писать «ты ${gg('записана', 'записан', gender)}» — и подберу протоколы под тебя.`
+              : 'Нужен, чтобы правильно обращаться и подбирать протоколы.'}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Шаг 2 · Что внутри ───────────────────────────────────── */
 function BenefitsSlide() {
   return (
     <div className="onb-slide">
@@ -186,17 +293,22 @@ function BenefitsSlide() {
   );
 }
 
-/* ─── Step 2 · How it works ────────────────────────────────── */
-function HowItWorksSlide() {
+/* ─── Шаг 3 · Как это работает ─────────────────────────────── */
+function HowItWorksSlide({ gender }: { gender: Gender }) {
+  const steps = [
+    { num: 1, title: 'Выбери процедуру', sub: 'Каталог с ценами и противопоказаниями.' },
+    { num: 2, title: 'Тапни удобный слот', sub: 'Заявка улетит Анжелике — она подтвердит или предложит другое время.' },
+    { num: 3, title: `Приходи ${gg('готовой', 'готовым', gender)}`, sub: 'Пушу подготовку за 24 ч и план ухода после.' },
+  ];
   return (
     <div className="onb-slide">
       <div className="onb-eyebrow">как это работает</div>
-      <h2 className="onb-title onb-title-sm">3 шага — и ты записана</h2>
+      <h2 className="onb-title onb-title-sm">3 шага — и ты {gg('записана', 'записан', gender)}</h2>
       <p className="onb-text onb-text-sm">
         Никаких звонков, переписок и забытых дат — всё в одном экране.
       </p>
       <ol className="onb-steps">
-        {STEPS.map((s) => (
+        {steps.map((s) => (
           <li key={s.num} className="onb-step">
             <div className="onb-step-num">{s.num}</div>
             <div className="onb-step-body">
@@ -217,20 +329,22 @@ function HowItWorksSlide() {
   );
 }
 
-/* ─── Step 3 · Sign-up form ────────────────────────────────── */
+/* ─── Шаг 4 · Контакт для Анжелики ─────────────────────────── */
 function SignupSlide({
-  name, setName, phone, setPhone, agree, setAgree,
+  name, gender, instagram, setInstagram, phone, setPhone, agree, setAgree,
 }: {
-  name: string; setName: (v: string) => void;
+  name: string;
+  gender: Gender;
+  instagram: string; setInstagram: (v: string) => void;
   phone: string; setPhone: (v: string) => void;
   agree: boolean; setAgree: (v: boolean) => void;
 }) {
   return (
     <div className="onb-slide">
       <div className="onb-eyebrow">последний шаг</div>
-      <h2 className="onb-title onb-title-sm">Создай кабинет</h2>
+      <h2 className="onb-title onb-title-sm">{name ? `${name}, где тебя найти` : 'Где тебя найти'}</h2>
       <p className="onb-text onb-text-sm">
-        30 секунд. Анжелика будет знать, как к тебе обращаться, и сразу зачислит приветственные баллы.
+        Анжелика ведёт клиентов по инстаграму — так она узнает, что это ты, и подтянет твою историю процедур.
       </p>
 
       <div className="onb-bonus">
@@ -243,20 +357,23 @@ function SignupSlide({
 
       <div className="onb-form">
         <label className="onb-field">
-          <span className="onb-label">Как тебя зовут</span>
+          <span className="onb-label">
+            инстаграм <span className="faint">· чтобы Анжелика тебя узнала</span>
+          </span>
           <input
             className="onb-input"
             type="text"
-            placeholder="Маша"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            autoFocus
-            autoComplete="given-name"
+            inputMode="text"
+            placeholder="@nickname"
+            value={instagram}
+            onChange={(e) => setInstagram(e.target.value)}
+            autoCapitalize="none"
+            autoCorrect="off"
           />
         </label>
         <label className="onb-field">
           <span className="onb-label">
-            Телефон <span className="faint">· опционально</span>
+            телефон <span className="faint">· опционально</span>
           </span>
           <input
             className="onb-input"
@@ -266,7 +383,7 @@ function SignupSlide({
             onChange={(e) => setPhone(e.target.value)}
             autoComplete="tel"
           />
-          <span className="onb-hint">Для напоминаний и связи если потеряешь Telegram</span>
+          <span className="onb-hint">Нужен, только если потеряется Telegram</span>
         </label>
 
         <button
@@ -277,7 +394,7 @@ function SignupSlide({
         >
           <span className="onb-check">{agree && <Icon name="check" size={14} strokeWidth={2.4} />}</span>
           <span className="onb-agree-text">
-            Согласна на хранение паспорта здоровья. Данные приватные, видит только Анжелика.
+            {gg('Согласна', 'Согласен', gender)} на хранение паспорта здоровья. Данные приватные, видит только Анжелика.
           </span>
         </button>
       </div>

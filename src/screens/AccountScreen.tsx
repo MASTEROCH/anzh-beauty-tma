@@ -1,20 +1,30 @@
+import { useMemo } from 'react';
 import { openSheet, toast } from '../lib/ui';
 import { Icon } from '../components/Icon';
 import { ReviewSheet } from '../components/ReviewSheet';
 import { SettingsSheet } from '../components/SettingsSheet';
+import { HealthPassportSheet } from '../components/HealthPassportSheet';
+import { PinGate } from '../components/PinGate';
 import { t } from '../lib/i18n';
+import { findService, sTitle, servicePhoto } from '../data/services';
+import {
+  useAppointments, getUpcoming, getPast, getMyAppointments,
+  cancelAppointment, acceptOffer, formatLongDate, formatWeekday, formatMonthShort,
+  fromISODate, formatShort, STATUS_LABEL, type Appointment,
+} from '../lib/appointments';
+import { useHealthPassport, passportFlags, SENSITIVITY_LABEL } from '../lib/healthPassport';
+import { tierOf, nextTier, tierProgress, pointsToNext, pointsForVisit, TIERS } from '../lib/loyalty';
+import { timelineFor } from '../lib/notifications';
+import { useBonuses, getActiveBonuses, daysLeft, SOURCE_LABEL } from '../lib/bonuses';
+import { useQuizResults } from '../lib/quizResults';
+import { findQuiz } from '../data/quizzes';
+import { QuizRunner } from '../components/QuizRunner';
+import { SECONDARY_LABEL } from '../lib/quizScore';
+import { g, useGender } from '../lib/gender';
+import type { ClientProfile } from '../App';
 
 type Lang = 'ru' | 'en';
 type Currency = 'usd' | 'gel';
-
-type HistoryItem = { id: string; photo: string; name: string; when: string; sub: string; amount: number };
-
-const HISTORY: HistoryItem[] = [
-  { id: 'h1', photo: '/photos/biorevit.jpg', name: 'Биоревитализация', when: '12 апр', sub: 'IAL-System · оплачено', amount: 110 },
-  { id: 'h2', photo: '/photos/deep-cleansing.jpg', name: 'Глубокая чистка лица', when: '8 мар', sub: 'оплачено', amount: 80 },
-  { id: 'h3', photo: '/photos/lip-filler.jpg', name: 'Контурная пластика губ', when: '21 фев', sub: 'Restylane Kysse', amount: 150 },
-  { id: 'h4', photo: '/photos/pdrn.jpg', name: 'PDRN · ДНК-терапия', when: '14 янв', sub: 'оплачено', amount: 180 },
-];
 
 export function AccountScreen({
   onBook,
@@ -25,7 +35,9 @@ export function AccountScreen({
   onCurrency,
   points,
   onAwardPoints,
-  userName,
+  client,
+  onPlan,
+  onStudio,
 }: {
   onBook: () => void;
   onReschedule: () => void;
@@ -35,50 +47,84 @@ export function AccountScreen({
   onCurrency: (c: Currency) => void;
   points: number;
   onAwardPoints: (p: number) => void;
-  userName: string;
+  client: ClientProfile;
+  onPlan: () => void;
+  onStudio: () => void;
 }) {
-  const openReview = (defaultServiceId?: string) =>
+  const all = useAppointments();
+  const passport = useHealthPassport();
+  const gender = useGender();
+  const bonuses = useBonuses();
+  const quizResults = useQuizResults();
+  const activeBonuses = useMemo(() => getActiveBonuses(bonuses), [bonuses]);
+  const userName = client.name;
+
+  const mine = useMemo(
+    () => getMyAppointments(all, client.instagram || undefined, client.name),
+    [all, client.instagram, client.name],
+  );
+  const upcoming = useMemo(() => getUpcoming(mine), [mine]);
+  const history = useMemo(() => getPast(mine).filter((a) => a.status === 'completed'), [mine]);
+
+  const tier = tierOf(points);
+  const nTier = nextTier(points);
+  const flags = passportFlags(passport, lang === 'ru');
+
+  const openReview = (serviceId?: string) =>
     openSheet({
       title: 'Оставить отзыв',
       subtitle: 'Скидка на следующую процедуру',
-      body: <ReviewSheet defaultServiceId={defaultServiceId} onAwardPoints={onAwardPoints} />,
+      body: <ReviewSheet defaultServiceId={serviceId} onAwardPoints={onAwardPoints} />,
     });
+
   const showSettings = () =>
     openSheet({
       title: t('settings.title', lang),
       subtitle: 'ANZH Cosmetology',
-      body: <SettingsSheet lang={lang} onLang={onLang} currency={currency} onCurrency={onCurrency} />,
+      body: <SettingsSheet lang={lang} onLang={onLang} currency={currency} onCurrency={onCurrency} onStudio={openStudioGate} />,
+    });
+
+  const openStudioGate = () =>
+    openSheet({
+      title: 'Кабинет мастера',
+      subtitle: 'Только для Анжелики',
+      body: <PinGate onUnlock={onStudio} />,
     });
 
   const showLoyalty = () =>
     openSheet({
       title: 'Anjelika Club',
-      subtitle: 'Программа лояльности',
+      subtitle: `${tier.label} · ${tier.cashback}% кэшбэк`,
       body: (
         <>
-          <div className="loyalty-card" style={{ margin: 0 }}>
-            <div className="loyalty-tier">★ Silver · сейчас твой тир</div>
-            <div className="loyalty-points">380<small> баллов</small></div>
-            <div className="loyalty-progress"><div className="loyalty-progress-fill" style={{ width: '64%' }} /></div>
-            <div className="loyalty-hint">До Gold-тира ещё 220 баллов.</div>
+          <div className="loyalty-card" style={{ margin: 0, width: '100%' }}>
+            <div className="loyalty-tier">★ {tier.label} · сейчас твой тир</div>
+            <div className="loyalty-points">{points}<small> {lang === 'ru' ? 'баллов' : 'points'}</small></div>
+            <div className="loyalty-progress"><div className="loyalty-progress-fill" style={{ width: `${tierProgress(points)}%` }} /></div>
+            <div className="loyalty-hint">
+              {nTier ? `До ${nTier.label} ещё ${pointsToNext(points)} баллов.` : 'Максимальный тир — спасибо, что ты с Анжеликой 💛'}
+            </div>
           </div>
           <div style={{ marginTop: 16 }}>
             <div className="eyebrow" style={{ marginBottom: 8 }}>как зарабатывать</div>
             <ul className="info-list">
-              <li>5% от чека возвращается баллами</li>
+              <li>{tier.cashback}% от чека возвращается баллами — по твоему тиру</li>
               <li>Отзыв → −10% на следующую процедуру</li>
-              <li>День рождения → +500 баллов</li>
+              <li>Отзыв с фото через месяц → бонус на следующий визит</li>
               <li>Приведи подругу → +1000 баллов обоим</li>
             </ul>
           </div>
           <div style={{ marginTop: 16 }}>
             <div className="eyebrow" style={{ marginBottom: 8 }}>тиры и привилегии</div>
-            <ul className="info-list">
-              <li>Bronze · 5% кэшбэк</li>
-              <li>Silver · 7% + приоритетная запись</li>
-              <li>Gold · 10% + закрытые акции</li>
-              <li>Diamond · 15% + персональный визажист</li>
-            </ul>
+            <div className="tier-list">
+              {TIERS.map((x) => (
+                <div key={x.key} className={`tier-row ${x.key === tier.key ? 'now' : ''} ${points >= x.min ? 'reached' : ''}`}>
+                  <span className="tier-name">{x.label}</span>
+                  <span className="tier-perk">{x.perk[lang]}</span>
+                  <span className="tier-min">{x.min}+</span>
+                </div>
+              ))}
+            </div>
           </div>
         </>
       ),
@@ -86,7 +132,7 @@ export function AccountScreen({
         <button
           className="btn btn-primary btn-block"
           onClick={() => {
-            navigator.clipboard?.writeText('https://anzh.tma/ref/masha');
+            navigator.clipboard?.writeText(`https://t.me/anzh_bot?start=ref_${client.tgId ?? client.instagram ?? 'me'}`);
             toast('Реферальная ссылка скопирована', 'success');
           }}
         >
@@ -95,28 +141,60 @@ export function AccountScreen({
       ),
     });
 
-  const showAppointment = () =>
+  const showAppointment = (a: Appointment) => {
+    const svc = findService(a.serviceId);
+    const st = STATUS_LABEL[a.status];
     openSheet({
-      title: 'Контурная пластика губ',
-      subtitle: 'Пятница 24 мая · 16:30',
+      title: svc ? sTitle(svc, lang) : a.serviceId,
+      subtitle: `${formatLongDate(fromISODate(a.dateISO), lang)} · ${a.slot}`,
       body: (
         <>
-          <ul className="info-list">
-            <li>Restylane Kysse · 1 мл</li>
-            <li>Длительность 90 мин</li>
-            <li>Parnavaz Mepe 92/94, 3 этаж · домофон 12</li>
-            <li>Депозит $15 удержан, к оплате на месте $135</li>
+          <div className={`appt-status ${st.tone}`}>
+            <Icon name={a.status === 'confirmed' ? 'check' : a.status === 'pending' ? 'clock' : 'info'} size={15} strokeWidth={2.2} />
+            {st[lang]}
+          </div>
+
+          {a.status === 'offered' && a.offeredDateISO && (
+            <div className="offer-box">
+              <div className="offer-box-title">Анжелика предложила другое время</div>
+              <div className="offer-box-time">
+                {formatLongDate(fromISODate(a.offeredDateISO), lang)} · {a.offeredSlot}
+              </div>
+              <p className="faint" style={{ fontSize: 12, marginTop: 6 }}>
+                Твой слот заняли по телефону — бывает. Подходит новое время?
+              </p>
+            </div>
+          )}
+
+          <ul className="info-list" style={{ marginTop: 14 }}>
+            <li>{svc?.short}</li>
+            <li>Длительность {svc?.duration} мин</li>
+            <li>Parnavaz Mepe 92/94, 1 этаж · домофон 12</li>
+            <li>К оплате на месте ${svc?.priceUsd}</li>
           </ul>
-          <p className="muted" style={{ fontSize: 13, marginTop: 12 }}>
-            Подготовка: 24 часа без алкоголя и аспирина. За 2 часа я пришлю финальный пинг.
-          </p>
+          {a.comment && <p className="muted" style={{ fontSize: 13, marginTop: 10 }}>Твой комментарий: «{a.comment}»</p>}
+
+          <div className="eyebrow" style={{ margin: '16px 0 8px' }}>что я пришлю</div>
+          <ul className="notif-timeline">
+            {timelineFor(svc ? sTitle(svc, lang) : 'процедуру')
+              .filter((n) => n.to === 'client')
+              .map((n) => (
+                <li key={n.when}>
+                  <span className="nt-when">{n.when}</span>
+                  <span className="nt-text">{n.text}</span>
+                </li>
+              ))}
+          </ul>
         </>
       ),
       actions: (
         <>
-          <button className="btn btn-primary btn-block" onClick={onReschedule}>
-            Перенести
-          </button>
+          {a.status === 'offered' && (
+            <button className="btn btn-primary btn-block" onClick={() => { acceptOffer(a.id); toast('Новое время принято ✓', 'success'); }}>
+              Подходит · подтвердить
+            </button>
+          )}
+          <button className="btn btn-ghost btn-block" onClick={onReschedule}>Перенести</button>
           <button
             className="btn btn-ghost btn-block"
             onClick={() => {
@@ -129,9 +207,7 @@ export function AccountScreen({
           <button
             className="btn btn-ghost btn-block"
             onClick={() => {
-              if (confirm('Отменить запись? Депозит сгорит — до 24 часов до процедуры.')) {
-                toast('Запись отменена', 'success');
-              }
+              if (confirm('Отменить запись?')) { cancelAppointment(a.id); toast('Запись отменена'); }
             }}
           >
             Отменить запись
@@ -139,108 +215,49 @@ export function AccountScreen({
         </>
       ),
     });
+  };
 
-  const showHistory = (h: HistoryItem) =>
+  const showHistory = (a: Appointment) => {
+    const svc = findService(a.serviceId);
+    const photo = servicePhoto(a.serviceId);
     openSheet({
-      title: h.name,
-      subtitle: `${h.when} 2026 · оплачено`,
+      title: svc ? sTitle(svc, lang) : a.serviceId,
+      subtitle: `${formatShort(a.dateISO, lang)} · ${lang === 'ru' ? 'оплачено' : 'paid'}`,
       body: (
         <>
-          <div className="beforeafter">
-            <div className="beforeafter-tile before" data-label="ДО" style={{ backgroundImage: `url(${h.photo})` }} />
-            <div className="beforeafter-tile after" data-label="ПОСЛЕ" style={{ backgroundImage: `url(${h.photo})` }} />
-          </div>
+          {photo && (
+            <img
+              src={photo}
+              alt=""
+              style={{ width: '100%', height: 200, objectFit: 'cover', borderRadius: 14, display: 'block' }}
+            />
+          )}
           <ul className="info-list" style={{ marginTop: 14 }}>
-            <li>{h.sub}</li>
-            <li>Сумма: ${h.amount}</li>
-            <li>Начислено баллов: +{Math.round(h.amount * 0.05)}</li>
+            <li>{svc?.short}</li>
+            <li>Сумма: ${a.amount ?? svc?.priceUsd}</li>
+            <li>{lang === 'ru' ? 'Начислено баллов' : 'Points earned'}: +{pointsForVisit(a.amount ?? svc?.priceUsd ?? 0, points)}</li>
             <li>Заметка мастера приватна</li>
           </ul>
         </>
       ),
       actions: (
         <>
-          <button className="btn btn-primary btn-block" onClick={() => { toast('Повторно записываю на эту процедуру…'); setTimeout(onBook, 600); }}>
+          <button className="btn btn-primary btn-block" onClick={() => { toast('Открываю запись на эту процедуру'); setTimeout(onBook, 500); }}>
             Записаться повторно
           </button>
-          <button
-            className="btn btn-ghost btn-block"
-            onClick={() => openReview(h.id.startsWith('h') ? undefined : h.id)}
-          >
+          <button className="btn btn-ghost btn-block" onClick={() => openReview(a.serviceId)}>
             Оставить отзыв · −10%
           </button>
         </>
       ),
     });
-
-  const showAllHistory = () =>
-    openSheet({
-      title: 'История · 7 процедур',
-      subtitle: 'Полная история визитов',
-      body: (
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          {HISTORY.map((h) => (
-            <button
-              key={h.id}
-              className="history-row"
-              onClick={() => showHistory(h)}
-            >
-              <div className="history-icon" style={{ backgroundImage: `url(${h.photo})` }} />
-              <div className="history-body">
-                <div className="history-name">{h.name}</div>
-                <div className="history-when">{h.when} · {h.sub}</div>
-              </div>
-              <div className="history-amount">${h.amount}</div>
-            </button>
-          ))}
-        </div>
-      ),
-    });
+  };
 
   const showHealth = () =>
     openSheet({
       title: 'Паспорт здоровья',
       subtitle: 'Анкета · видит только Анжелика',
-      body: (
-        <>
-          <div className="col" style={{ gap: 12 }}>
-            <div>
-              <div className="eyebrow" style={{ marginBottom: 6 }}>аллергии</div>
-              <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
-                <span className="chip chip-gold">Без аллергий</span>
-                <span className="chip chip-amber">⚠ Лидокаин — слабая реакция</span>
-              </div>
-            </div>
-            <div>
-              <div className="eyebrow" style={{ marginBottom: 6 }}>состояние</div>
-              <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
-                <span className="chip">Не беременна</span>
-                <span className="chip">Без хроник</span>
-                <span className="chip">Не курит</span>
-              </div>
-            </div>
-            <div>
-              <div className="eyebrow" style={{ marginBottom: 6 }}>кожа</div>
-              <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
-                <span className="chip">Тип II</span>
-                <span className="chip">Без купероза</span>
-                <span className="chip">Чувствительность · средняя</span>
-              </div>
-            </div>
-          </div>
-          <p className="muted" style={{ fontSize: 13, marginTop: 14 }}>
-            Анкета синхронизирована с записями. Перед каждой процедурой я проверяю противопоказания автоматически.
-          </p>
-        </>
-      ),
-      actions: (
-        <button
-          className="btn btn-primary btn-block"
-          onClick={() => toast('Открываю полную форму редактирования…')}
-        >
-          Редактировать анкету
-        </button>
-      ),
+      body: <HealthPassportSheet onBook={() => onBook()} />,
     });
 
   return (
@@ -250,61 +267,205 @@ export function AccountScreen({
           <div className="eyebrow">{t('account.title', lang)}</div>
           <div className="header-title">{userName}</div>
         </div>
-        <button className="chip" onClick={showSettings} aria-label="Настройки"><Icon name="settings" size={14} strokeWidth={1.8} /> {t('settings.title', lang)}</button>
+        <button className="chip" onClick={showSettings} aria-label="Настройки">
+          <Icon name="settings" size={14} strokeWidth={1.8} /> {t('settings.title', lang)}
+        </button>
       </header>
 
       <section className="account-hero">
-        <h1 className="account-hello">{t('account.hello', lang)}, {userName} <Icon name="heart-filled" size={22} strokeWidth={0} style={{ color: 'var(--brand-gold)', verticalAlign: '-2px' }} /></h1>
-        <div className="account-sub">{t('account.clientSince', lang)} 2024 · 7 {t('account.procs', lang)} · VIP</div>
+        <h1 className="account-hello">
+          {t('account.hello', lang)}, {userName}{' '}
+          <Icon name="heart-filled" size={22} strokeWidth={0} style={{ color: 'var(--brand-gold)', verticalAlign: '-2px' }} />
+        </h1>
+        <div className="account-sub">
+          {t('account.clientSince', lang)} 2024 · {history.length} {t('account.procs', lang)} · {tier.label}
+        </div>
       </section>
 
       <button className="loyalty-card" onClick={showLoyalty}>
-        <div className="loyalty-tier">★ Silver · Anjelika Club</div>
-        <div className="loyalty-points">{points}<small> баллов</small></div>
-        <div className="loyalty-progress"><div className="loyalty-progress-fill" style={{ width: `${Math.min(100, Math.round((points / 600) * 100))}%` }} /></div>
-        <div className="loyalty-hint">До Gold-тира ещё {Math.max(0, 600 - points)} баллов · отзыв и сторис — скидки на процедуры.</div>
+        <div className="loyalty-tier">★ {tier.label} · Anjelika Club</div>
+        <div className="loyalty-points">{points}<small> {lang === 'ru' ? 'баллов' : 'points'}</small></div>
+        <div className="loyalty-progress"><div className="loyalty-progress-fill" style={{ width: `${tierProgress(points)}%` }} /></div>
+        <div className="loyalty-hint">
+          {nTier
+            ? (lang === 'ru'
+                ? `До ${nTier.label} ещё ${pointsToNext(points)} баллов · кэшбэк ${tier.cashback}%`
+                : `${pointsToNext(points)} points to ${nTier.label} · ${tier.cashback}% cashback`)
+            : (lang === 'ru'
+                ? `Максимальный тир · кэшбэк ${tier.cashback}%`
+                : `Top tier · ${tier.cashback}% cashback`)}
+        </div>
       </button>
 
-      <button className="next-appt" onClick={showAppointment}>
-        <div className="next-appt-day">
-          <span className="d">24</span>
-          <span className="m">МАЙ</span>
-        </div>
-        <div className="next-appt-body">
-          <div className="t">{t('account.next', lang)}</div>
-          <div className="what">{lang === 'ru' ? 'Контурная пластика губ' : 'Lip contouring'}</div>
-          <div className="when">{lang === 'ru' ? 'пятница' : 'Friday'} · 16:30 · Parnavaz Mepe 92/94</div>
-        </div>
-        <div style={{ color: 'var(--tl)', fontSize: 18, paddingRight: 4 }}>›</div>
-      </button>
+      {upcoming.length > 0 ? (
+        <section className="section" style={{ paddingBottom: 0 }}>
+          <div className="eyebrow" style={{ marginBottom: 8 }}>
+            {upcoming.length > 1 ? `записи · ${upcoming.length}` : t('account.next', lang)}
+          </div>
+          <div className="col" style={{ gap: 10 }}>
+            {upcoming.map((a) => {
+              const svc = findService(a.serviceId);
+              const st = STATUS_LABEL[a.status];
+              const d = fromISODate(a.dateISO);
+              return (
+                <button key={a.id} className={`next-appt status-${st.tone}`} onClick={() => showAppointment(a)}>
+                  <div className="next-appt-day">
+                    <span className="d">{d.getDate()}</span>
+                    <span className="m">{formatMonthShort(d, lang)}</span>
+                  </div>
+                  <div className="next-appt-body">
+                    <div className="t">{st[lang]}</div>
+                    <div className="what">{svc ? sTitle(svc, lang) : a.serviceId}</div>
+                    <div className="when">{formatWeekday(d, lang)} · {a.slot} · Parnavaz Mepe 92/94</div>
+                  </div>
+                  <div style={{ color: 'var(--tl)', fontSize: 18, paddingRight: 4 }}>›</div>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      ) : (
+        <section className="section" style={{ paddingBottom: 0 }}>
+          <div className="card" style={{ padding: 20, textAlign: 'center' }}>
+            <div className="muted">Записей пока нет</div>
+            <button className="btn btn-primary btn-sm" style={{ marginTop: 12 }} onClick={onBook}>
+              Выбрать время
+            </button>
+          </div>
+        </section>
+      )}
+
+      {activeBonuses.length > 0 && (
+        <section className="section" style={{ paddingBottom: 0 }}>
+          <div className="eyebrow" style={{ marginBottom: 8 }}>{lang === 'ru' ? 'мои бонусы' : 'my bonuses'} · {activeBonuses.length}</div>
+          <div className="col" style={{ gap: 8 }}>
+            {activeBonuses.map((b, i) => (
+              <div key={b.id} className="bonus-card reveal" style={{ animationDelay: `${i * 50}ms` }}>
+                <div className="bonus-percent">−{b.percent}%</div>
+                <div className="bonus-body">
+                  <div className="bonus-title">{b.title}</div>
+                  <div className="bonus-note">{SOURCE_LABEL[b.source][lang]} · {b.note}</div>
+                </div>
+                <div className="bonus-left">
+                  <span className="bonus-days">{daysLeft(b)} {lang === 'ru' ? 'дн.' : 'days'}</span>
+                  <button
+                    className="bonus-code"
+                    onClick={() => { navigator.clipboard?.writeText(b.code); toast(`Промокод ${b.code} скопирован`, 'success'); }}
+                  >
+                    {b.code}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="faint" style={{ fontSize: 12, marginTop: 8 }}>
+            {lang === 'ru'
+              ? 'Бонус применяется при записи — говорить о нём не нужно, Анжелика видит его у себя.'
+              : 'The bonus applies when you book — no need to mention it, Anjelika sees it on her side.'}
+          </p>
+        </section>
+      )}
 
       <section className="section">
-        <div className="section-head">
-          <div>
-            <div className="eyebrow">{t('account.history', lang)}</div>
-            <h2 className="section-title">{t('account.historyTitle', lang)}</h2>
+        <button className="plan-cta" onClick={onPlan}>
+          <div className="plan-cta-icon"><Icon name="sparkles" size={20} strokeWidth={1.8} /></div>
+          <div className="plan-cta-text">
+            <div className="plan-cta-title">{lang === 'ru' ? 'План процедур' : 'Treatment plan'}</div>
+            <div className="plan-cta-sub">{lang === 'ru' ? 'Соберу курс из избранного — с порядком, интервалами и сроком' : 'I’ll build a course from your favourites — order, intervals, timeline'}</div>
           </div>
-          <button className="section-link" onClick={showAllHistory} style={{ background: 'none', border: 0 }}>
-            {t('account.allN', lang)} 7 →
-          </button>
-        </div>
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          {HISTORY.slice(0, 3).map((h) => (
-            <button
-              key={h.id}
-              className="history-row"
-              onClick={() => showHistory(h)}
-            >
-              <div className="history-icon" style={{ backgroundImage: `url(${h.photo})` }} />
-              <div className="history-body">
-                <div className="history-name">{h.name}</div>
-                <div className="history-when">{h.when} · {h.sub}</div>
-              </div>
-              <div className="history-amount">${h.amount}</div>
-            </button>
-          ))}
-        </div>
+          <Icon name="chevron-right" size={20} strokeWidth={2} className="review-cta-arrow" />
+        </button>
       </section>
+
+      {history.length === 0 && (
+        <section className="section" style={{ paddingTop: 0 }}>
+          <div className="card empty-state">
+            <div className="empty-icon"><Icon name="clock" size={26} strokeWidth={1.7} /></div>
+            <div className="empty-title">История пока пустая</div>
+            <div className="empty-sub">
+              Здесь появятся процедуры с фото «до / после», суммой и начисленными баллами —
+              всё собирается само после визита.
+            </div>
+          </div>
+        </section>
+      )}
+
+      {history.length > 0 && (
+        <section className="section" style={{ paddingTop: 0 }}>
+          <div className="section-head">
+            <div>
+              <div className="eyebrow">{t('account.history', lang)}</div>
+              <h2 className="section-title">{t('account.historyTitle', lang)}</h2>
+            </div>
+            <span className="faint" style={{ fontSize: 13 }}>{history.length}</span>
+          </div>
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            {history.map((a, i) => {
+              const svc = findService(a.serviceId);
+              return (
+                <button key={a.id} className="history-row reveal" style={{ animationDelay: `${Math.min(i, 8) * 45}ms` }} onClick={() => showHistory(a)}>
+                  <div className={`history-icon${servicePhoto(a.serviceId) ? '' : ' history-icon--blank'}`} style={servicePhoto(a.serviceId) ? { backgroundImage: `url(${servicePhoto(a.serviceId)})` } : undefined}>{!servicePhoto(a.serviceId) && <Icon name={svc?.icon ?? 'sparkles'} size={17} strokeWidth={1.8} />}</div>
+                  <div className="history-body">
+                    <div className="history-name">{svc ? sTitle(svc, lang) : a.serviceId}</div>
+                    <div className="history-when">{formatShort(a.dateISO, lang)} · {lang === 'ru' ? 'оплачено' : 'paid'}</div>
+                  </div>
+                  <div className="history-amount">${a.amount ?? svc?.priceUsd}</div>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {quizResults.length > 0 && (
+        <section className="section" style={{ paddingTop: 0 }}>
+          <div className="section-head">
+            <div>
+              <div className="eyebrow">{lang === 'ru' ? 'разборы кожи' : 'skin analyses'}</div>
+              <h2 className="section-title">{lang === 'ru' ? 'Что известно о коже' : 'What we know'}</h2>
+            </div>
+            <span className="faint" style={{ fontSize: 13 }}>{quizResults.length}</span>
+          </div>
+          <div className="col" style={{ gap: 8 }}>
+            {quizResults.map((r, i) => {
+              const quiz = findQuiz(r.quizId);
+              return (
+                <button
+                  key={r.quizId}
+                  className="result-row reveal"
+                  style={{ animationDelay: `${i * 45}ms` }}
+                  onClick={() => openSheet({
+                    title: r.quizTitle,
+                    subtitle: `${lang === 'ru' ? 'пройден' : 'taken'} ${new Date(r.takenAt).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', { day: 'numeric', month: 'long' })}`,
+                    body: quiz
+                      ? <QuizRunner quiz={quiz} onBook={(id) => { onBook(); void id; }} />
+                      : <p className="muted">{r.title}</p>,
+                  })}
+                >
+                  <div className="result-row-icon"><Icon name={quiz?.icon ?? 'sparkles'} size={17} strokeWidth={1.8} /></div>
+                  <div className="result-row-body">
+                    <div className="result-row-title">{r.title}</div>
+                    <div className="result-row-sub">{r.quizTitle} · {r.sub}</div>
+                    {r.secondary && r.secondary.length > 0 && (
+                      <div className="row" style={{ flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+                        {r.secondary.map((sc) => (
+                          <span key={sc} className="result-tag">{SECONDARY_LABEL[sc]?.[lang] ?? sc}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <Icon name="chevron-right" size={18} strokeWidth={2} style={{ color: 'var(--text-hint)', flexShrink: 0 }} />
+                </button>
+              );
+            })}
+          </div>
+          <p className="faint" style={{ fontSize: 12, marginTop: 8 }}>
+            {lang === 'ru'
+              ? 'Анжелика видит эти разборы до визита — рассказывать заново не нужно.'
+              : 'Anjelika sees these before your visit — no need to repeat yourself.'}
+          </p>
+        </section>
+      )}
 
       <section className="section" style={{ paddingTop: 0 }}>
         <div className="section-head">
@@ -321,23 +482,29 @@ export function AccountScreen({
             <div className="patient-avatar">{userName.slice(0, 1).toUpperCase()}</div>
             <div className="patient-id">
               <div className="patient-name">{userName}</div>
-              <div className="patient-meta">ID ANZH-0342 · {lang === 'ru' ? 'клиент с 2024' : 'client since 2024'}</div>
+              <div className="patient-meta">
+                {client.instagram ? `@${client.instagram}` : 'ID ANZH-0342'} · {lang === 'ru' ? 'клиент с 2024' : 'client since 2024'}
+              </div>
             </div>
-            <div className="patient-badge">Fitzpatrick II</div>
+            <div className="patient-badge">Fitzpatrick {passport.fitzpatrick}</div>
           </div>
           <div className="patient-vitals">
-            <div className="pv"><span className="pv-label">{lang === 'ru' ? 'Тип кожи' : 'Skin type'}</span><span className="pv-val">{lang === 'ru' ? 'Комбинированная' : 'Combination'}</span></div>
-            <div className="pv"><span className="pv-label">{lang === 'ru' ? 'Чувствит.' : 'Sensitivity'}</span><span className="pv-val">{lang === 'ru' ? 'Средняя' : 'Medium'}</span></div>
-            <div className="pv"><span className="pv-label">{lang === 'ru' ? 'Купероз' : 'Couperose'}</span><span className="pv-val">{lang === 'ru' ? 'Нет' : 'No'}</span></div>
+            <div className="pv"><span className="pv-label">{lang === 'ru' ? 'Тип кожи' : 'Skin type'}</span><span className="pv-val">{passport.skinType}</span></div>
+            <div className="pv"><span className="pv-label">{lang === 'ru' ? 'Чувствит.' : 'Sensitivity'}</span><span className="pv-val">{SENSITIVITY_LABEL[passport.sensitivity][lang]}</span></div>
+            <div className="pv"><span className="pv-label">{lang === 'ru' ? 'Купероз' : 'Couperose'}</span><span className="pv-val">{passport.couperose ? (lang === 'ru' ? 'Есть' : 'Yes') : (lang === 'ru' ? 'Нет' : 'No')}</span></div>
           </div>
           <div className="patient-flags">
-            <span className="flag warn"><Icon name="warning" size={13} strokeWidth={2} /> {lang === 'ru' ? 'Лидокаин — слабая реакция' : 'Lidocaine — mild reaction'}</span>
-            <span className="flag ok"><Icon name="check" size={13} strokeWidth={2.4} /> {lang === 'ru' ? 'Без аллергий' : 'No allergies'}</span>
-            <span className="flag ok"><Icon name="check" size={13} strokeWidth={2.4} /> {lang === 'ru' ? 'Не беременна · без хроник' : 'Not pregnant · no chronic'}</span>
+            {flags.slice(0, 4).map((f) => (
+              <span key={f.text} className={`flag ${f.kind}`}>
+                <Icon name={f.kind === 'warn' ? 'warning' : 'check'} size={13} strokeWidth={2.2} /> {f.text}
+              </span>
+            ))}
           </div>
           <div className="patient-foot">
             <Icon name="shield-check" size={14} strokeWidth={1.8} />
-            {lang === 'ru' ? 'Анжелика проверяет флаги перед каждой записью' : 'Anjelika reviews these flags before every visit'}
+            {passport.updatedAt
+              ? `Обновлено ${new Date(passport.updatedAt).toLocaleDateString('ru-RU')} · Анжелика сверяет перед каждой записью`
+              : 'Анжелика сверяет флаги перед каждой записью'}
           </div>
         </button>
       </section>
@@ -348,13 +515,16 @@ export function AccountScreen({
         </button>
       </div>
       <div style={{ padding: '0 20px 20px' }}>
-        <button
-          className="btn btn-ghost btn-block"
-          onClick={() => openReview()}
-        >
-          Оставить отзыв · −10%
+        <button className="btn btn-ghost btn-block" onClick={() => openReview()}>
+          {lang === 'ru' ? 'Оставить отзыв · −10%' : 'Leave a review · −10%'}
         </button>
       </div>
+
+      <p className="faint" style={{ fontSize: 12, textAlign: 'center', padding: '0 20px 20px' }}>
+        {lang === 'ru'
+          ? `${g('Записалась', 'Записался', gender)} и передумал${g('а', '', gender)}? Перенос бесплатный в любой момент`
+          : 'Changed your mind? Rescheduling is free, any time'} 💛
+      </p>
     </div>
   );
 }

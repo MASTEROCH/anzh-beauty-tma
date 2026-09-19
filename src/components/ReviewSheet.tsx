@@ -1,7 +1,11 @@
 import { useState } from 'react';
-import { closeSheet, toast } from '../lib/ui';
+import { openSheet, closeSheet, toast } from '../lib/ui';
 import { Icon } from './Icon';
-import { services, sTitle } from '../data/services';
+import { PingPong } from './PingPong';
+import { ReviewCard } from './ReviewCard';
+import { services, sTitle, servicePhoto } from '../data/services';
+import { completeQuest } from '../lib/quests';
+import { addBonus } from '../lib/bonuses';
 import { useLang } from '../lib/i18n';
 
 interface Props {
@@ -33,13 +37,35 @@ export function ReviewSheet({ defaultServiceId, onAwardPoints }: Props) {
     setSubmitting(true);
     setTimeout(() => {
       try { navigator.clipboard?.writeText(code); } catch { /* ignore */ }
-      toast(
-        ru
-          ? `Готово! −${totalDiscount}% на следующую процедуру · промокод ${code} скопирован`
-          : `Done! −${totalDiscount}% off your next treatment · promo ${code} copied`,
-        'success',
-      );
-      closeSheet();
+      const service = services.find((s) => s.id === serviceId)!;
+      // Отзыв — единственное задание, которое приложение видит само
+      completeQuest('review');
+      // Скидка больше не живёт одним тостом — она лежит в кабинете до визита
+      addBonus({
+        source: withPhoto ? 'review_photo' : 'review',
+        percent: totalDiscount,
+        title: ru ? `−${totalDiscount}% на следующую процедуру` : `−${totalDiscount}% off your next treatment`,
+        note: ru ? 'действует на любую процедуру' : 'valid for any treatment',
+        validDays: 90,
+      });
+      // Отзыв не исчезает в тосте: сразу показываем парадную карточку —
+      // её Анжелика и просила, чтобы человек мог отправить подруге.
+      openSheet({
+        title: ru ? 'Спасибо 💛' : 'Thank you 💛',
+        subtitle: ru ? `−${totalDiscount}% на следующую · промокод ${code}` : `−${totalDiscount}% off next · promo ${code}`,
+        body: (
+          <ReviewCard
+            data={{
+              author: ru ? 'Твой отзыв' : 'Your review',
+              stars,
+              text: text.trim(),
+              service: sTitle(service, lang),
+              date: new Date().toLocaleDateString(ru ? 'ru-RU' : 'en-US', { day: 'numeric', month: 'long' }),
+              photo: withPhoto ? servicePhoto(service.id) ?? undefined : undefined,
+            }}
+          />
+        ),
+      });
     }, 600);
   };
 
@@ -70,7 +96,7 @@ export function ReviewSheet({ defaultServiceId, onAwardPoints }: Props) {
                 onClick={() => setServiceId(s.id)}
               >
                 <Icon name={s.icon} size={13} strokeWidth={1.8} />
-                <span>{title.length > 18 ? title.slice(0, 16) + '…' : title}</span>
+                <PingPong className="chip-pp">{title}</PingPong>
               </button>
             );
           })}
@@ -161,7 +187,7 @@ export function ReviewSheet({ defaultServiceId, onAwardPoints }: Props) {
                 ? (ru ? 'Поставь оценку' : 'Add a rating')
                 : `${ru ? 'Ещё' : 'Add'} ${minChars - text.trim().length} ${ru ? 'символов' : 'chars'}`}
         </button>
-        <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={submitting}>
+        <button className="btn btn-quiet btn-block" onClick={closeSheet} disabled={submitting}>
           {ru ? 'Отмена' : 'Cancel'}
         </button>
       </div>

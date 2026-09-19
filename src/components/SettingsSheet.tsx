@@ -1,7 +1,7 @@
-import { useState } from 'react';
 import { Icon } from './Icon';
 import { toast } from '../lib/ui';
 import { t, useLang, type Lang } from '../lib/i18n';
+import { useNotifications, toggleNotification, NOTIF_ROWS } from '../lib/notifications';
 
 type Currency = 'usd' | 'gel';
 
@@ -10,24 +10,16 @@ interface Props {
   onLang: (l: Lang) => void;
   currency: Currency;
   onCurrency: (c: Currency) => void;
+  onStudio?: () => void;
 }
 
-const NOTIF = [
-  { key: 'settings.notif.24h', icon: 'clock' as const },
-  { key: 'settings.notif.2h', icon: 'bolt' as const },
-  { key: 'settings.notif.post', icon: 'heart' as const },
-  { key: 'settings.notif.promo', icon: 'gift' as const },
-];
-
-export function SettingsSheet({ lang: initialLang, onLang, currency: initialCurrency, onCurrency }: Props) {
-  const lang = useLang();                                  // reactive to global language store
-  const [currency, setCurrency] = useState<Currency>(initialCurrency);
-  const [notif, setNotif] = useState<boolean[]>([true, true, true, false]);
-  void initialLang;
+export function SettingsSheet({ onLang, currency, onCurrency, onStudio }: Props) {
+  const lang = useLang();
+  const notif = useNotifications();
 
   return (
     <div className="col settings-sheet" style={{ gap: 20 }}>
-      {/* Language */}
+      {/* Язык */}
       <div>
         <div className="eyebrow set-eyebrow">{t('settings.lang', lang)}</div>
         <div className="seg">
@@ -45,7 +37,7 @@ export function SettingsSheet({ lang: initialLang, onLang, currency: initialCurr
         </div>
       </div>
 
-      {/* Currency */}
+      {/* Валюта */}
       <div>
         <div className="eyebrow set-eyebrow">{t('settings.currency', lang)}</div>
         <div className="seg">
@@ -53,7 +45,7 @@ export function SettingsSheet({ lang: initialLang, onLang, currency: initialCurr
             <button
               key={c}
               className={`seg-btn ${currency === c ? 'active' : ''}`}
-              onClick={() => { setCurrency(c); onCurrency(c); toast(c === 'usd' ? 'Цены в USD' : 'Цены в GEL', 'success'); }}
+              onClick={() => { onCurrency(c); toast(c === 'usd' ? 'Цены в USD' : 'Цены в GEL', 'success'); }}
             >
               <span style={{ fontWeight: 800 }}>{c === 'usd' ? '$' : '₾'}</span>
               <span>{c.toUpperCase()}</span>
@@ -63,26 +55,40 @@ export function SettingsSheet({ lang: initialLang, onLang, currency: initialCurr
         </div>
       </div>
 
-      {/* Notifications */}
+      {/* Уведомления — теперь переживают перезапуск мини-аппа */}
       <div>
         <div className="eyebrow set-eyebrow">{t('settings.notif', lang)}</div>
         <div className="set-rows">
-          {NOTIF.map((n, i) => (
+          {NOTIF_ROWS.map((n) => (
             <button
               key={n.key}
               className="set-row"
-              onClick={() => setNotif((prev) => prev.map((v, j) => (j === i ? !v : v)))}
-              aria-pressed={notif[i]}
+              onClick={() => toggleNotification(n.key)}
+              aria-pressed={notif[n.key]}
             >
               <span className="set-row-icon"><Icon name={n.icon} size={16} strokeWidth={1.8} /></span>
-              <span className="set-row-label">{t(n.key, lang)}</span>
-              <span className={`toggle ${notif[i] ? 'on' : ''}`}><span className="toggle-knob" /></span>
+              <span className="set-row-label">
+                {n.label[lang]}
+                <span className="set-row-sub">{n.sub[lang]}</span>
+              </span>
+              <span className={`toggle ${notif[n.key] ? 'on' : ''}`}><span className="toggle-knob" /></span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* Footer */}
+      {/* Кабинет мастера */}
+      {onStudio && (
+        <button className="set-row set-row-studio" onClick={onStudio}>
+          <span className="set-row-icon"><Icon name="lotus" size={16} strokeWidth={1.8} /></span>
+          <span className="set-row-label">
+            Кабинет мастера
+            <span className="set-row-sub">Заявки, расписание, база клиентов</span>
+          </span>
+          <Icon name="chevron-right" size={18} strokeWidth={2} style={{ color: 'var(--text-hint)' }} />
+        </button>
+      )}
+
       <div className="set-footer">
         <div className="set-footer-brand">{t('settings.about', lang)}</div>
         <div className="set-footer-ver">{t('settings.version', lang)}</div>

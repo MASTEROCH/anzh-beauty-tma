@@ -1,25 +1,28 @@
-import { profile, gallery, reviews } from '../data/profile';
-import { openSheet, openLightbox, toast } from '../lib/ui';
+import { profile, gallery, reviews, story } from '../data/profile';
+import { openSheet, closeSheet, openLightbox, toast } from '../lib/ui';
 import { ReviewSheet } from '../components/ReviewSheet';
+import { StoryCarousel } from '../components/StoryCarousel';
+import { StudioMap } from '../components/StudioMap';
+import { Gallery } from '../components/Gallery';
 import { Icon } from '../components/Icon';
 import { t } from '../lib/i18n';
 
 const TRUST_KEYS = ['trust.certified', 'trust.mdcodes', 'trust.clients', 'trust.lidocaine'];
-const GALLERY_KEYS = ['gal.contour', 'gal.biorevit', 'gal.cleaning', 'gal.meso', 'gal.peel', 'gal.care'];
 
 type Lang = 'ru' | 'en';
 
 export function ProfileScreen({
   onBook,
   onCatalog,
+  onOpenService,
   lang,
-  onLang,
   onAwardPoints,
 }: {
-  onBook: () => void;
+  onBook: (serviceId?: string) => void;
   onCatalog: () => void;
+  /** Из галереи можно уйти в полную карточку услуги, а не только записаться */
+  onOpenService: (id: string) => void;
   lang: Lang;
-  onLang: (l: Lang) => void;
   onAwardPoints: (points: number) => void;
 }) {
   const ru = lang === 'ru';
@@ -83,87 +86,33 @@ export function ProfileScreen({
         </button>
       ),
     });
+  /* Читать чужие отзывы и написать свой — один и тот же порыв. Раньше шторка
+     со всеми отзывами была тупиком: 312 карточек и ни одного действия, а
+     кнопка «поделись впечатлением» осталась на экране под каруселью, за
+     краем видимости. Теперь выход в свой отзыв есть прямо отсюда. */
   const showAllReviews = () =>
     openSheet({
-      title: 'Все отзывы · 312',
-      subtitle: 'Отсортировано от свежих',
+      title: ru ? 'Все отзывы · 312' : 'All reviews · 312',
+      subtitle: ru ? 'Отсортировано от свежих' : 'Newest first',
       body: (
         <div className="col" style={{ gap: 12 }}>
           {[...reviews, ...reviews].map((r, i) => (
             <article key={i} className="card review-card" style={{ flex: 'unset' }}>
               <div className="review-stars">{'★'.repeat(r.stars)}</div>
               <p className="review-text">{r.text}</p>
-              <div className="review-author">{r.author}</div>
+              <div className="review-author">{r.author} · {r.role[lang]}</div>
             </article>
           ))}
         </div>
       ),
-    });
-
-  const showAllGallery = () =>
-    openSheet({
-      title: lang === 'ru' ? 'Галерея работ' : 'Full gallery',
-      subtitle: lang === 'ru' ? '54 кейса · 2022–2026' : '54 cases · 2022–2026',
-      body: (
-        <div className="gallery">
-          {[...gallery, ...gallery, ...gallery].map((g, i) => (
-            <button key={i} className="gallery-tile" style={{ border: 0, backgroundImage: `url(${g.photo})`, cursor: 'zoom-in' }} onClick={() => openLightbox(g.photo, t(GALLERY_KEYS[i % GALLERY_KEYS.length], lang))}>
-              <span className="gallery-tag">{t(GALLERY_KEYS[i % GALLERY_KEYS.length], lang)}</span>
-            </button>
-          ))}
-        </div>
-      ),
-    });
-
-  const showAddress = () =>
-    openSheet({
-      title: 'Кабинет Анжелики',
-      subtitle: 'Батуми · ул. Parnavaz Mepe 92/94, 3 этаж',
-      body: (
-        <>
-          <div className="map-embed">
-            <iframe
-              title="Кабинет Анжелики на карте"
-              loading="lazy"
-              src="https://www.openstreetmap.org/export/embed.html?bbox=41.6264%2C41.6422%2C41.6384%2C41.6502&layer=mapnik&marker=41.6462%2C41.6324"
-            />
-            <div className="map-pin"><Icon name="pin" size={20} strokeWidth={2} /></div>
-            <a
-              className="map-addr"
-              href="https://www.google.com/maps/search/?api=1&query=41.6462,41.6324"
-              target="_blank"
-              rel="noreferrer"
-            >
-              92/94 Parnavaz Mepe St · Batumi
-            </a>
-          </div>
-          <ul className="info-list" style={{ marginTop: 14 }}>
-            <li>Район Руставели · центр Батуми</li>
-            <li>5 минут пешком от Boulevard</li>
-            <li>Парковка прямо у входа · лифт на 3 этаж</li>
-            <li>Домофон 12</li>
-          </ul>
-        </>
-      ),
       actions: (
         <>
-          <button
-            className="btn btn-primary btn-block"
-            onClick={() => {
-              window.open('https://www.google.com/maps/search/?api=1&query=41.6462,41.6324', '_blank');
-              toast('Открываю в Google Maps', 'success');
-            }}
-          >
-            Открыть в Google Maps
+          <button className="btn btn-primary btn-block" onClick={openReview}>
+            <Icon name="gift" size={16} strokeWidth={2} />
+            {ru ? 'Написать свой · −10%' : 'Write yours · −10%'}
           </button>
-          <button
-            className="btn btn-ghost btn-block"
-            onClick={() => {
-              navigator.clipboard?.writeText('Батуми, ул. Parnavaz Mepe 92/94, 3 этаж');
-              toast('Адрес скопирован', 'success');
-            }}
-          >
-            Скопировать адрес
+          <button className="btn btn-quiet btn-block" onClick={closeSheet}>
+            {ru ? 'Закрыть' : 'Close'}
           </button>
         </>
       ),
@@ -194,7 +143,7 @@ export function ProfileScreen({
           </p>
         </>
       ),
-      actions: <button className="btn btn-primary btn-block" onClick={onBook}>Записаться</button>,
+      actions: <button className="btn btn-primary btn-block" onClick={() => onBook()}>Записаться</button>,
     });
 
   return (
@@ -208,10 +157,6 @@ export function ProfileScreen({
         >
           <img src="/brand/anzh-logo.svg" alt="ANZH" style={{ height: 24 }} />
         </button>
-        <div className="header-lang">
-          <button className={lang === 'ru' ? 'active' : ''} onClick={() => onLang('ru')}>RU</button>
-          <button className={lang === 'en' ? 'active' : ''} onClick={() => onLang('en')}>EN</button>
-        </div>
       </header>
 
       <section className="profile-hero">
@@ -253,7 +198,7 @@ export function ProfileScreen({
         <div className="stat" onClick={showAllReviews}>
           <span className="stat-value">
             {profile.stats.rating}
-            <span style={{ color: 'var(--accent)' }}>★</span>
+            <span className="stat-star">★</span>
           </span>
           <span className="stat-label">{t('profile.stat.rating', lang)}</span>
         </div>
@@ -274,7 +219,7 @@ export function ProfileScreen({
       </div>
 
       <div className="profile-cta-row">
-        <button className="btn btn-primary" onClick={onBook}>
+        <button className="btn btn-primary" onClick={() => onBook()}>
           <Icon name="calendar" size={17} strokeWidth={2} /> {t('common.book', lang)}
         </button>
         <button className="btn btn-ghost" onClick={onCatalog}>
@@ -285,25 +230,50 @@ export function ProfileScreen({
       <section className="section">
         <div className="section-head">
           <div>
+            <div className="eyebrow">{ru ? 'о нас' : 'about'}</div>
+            <h2 className="section-title">{ru ? 'Как здесь всё устроено' : 'How it works here'}</h2>
+          </div>
+        </div>
+        <StoryCarousel stories={story} />
+        <div className="about-facts">
+          <div className="about-fact">
+            <span className="about-fact-v">{profile.stats.years}</span>
+            <span className="about-fact-k">{ru ? 'лет практики' : 'years'}</span>
+          </div>
+          <div className="about-fact">
+            <span className="about-fact-v">1</span>
+            <span className="about-fact-k">{ru ? 'клиент в моменте' : 'client at a time'}</span>
+          </div>
+          <div className="about-fact">
+            <span className="about-fact-v">{profile.stats.procedures.toLocaleString('ru-RU')}</span>
+            <span className="about-fact-k">{ru ? 'процедур' : 'treatments'}</span>
+          </div>
+        </div>
+        <p className="about-text">
+          {ru ? (
+            <>
+              Анжелика ведёт приём в Батуми одна — <strong>без администраторов и потока</strong>.
+              Каждую заявку подтверждает лично, протокол собирает после осмотра, а историю
+              процедур помнит приложение, а не переписка в директе.
+            </>
+          ) : (
+            <>
+              Anjelika works solo in Batumi — <strong>no front desk, no conveyor</strong>. She
+              confirms every request herself, builds the protocol after seeing your skin, and the
+              app remembers your treatment history instead of a DM thread.
+            </>
+          )}
+        </p>
+      </section>
+
+      <section className="section" style={{ paddingTop: 0 }}>
+        <div className="section-head">
+          <div>
             <div className="eyebrow">{t('profile.gallery.eyebrow', lang)}</div>
             <h2 className="section-title">{t('profile.gallery.title', lang)}</h2>
           </div>
-          <button className="section-link" onClick={showAllGallery} style={{ background: 'none', border: 0 }}>
-            {t('common.all', lang)} →
-          </button>
         </div>
-        <div className="gallery">
-          {gallery.map((g, i) => (
-            <button
-              key={g.label}
-              className="gallery-tile"
-              onClick={() => openLightbox(g.photo, t(GALLERY_KEYS[i], lang))}
-              style={{ border: 0, backgroundImage: `url(${g.photo})`, cursor: 'zoom-in' }}
-            >
-              <span className="gallery-tag">{t(GALLERY_KEYS[i], lang)}</span>
-            </button>
-          ))}
-        </div>
+        <Gallery onBook={onBook} onOpenService={onOpenService} />
       </section>
 
       <section className="section" style={{ paddingTop: 0 }}>
@@ -324,7 +294,7 @@ export function ProfileScreen({
                   <article key={`${dup}-${i}`} className="card review-card" onClick={showAllReviews}>
                     <div className="review-stars">{'★'.repeat(r.stars)}</div>
                     <p className="review-text">{r.text}</p>
-                    <div className="review-author">{r.author}</div>
+                    <div className="review-author">{r.author} · {r.role[lang]}</div>
                   </article>
                 ))}
               </div>
@@ -364,29 +334,7 @@ export function ProfileScreen({
             <h2 className="section-title">{t('profile.addr.title', lang)}</h2>
           </div>
         </div>
-        <button className="card" onClick={showAddress} style={{ padding: 16, width: '100%', textAlign: 'left', border: '0.5px solid var(--border)', cursor: 'pointer' }}>
-          <div className="row" style={{ gap: 14 }}>
-            <div
-              style={{
-                flex: '0 0 56px',
-                height: 56,
-                borderRadius: 16,
-                background: 'linear-gradient(135deg, var(--t), var(--tm))',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 22,
-              }}
-            >
-              <Icon name="pin" size={22} strokeWidth={1.8} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600 }}>Батуми · ул. Parnavaz Mepe 92/94, 3 этаж</div>
-              <div className="faint" style={{ fontSize: 13, marginTop: 2 }}>10 мин от Boulevard · парковка у входа</div>
-            </div>
-            <div style={{ color: 'var(--tl)', fontSize: 18 }}>›</div>
-          </div>
-        </button>
+        <StudioMap />
       </section>
     </div>
   );

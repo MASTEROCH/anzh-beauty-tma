@@ -8,3 +8,5 @@ dist-ssr
 .env
 .env.*
 .vercel
+test-results/
+playwright-report/

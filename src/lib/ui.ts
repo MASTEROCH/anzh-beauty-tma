@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { notify, tap } from './haptics';
 
 export type SheetContent = {
   title: string;
@@ -20,6 +21,7 @@ let lightbox: LightboxContent = null;
 let idCounter = 0;
 
 export function toast(text: string, kind: ToastEntry['kind'] = 'info') {
+  notify(kind === 'success' ? 'success' : 'warning');
   const id = ++idCounter;
   toasts = [...toasts, { id, text, kind }];
   toastListeners.forEach((l) => l(toasts));
@@ -30,6 +32,7 @@ export function toast(text: string, kind: ToastEntry['kind'] = 'info') {
 }
 
 export function openSheet(content: NonNullable<SheetContent>) {
+  tap('light');
   sheet = content;
   sheetListeners.forEach((l) => l(sheet));
 }

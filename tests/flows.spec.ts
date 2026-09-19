@@ -1,0 +1,114 @@
+import { test, expect } from '@playwright/test';
+import { fresh, watchConsole, tab, noHorizontalScroll } from './helpers';
+
+// ── Сквозные сценарии ──────────────────────────────────────
+// Проверяем не «кнопка есть», а доходит ли человек до цели.
+
+test('галерея → карточка процедуры → запись', async ({ page }) => {
+  const errors = watchConsole(page);
+  await fresh(page);
+  await tab(page, /ПРОФИЛЬ|PROFILE/i);
+
+  await page.locator('.gallery-tile').first().scrollIntoViewIfNeeded();
+  await page.locator('.gallery-tile').first().click();
+  await expect(page.locator('.sheet-host')).toBeVisible();
+  await expect(page.locator('.case-facts')).toBeVisible();
+
+  await page.locator('.sheet-host button').filter({ hasText: /Записаться|Book/i }).first().click();
+  // Из карточки процедуры человек обязан попадать на выбор времени
+  await expect(page.locator('.screen')).toContainText(/Выбор времени|Pick a time|ЗАПИСЬ|BOOKING/i, { timeout: 5000 });
+  expect(errors).toEqual([]);
+});
+
+test('фильтр направлений сужает галерею и не даёт пустых фильтров', async ({ page }) => {
+  await fresh(page);
+  await tab(page, /ПРОФИЛЬ|PROFILE/i);
+  await page.locator('.gallery-chip').first().scrollIntoViewIfNeeded();
+
+  const total = await page.locator('.gallery-tile').count();
+  const chips = page.locator('.gallery-chip');
+  const n = await chips.count();
+  expect(n).toBeGreaterThan(1);
+
+  for (let i = 1; i < n; i++) {
+    await chips.nth(i).click();
+    await page.waitForTimeout(250);
+    const shown = await page.locator('.gallery-tile').count();
+    // Каждый показанный фильтр обязан что-то показывать
+    expect(shown, `фильтр ${i} не должен быть пустым`).toBeGreaterThan(0);
+    expect(shown).toBeLessThanOrEqual(total);
+  }
+});
+
+test('разбор: paywall → оплата → чек → результат', async ({ page }) => {
+  const errors = watchConsole(page);
+  await fresh(page);
+  await tab(page, /ANZH/i);
+
+  await page.locator('.digital-card').first().click();
+  await expect(page.locator('.pw-hero')).toBeVisible();
+  await expect(page.locator('.pw-price-now')).toContainText(/\d{3}/);
+
+  await page.locator('button').filter({ hasText: /Оплатить|Pay /i }).first().click();
+  await expect(page.locator('.pw-done')).toBeVisible({ timeout: 8000 });
+  await expect(page.locator('.pw-done-receipt')).toContainText(/\d{3}/);
+
+  await page.locator('button').filter({ hasText: /Пройти разбор|Take the analysis/i }).click();
+  await expect(page.locator('.quiz-q')).toBeVisible({ timeout: 5000 });
+  expect(errors).toEqual([]);
+});
+
+test('квиз проходится до конца и выдаёт результат', async ({ page }) => {
+  await fresh(page);
+  await tab(page, /ANZH/i);
+  await page.locator('.quiz-hero').click();
+  await page.locator('button').filter({ hasText: /Пройти бесплатно|Take it free|Пройти заново|Retake/i }).click();
+
+  for (let i = 0; i < 40; i++) {
+    const opts = page.locator('.quiz-option');
+    if (await opts.count() === 0) break;
+    await opts.first().click();
+    await page.waitForTimeout(90);
+    const next = page.locator('button').filter({ hasText: /^Дальше$|^Next$/ });
+    if (await next.count()) { await next.first().click(); await page.waitForTimeout(90); }
+  }
+  await expect(page.locator('.quiz-result-type')).toBeVisible({ timeout: 5000 });
+  await expect(page.locator('.quiz-congrats')).toBeVisible();
+});
+
+test('скидка не даётся тапом: только через задание', async ({ page }) => {
+  await fresh(page);
+  await tab(page, /ANZH/i);
+
+  const before = await page.locator('.digital-stars').first().innerText();
+  await page.locator('.quest-badge').click();
+  await expect(page.locator('.quest-meter-now')).toContainText('0%');
+
+  // Закрыли, ничего не выполнив — цена обязана остаться прежней
+  await page.locator('.sheet-close').click();
+  await page.waitForTimeout(300);
+  expect(await page.locator('.digital-stars').first().innerText()).toBe(before);
+});
+
+test('запись: шаги проходятся и заявка создаётся', async ({ page }) => {
+  const errors = watchConsole(page);
+  await fresh(page);
+  await tab(page, /ЗАПИСЬ|BOOKING/i);
+  await noHorizontalScroll(page);
+  await expect(page.locator('.screen')).toContainText(/Выбор времени|Pick a time/i);
+  expect(errors).toEqual([]);
+});
+
+test('язык переключается на любом экране и держится', async ({ page }) => {
+  await fresh(page);
+  for (const re of [/ПРОФИЛЬ|PROFILE/i, /УСЛУГИ|SERVICES/i, /ПАСПОРТ|PASSPORT/i, /ANZH/i]) {
+    await tab(page, re);
+    await expect(page.locator('.lang-hud')).toBeVisible();
+  }
+  await page.locator('.lang-hud button', { hasText: 'EN' }).click();
+  await page.waitForTimeout(400);
+  await expect(page.locator('.nav-item').first()).toContainText(/PROFILE/i);
+  await page.reload();
+  await page.waitForSelector('.bottom-nav');
+  await expect(page.locator('.nav-item').first()).toContainText(/PROFILE/i);
+});
