@@ -7,6 +7,7 @@ import { PingPong } from '../components/PingPong';
 import { useLang, t } from '../lib/i18n';
 import { requestAppointment, isSlotTaken, toISODate, useAppointments } from '../lib/appointments';
 import { select } from '../lib/haptics';
+import { suggestionsFor } from '../lib/combos';
 import { useHealthPassport, matchContraindications } from '../lib/healthPassport';
 import { useBonuses, bestBonus, redeemBonus } from '../lib/bonuses';
 import type { ClientProfile } from '../App';
@@ -59,6 +60,7 @@ export function BookingScreen({
      за один приход — раньше это была отдельная заявка на каждую, и в её
      расписании они вставали как разные люди. */
   const [extras, setExtras] = useState<string[]>([]);
+  const [showAll, setShowAll] = useState(false);
   const [dateIdx, setDateIdx] = useState(() => dates.findIndex((d) => WORK_DAYS.includes(d.getDay())));
   const [slot, setSlot] = useState<string | null>(null);
   const [comment, setComment] = useState('');
@@ -69,6 +71,13 @@ export function BookingScreen({
   const totalMin = chosen.reduce((n, x) => n + x.duration, 0);
   const totalUsd = chosen.reduce((n, x) => n + x.priceUsd, 0);
   const totalGel = chosen.reduce((n, x) => n + x.priceGel, 0);
+
+  /* Подсказки пересчитываются от ВСЕГО набора: добавили чистку — пилинг
+     сразу уезжает вниз с пометкой «лучше в разные дни» */
+  const suggestions = useMemo(
+    () => suggestionsFor([serviceId, ...extras], live),
+    [serviceId, extras, live],
+  );
 
   const toggleExtra = (id: string) => {
     select();
@@ -228,36 +237,42 @@ export function BookingScreen({
             </div>
           )}
 
-          <div className="eyebrow" style={{ margin: '14px 0 6px' }}>
+          {/* Бегущая лента чипов не годится для выбора: она уезжает
+              раньше, чем человек дочитал название. Здесь он принимает
+              решение, а не любуется движением. Карточки с объяснением,
+              почему это сочетается, и предупреждением, если нет. */}
+          <div className="eyebrow" style={{ margin: '18px 0 8px' }}>
             {ru ? 'добавить к этому визиту' : 'add to this visit'}
           </div>
-          <div className="trust-row marquee chip-marquee" style={{ marginTop: 8 }} aria-label="Услуги">
-            <div className="marquee-track">
-              {[0, 1].map((dup) => (
-                <div className="marquee-group" key={dup} aria-hidden={dup === 1 ? true : undefined}>
-                  {live.map((s) => {
-                    const title = sTitle(s, lang);
-                    return (
-                      <button
-                        key={s.id}
-                        className={`chip ${serviceId === s.id ? 'active' : ''}${extras.includes(s.id) ? ' extra' : ''}`}
-                        onClick={() => {
-                          if (s.id === serviceId) return;
-                          // Уже выбранная основной — не трогаем; остальные
-                          // добавляются к визиту, а не заменяют его
-                          toggleExtra(s.id);
-                        }}
-                        tabIndex={dup === 1 ? -1 : undefined}
-                      >
-                        <Icon name={s.icon} size={14} strokeWidth={1.8} />
-                        <PingPong className="chip-pp">{title}</PingPong>
-                      </button>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
+          <div className="bk-suggest">
+            {suggestions.slice(0, showAll ? undefined : 4).map(({ service: x, verdict }) => (
+              <button
+                key={x.id}
+                className={`bk-sug bk-sug--${verdict.kind}`}
+                onClick={() => toggleExtra(x.id)}
+              >
+                <span className="bk-sug-icon"><Icon name={x.icon} size={17} strokeWidth={1.8} /></span>
+                <span className="bk-sug-body">
+                  <span className="bk-sug-title">{sTitle(x, lang)}</span>
+                  {verdict.why && <span className="bk-sug-why">{verdict.why[lang]}</span>}
+                  <span className="bk-sug-meta">
+                    +{x.duration} {t('common.min', lang)} · +${x.priceUsd}
+                  </span>
+                </span>
+                <span className="bk-sug-add" aria-hidden>
+                  <Icon name="plus" size={15} strokeWidth={2.8} />
+                </span>
+              </button>
+            ))}
           </div>
+
+          {suggestions.length > 4 && (
+            <button className="btn btn-quiet btn-block bk-more" onClick={() => setShowAll((v) => !v)}>
+              {showAll
+                ? (ru ? 'Свернуть' : 'Collapse')
+                : (ru ? `Показать все — ещё ${suggestions.length - 4}` : `Show all — ${suggestions.length - 4} more`)}
+            </button>
+          )}
         </section>
 
         {contraHits.length > 0 && (

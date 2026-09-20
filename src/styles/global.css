@@ -547,7 +547,6 @@ button { -webkit-tap-highlight-color: transparent; }
   white-space: nowrap;
 }
 .btn:active { transform: scale(0.97); }
-.btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
 
 .btn-primary {
   position: relative;
@@ -650,14 +649,19 @@ button { -webkit-tap-highlight-color: transparent; }
   border-color: var(--border-strong);
 }
 /* Одно правило «выключено» на все три ступени: раньше каждая гасла по-своему */
+/* Выключено гасим цветом, а не прозрачностью: полупрозрачная кнопка над
+   списком показывает сквозь себя чужой текст и читается как поломка. */
 .btn:disabled,
 .btn[aria-disabled='true'] {
-  opacity: 0.4;
+  opacity: 1;
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
-  filter: saturate(0.5);
+  filter: saturate(0.25) brightness(0.62);
+  color: rgba(255, 255, 255, 0.5);
 }
+/* Единственное исключение — кнопки на прозрачном фоне: им гасить нечего */
+.btn-quiet:disabled { filter: none; opacity: 0.45; }
 
 .btn-block { width: 100%; }
 .btn-sm { padding: 8px 16px; font-size: 13px; }
@@ -1370,7 +1374,15 @@ button.card:active { transform: scale(0.985); }
   position: absolute;
   bottom: calc(var(--nav-h) + var(--nav-gap)); left: 0; right: 0;
   padding: 14px 20px 18px;
-  background: linear-gradient(180deg, transparent, var(--bg-app) 35%);
+  /* Градиент из прозрачного в фон закрывал содержимое только на 65%
+     высоты полосы — сквозь кнопку читался текст под ней, и она выглядела
+     сломанной. Верх остаётся мягким, низ — плотным. */
+  background: linear-gradient(180deg,
+    rgba(10, 26, 31, 0) 0%,
+    rgba(10, 26, 31, 0.86) 34%,
+    var(--bg-app) 62%);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   z-index: var(--z-bottom-cta);
   pointer-events: none;
 }
@@ -4663,8 +4675,11 @@ input, textarea, select { font-size: max(16px, 1em); }
      padding-top = max(14px, safe-area) и держит строку высотой 32px.
      Раньше HUD центрировался «примерно» и вставал на пару пикселей выше
      соседнего шильдика — на глаз это читается как перекос. */
-  top: max(14px, env(safe-area-inset-top, 0));
-  height: 32px;
+  /* Ровно по центру шапки. Её высота приходит из JS (`--header-h`):
+     шапка растёт от содержимого и от safe-area, и повторить это
+     формулой в CSS нельзя — HUD уезжал на 4px и читался как перекос. */
+  top: 0;
+  height: var(--header-h, 60px);
   align-items: center;
   right: 14px;
   /* Выше шапки: у неё свой backdrop-filter, он создаёт слой */
@@ -4675,7 +4690,8 @@ input, textarea, select { font-size: max(16px, 1em); }
   background: var(--bg-card-2);
   border: 0.5px solid var(--border);
 }
-.lang-hud button {
+.lang-hud { min-height: 0; }
+.lang-hud > button {
   border: 0; background: none;
   font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
   padding: 4px 9px;
@@ -4879,7 +4895,8 @@ body[data-sheet-open] .lang-hud { display: none; }
   text-align: right;
   margin-top: 2px;
 }
-.pw-price-now { flex-direction: column; align-items: flex-end; }
+.pw-price-now { display: flex; flex-direction: column; align-items: flex-end; }
+.pw-price-figure { display: inline-flex; align-items: center; gap: 4px; }
 .pw-done-usd { font-weight: 500; color: var(--text-tertiary); opacity: 0.62; font-size: 11px; }
 .pw-buy-usd { font-weight: 500; opacity: 0.45; font-size: 11px; }
 
@@ -6019,14 +6036,19 @@ body[data-sheet-open] .lang-hud { display: none; }
     opacity 260ms var(--ease-out),
     transform 320ms var(--ease-spring);
 }
-.ai-bubble.away {
+/* Шар уходит, пока идёт прокрутка: он плавает поверх контента и на узком
+   экране накрывает сердечко избранного у карточки под ним. Управляется тем
+   же классом, что шапка и таббар — три независимых наблюдателя прокрутки
+   расходились по фазе, и панели уезжали не одновременно. */
+.is-scrolling .ai-bubble,
+.chrome-away .ai-bubble {
   opacity: 0;
   transform: translateY(14px) scale(0.86);
   pointer-events: none;
 }
 @media (prefers-reduced-motion: reduce) {
   .ai-bubble { transition: opacity 160ms linear; }
-  .ai-bubble.away { transform: none; }
+  .is-scrolling .ai-bubble, .chrome-away .ai-bubble { transform: none; }
 }
 
 /* ─── Ответ мастера на отклонённую заявку ─────────────────
@@ -6050,4 +6072,105 @@ body[data-sheet-open] .lang-hud { display: none; }
   color: var(--text-secondary);
   margin: 8px 0 0;
   font-style: italic;
+}
+
+/* ─── Что добавить к визиту ───────────────────────────────
+   Было бегущей лентой чипов: она уезжает раньше, чем человек дочитал
+   название. Здесь принимается решение, а не любуются движением. */
+.bk-suggest { display: grid; gap: 8px; }
+.bk-sug {
+  display: flex; align-items: flex-start; gap: 11px;
+  width: 100%;
+  padding: 13px 14px;
+  border-radius: 16px;
+  background: var(--bg-card-2);
+  border: 0.5px solid var(--border);
+  color: inherit; text-align: left; cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-out),
+              background var(--duration-fast) var(--ease-out);
+}
+.bk-sug:active { transform: scale(0.99); }
+/* Рекомендованное сочетание подсвечено, спорное — приглушено и внизу */
+.bk-sug--good { border-color: rgba(var(--accent-rgb), 0.3); }
+.bk-sug--no { opacity: 0.66; }
+.bk-sug-icon {
+  flex: 0 0 38px; width: 38px; height: 38px;
+  border-radius: 12px;
+  display: grid; place-items: center;
+  background: rgba(var(--accent-rgb), 0.1);
+  color: var(--brand-primary-bright);
+}
+.bk-sug--no .bk-sug-icon { background: rgba(255,184,107,0.1); color: #FFB86B; }
+.bk-sug-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.bk-sug-title { font-size: 14px; font-weight: 700; line-height: 1.25; }
+/* Почему сочетается — то, ради чего этот блок и сделан */
+.bk-sug-why { font-size: 12px; line-height: 1.4; color: var(--text-secondary); }
+.bk-sug--no .bk-sug-why { color: #FFB86B; }
+.bk-sug-meta {
+  font-size: 11px; color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+.bk-sug-add {
+  flex: 0 0 28px; width: 28px; height: 28px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  background: rgba(255,255,255,0.07);
+  border: 0.5px solid var(--border);
+  color: var(--text-secondary);
+  align-self: center;
+}
+.bk-sug--good .bk-sug-add {
+  background: linear-gradient(180deg, var(--brand-primary-bright), var(--brand-primary-deep));
+  border-color: transparent; color: #06131a;
+}
+.bk-more { margin-top: 10px; }
+
+/* ─── Панели уходят при прокрутке вниз ────────────────────
+   Контент получает весь экран, а управление — на расстоянии одного
+   движения пальцем вверх. Возврат быстрее ухода: «вернуть» это ответ
+   на намерение, он должен быть мгновенным, уход может быть плавным. */
+.header {
+  transition: transform 260ms var(--ease-out), opacity 200ms var(--ease-out);
+  will-change: transform;
+}
+.chrome-away .header {
+  transform: translateY(-100%);
+  opacity: 0;
+  /* Спрятанная шапка не должна перехватывать касания */
+  pointer-events: none;
+}
+
+.bottom-nav, .lang-hud {
+  transition: transform 260ms var(--ease-out), opacity 200ms var(--ease-out);
+  will-change: transform;
+}
+.chrome-away .bottom-nav {
+  transform: translateY(calc(100% + var(--nav-gap) + var(--bottom-safe)));
+  opacity: 0;
+  pointer-events: none;
+}
+/* Переключатель языка живёт в полосе шапки — уходит вместе с ней */
+.chrome-away .lang-hud {
+  transform: translateY(-100%);
+  opacity: 0;
+  pointer-events: none;
+}
+/* Возврат: та же дистанция, вдвое короче по времени */
+.app:not(.chrome-away) .header,
+.app:not(.chrome-away) .bottom-nav,
+.app:not(.chrome-away) .lang-hud {
+  transition-duration: 160ms;
+}
+
+/* Нижняя кнопка экрана остаётся: это цель визита, а не хром */
+.chrome-away .bottom-cta { transform: translateY(calc(var(--nav-h) * -0.5)); }
+.bottom-cta { transition: transform 260ms var(--ease-out); }
+
+@media (prefers-reduced-motion: reduce) {
+  .header, .bottom-nav, .lang-hud, .bottom-cta { transition: opacity 120ms linear; }
+  .chrome-away .header,
+  .chrome-away .bottom-nav,
+  .chrome-away .lang-hud { transform: none; }
+  .chrome-away .bottom-cta { transform: none; }
 }

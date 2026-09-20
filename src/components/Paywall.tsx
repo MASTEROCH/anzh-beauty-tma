@@ -59,7 +59,11 @@ export function Paywall({
         <div className="pw-price-row">
           <span>{ru ? 'Этот разбор' : 'This analysis'}</span>
           <strong className="pw-price-now">
-            {price}<Icon name="star" size={14} strokeWidth={2} fill="current" />
+            {/* Число и звезда — одна строка: контейнер стоит колонкой ради
+                подписи в долларах, и иконка уезжала под цену */}
+            <span className="pw-price-figure">
+              {price}<Icon name="star" size={14} strokeWidth={2} fill="current" />
+            </span>
             <span className="pw-price-usd">≈ ${starsToUsd(price)}</span>
           </strong>
         </div>

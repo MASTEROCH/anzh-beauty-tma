@@ -122,10 +122,11 @@ test('несколько процедур в одну запись: время �
   const before = await page.locator('.summary-row').filter({ hasText: /Длительность|Duration/i }).innerText();
 
   // Добавляем вторую процедуру чипом
-  // Лента чипов бесконечно едет, и обычный клик по ней нестабилен:
-  // берём первую (не продублированную) группу и жмём принудительно
-  const chip = page.locator('.marquee-group:not([aria-hidden]) .chip').filter({ hasText: /LED/ }).first();
-  await chip.click({ force: true });
+  // Карточка-подсказка вместо прежней бегущей ленты: первая в списке —
+  // это то, что приложение рекомендует добавить к выбранной процедуре
+  const sug = page.locator('.bk-sug').first();
+  await sug.scrollIntoViewIfNeeded();
+  await sug.click();
   await page.waitForTimeout(350);
 
   await expect(page.locator('.bk-extra')).toHaveCount(1);
@@ -160,4 +161,57 @@ test('отклонённая заявка доходит до клиентки �
   await expect(page.locator('.declined-why')).toContainText(/обучении/);
   await page.locator('.declined-card button').click();
   await expect(page.locator('.screen')).toContainText(/Выбор времени|Pick a time/i, { timeout: 5000 });
+});
+
+test('панели уходят вниз по прокрутке и возвращаются вверх', async ({ page }) => {
+  await fresh(page);
+  await tab(page, /УСЛУГИ|SERVICES/i);
+  const app = page.locator('.app');
+  const scroller = page.locator('.screen').first();
+
+  await expect(app).not.toHaveClass(/chrome-away/);
+
+  // Вниз — панели уходят
+  await scroller.evaluate((el) => { el.scrollTop = 600; el.dispatchEvent(new Event('scroll', { bubbles: true })); });
+  await page.waitForTimeout(250);
+  await expect(app, 'при прокрутке вниз панели должны уйти').toHaveClass(/chrome-away/);
+
+  // Вверх — возвращаются
+  await scroller.evaluate((el) => { el.scrollTop = 420; el.dispatchEvent(new Event('scroll', { bubbles: true })); });
+  await page.waitForTimeout(250);
+  await expect(app, 'при прокрутке вверх панели должны вернуться').not.toHaveClass(/chrome-away/);
+});
+
+test('у верха списка панели не прячутся', async ({ page }) => {
+  await fresh(page);
+  await tab(page, /УСЛУГИ|SERVICES/i);
+  const scroller = page.locator('.screen').first();
+  // Небольшое движение в верхней зоне не должно ничего прятать
+  for (const y of [20, 40, 60]) {
+    await scroller.evaluate((el, v) => { el.scrollTop = v; el.dispatchEvent(new Event('scroll', { bubbles: true })); }, y);
+    await page.waitForTimeout(120);
+  }
+  await expect(page.locator('.app'), 'у верха шапка обязана быть видна').not.toHaveClass(/chrome-away/);
+});
+
+test('подсказки сочетаний: рекомендованное сверху, спорное внизу с объяснением', async ({ page }) => {
+  await fresh(page);
+  await tab(page, /ЗАПИСЬ|BOOKING/i);
+
+  const cards = page.locator('.bk-sug');
+  expect(await cards.count(), 'подсказок нет').toBeGreaterThan(2);
+
+  // Первая карточка — рекомендованная, и у неё есть объяснение почему
+  await expect(cards.first()).toHaveClass(/bk-sug--good/);
+  await expect(cards.first().locator('.bk-sug-why')).toBeVisible();
+
+  // Спорные сочетания уходят вниз и объясняют причину
+  const bad = page.locator('.bk-sug--no');
+  if (await bad.count() > 0) {
+    await expect(bad.first().locator('.bk-sug-why')).not.toBeEmpty();
+    const all = await cards.evaluateAll((els) => els.map((e) => e.className));
+    const firstBad = all.findIndex((c) => c.includes('bk-sug--no'));
+    const lastGood = all.map((c) => c.includes('bk-sug--good')).lastIndexOf(true);
+    expect(firstBad, 'спорное должно стоять после рекомендованного').toBeGreaterThan(lastGood);
+  }
 });

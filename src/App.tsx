@@ -20,6 +20,8 @@ import type { OnboardingResult } from './screens/OnboardingScreen';
 import { getTgUser, initTelegram } from './lib/telegram';
 import { g } from './lib/gender';
 import { installEdgeSwipeGuard } from './lib/gestures';
+import { useHeaderHeight } from './lib/headerHeight';
+import { useChrome } from './lib/chrome';
 
 const ONB_KEY = 'anzh_onboarded';
 const FAV_KEY = 'anzh_favorites_v1';
@@ -99,6 +101,8 @@ function navigate(setter: () => void) {
 }
 
 export function App() {
+  useHeaderHeight();
+  const chrome = useChrome();
   const [screen, setScreenRaw] = useState<Screen>(initialScreen);
   const [serviceId, setServiceId] = useState<string | undefined>();
   const [lang, setLang] = useState<Lang>(getLang);
@@ -217,7 +221,7 @@ export function App() {
   }
 
   return (
-    <div className="app">
+    <div className={`app${chrome.hidden ? ' chrome-away' : ''}${chrome.scrolling ? ' is-scrolling' : ''}`}>
       <div className="app-orbs" aria-hidden />
       {screen === 'profile' && (
         <ProfileScreen
