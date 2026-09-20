@@ -724,12 +724,17 @@ button.card:active { transform: scale(0.985); }
 }
 
 /* ─── Section heads ──────────────────────────────────────── */
+/* Надзаголовок — служебная подпись, а не действие. Зелёным он стоял над
+   КАЖДОЙ секцией: глаз переставал отличать «тут можно нажать» от «тут
+   просто написано». Цвет бренда остаётся за состоянием и ценой. */
 .eyebrow {
   text-transform: uppercase;
   font-size: 11px; font-weight: 700;
   letter-spacing: 0.22em;
-  color: var(--brand-primary);
+  color: var(--text-hint);
 }
+/* Там, где надзаголовок действительно про бренд — явная модификация */
+.eyebrow.accent { color: var(--brand-primary); }
 .section-title {
   font-size: 20px; font-weight: 700;
   letter-spacing: -0.01em;
@@ -814,10 +819,13 @@ button.card:active { transform: scale(0.985); }
   content: '';
   position: absolute; inset: -6px;
   border-radius: 50%;
-  background: conic-gradient(from 180deg, var(--brand-primary), var(--brand-secondary), var(--brand-gold), var(--brand-primary));
-  filter: blur(10px);
-  opacity: 0.6;
-  animation: rotate 14s linear infinite;
+  /* Один тон вместо радуги и вдвое тише: свет вокруг портрета — это
+     подсветка, а не второй объект на экране */
+  background: conic-gradient(from 180deg,
+    rgba(18,192,136,0.55), rgba(143,243,212,0.35), rgba(18,192,136,0.55));
+  filter: blur(12px);
+  opacity: 0.32;
+  animation: rotate 22s linear infinite;
 }
 @keyframes rotate { to { transform: rotate(360deg); } }
 .profile-avatar {
@@ -1535,13 +1543,12 @@ button.card:active { transform: scale(0.985); }
   padding: 22px;
   border-radius: var(--radius-lg);
   background:
-    radial-gradient(circle at 100% 0%, rgba(18,192,136,0.30), transparent 55%),
-    radial-gradient(circle at 0% 100%, rgba(245,200,66,0.20), transparent 55%),
-    linear-gradient(135deg, #08201f, #0c1a22);
+    radial-gradient(circle at 100% 0%, rgba(18,192,136,0.22), transparent 58%),
+    linear-gradient(135deg, #0F2429, #122A31);
   border: 0.5px solid transparent;
   background-clip: padding-box;
   box-shadow:
-    0 16px 48px -12px rgba(18,192,136,0.30),
+    0 16px 40px -14px rgba(18,192,136,0.22),
     0 0 0 1px rgba(255,255,255,0.04),
     var(--spec-top);
   position: relative;
@@ -2552,10 +2559,11 @@ body[data-near-bottom] .ai-bubble {
   position: absolute;
   inset: -12px;
   border-radius: 50%;
-  background: conic-gradient(from 180deg, var(--brand-primary), var(--brand-gold), var(--brand-secondary), var(--brand-primary));
+  background: conic-gradient(from 180deg,
+    rgba(18,192,136,0.55), rgba(143,243,212,0.35), rgba(18,192,136,0.55));
   filter: blur(14px);
-  opacity: 0.6;
-  animation: rotate 14s linear infinite;
+  opacity: 0.34;
+  animation: rotate 22s linear infinite;
 }
 .onb-avatar {
   position: relative;
@@ -5130,7 +5138,7 @@ body[data-sheet-open] .lang-hud { display: none; }
   flex: 1; height: 4px;
   border-radius: var(--pill);
   background: rgba(255, 255, 255, 0.09);
-  transition: background var(--duration-base) var(--ease-out);
+  transition: background var(--duration) var(--ease-out);
 }
 .quest-meter-bar i.on, .quest-badge-bar i.on {
   background: linear-gradient(90deg, var(--brand-primary-bright), var(--brand-primary));
