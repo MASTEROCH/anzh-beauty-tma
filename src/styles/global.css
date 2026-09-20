@@ -336,12 +336,11 @@ button { -webkit-tap-highlight-color: transparent; }
   -webkit-backdrop-filter: blur(12px);
   -webkit-mask-image: linear-gradient(180deg, #000, transparent);
           mask-image: linear-gradient(180deg, #000, transparent);
-  /* Уходит вместе с шапкой: оставшаяся висеть полоса размытия без шапки
-     над ней читается как артефакт рендеринга. */
-  transition: opacity 200ms var(--ease-out);
+  /* Уход вместе с шапкой описан ОДИН раз, в блоке «Панели уходят при
+     прокрутке» ниже: у шапки, вуали и HUD общее смещение. Своего
+     `opacity: 0` здесь быть не должно — именно из-за отдельного
+     описания вуаль однажды и осталась висеть без шапки над ней. */
 }
-.chrome-away .header-veil { opacity: 0; }
-.app:not(.chrome-away) .header-veil { transition-duration: 160ms; }
 
 .nav-icon { font-size: 22px; line-height: 1; }
 
@@ -4283,7 +4282,16 @@ input, textarea, select { font-size: max(16px, 1em); }
       rgba(6,20,23,0.94) 80%,
       var(--bg-app) 100%);
 }
-.anzh-screen > *:not(.anzh-bg) { position: relative; z-index: 1; }
+/* Поднимаем содержимое над фотографией-фоном.
+   🚨 Шапку — ИСКЛЮЧАЯ: `position: relative` здесь перебивал её
+   `position: sticky` (селектор специфичнее), и на этом экране шапка
+   уезжала вместе с контентом. Заметно это стало только когда под ней
+   появилась вуаль размытия: та осталась висеть у верхнего края одна,
+   без шапки над собой. Соседнее правило с отступами `.header` уже
+   исключало — это просто забыли.
+   Поднимать шапку не нужно: у неё свой z-index (--z-sticky, 100), а у
+   фона нулевой. */
+.anzh-screen > *:not(.anzh-bg):not(.header) { position: relative; z-index: 1; }
 
 .anzh-lede { padding-top: 30px; text-align: center; }
 .anzh-title {
@@ -6169,18 +6177,40 @@ body[data-sheet-open] .lang-hud { display: none; }
    Контент получает весь экран, а управление — на расстоянии одного
    движения пальцем вверх. Возврат быстрее ухода: «вернуть» это ответ
    на намерение, он должен быть мгновенным, уход может быть плавным. */
-.header {
+
+/* 🚨 ВЕРХНЯЯ ПОЛОСА ЕЗДИТ ОДНОЙ ВЕЛИЧИНОЙ.
+   Шапка, её вуаль размытия и переключатель языка — три разных элемента
+   в трёх разных родителях, но для глаза это одна деталь. Пока у каждого
+   было своё описание ухода (`-100%` у шапки, `-100%` у HUD, а у вуали
+   вообще только opacity), они разъезжались: шапка уезжала вверх, а
+   полоса размытия оставалась висеть на прежнем месте и читалась как
+   оторванная тень.
+
+   Теперь смещение одно на всех. Даже если `--header-h` в какой-то
+   момент неточна, ошибка будет общей — взаимное положение сохранится,
+   а это единственное, что видно. Переменная меняется мгновенно,
+   transform интерполируется как обычно. */
+.app {
+  --chrome-shift: 0px;
+}
+.app.chrome-away {
+  --chrome-shift: calc(var(--header-h, 60px) * -1);
+}
+
+.header, .header-veil, .lang-hud {
+  transform: translateY(var(--chrome-shift));
   transition: transform 260ms var(--ease-out), opacity 200ms var(--ease-out);
   will-change: transform;
 }
-.chrome-away .header {
-  transform: translateY(-100%);
+.chrome-away .header,
+.chrome-away .header-veil,
+.chrome-away .lang-hud {
   opacity: 0;
-  /* Спрятанная шапка не должна перехватывать касания */
+  /* Спрятанная полоса не должна перехватывать касания */
   pointer-events: none;
 }
 
-.bottom-nav, .lang-hud {
+.bottom-nav {
   transition: transform 260ms var(--ease-out), opacity 200ms var(--ease-out);
   will-change: transform;
 }
@@ -6189,14 +6219,9 @@ body[data-sheet-open] .lang-hud { display: none; }
   opacity: 0;
   pointer-events: none;
 }
-/* Переключатель языка живёт в полосе шапки — уходит вместе с ней */
-.chrome-away .lang-hud {
-  transform: translateY(-100%);
-  opacity: 0;
-  pointer-events: none;
-}
 /* Возврат: та же дистанция, вдвое короче по времени */
 .app:not(.chrome-away) .header,
+.app:not(.chrome-away) .header-veil,
 .app:not(.chrome-away) .bottom-nav,
 .app:not(.chrome-away) .lang-hud {
   transition-duration: 160ms;
@@ -6207,9 +6232,12 @@ body[data-sheet-open] .lang-hud { display: none; }
 .bottom-cta { transition: transform 260ms var(--ease-out); }
 
 @media (prefers-reduced-motion: reduce) {
-  .header, .bottom-nav, .lang-hud, .bottom-cta { transition: opacity 120ms linear; }
-  .chrome-away .header,
-  .chrome-away .bottom-nav,
-  .chrome-away .lang-hud { transform: none; }
+  .header, .header-veil, .bottom-nav, .lang-hud, .bottom-cta {
+    transition: opacity 120ms linear;
+  }
+  /* Без движения — только исчезновение. Смещение обнуляем у всей
+     верхней полосы разом, иначе часть её поедет, а часть нет. */
+  .app.chrome-away { --chrome-shift: 0px; }
+  .chrome-away .bottom-nav { transform: none; }
   .chrome-away .bottom-cta { transform: none; }
 }
