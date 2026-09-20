@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from 'react';
 import { releaseBonus } from './bonuses';
+import { findService } from '../data/services';
 
 export type ApptStatus =
   | 'pending'      // ждёт решения мастера
@@ -23,6 +24,10 @@ export interface Appointment {
   dateISO: string;              // yyyy-mm-dd
   slot: string;                 // «16:30»
   serviceId: string;
+  /** Дополнительные процедуры того же визита. Основная остаётся в serviceId:
+      так вся существующая логика (история, выручка, противопоказания) читает
+      запись без изменений, а сумма и длительность считаются по всему набору. */
+  extras?: string[];
   clientName: string;
   clientInstagram?: string;     // главный якорь: у большинства нет телефона
   clientTgUsername?: string;
@@ -112,7 +117,7 @@ export const findAppointment = (id: string) => items.find((a) => a.id === id);
 /* ── Действия клиента ── */
 
 export function requestAppointment(input: {
-  dateISO: string; slot: string; serviceId: string;
+  dateISO: string; slot: string; serviceId: string; extras?: string[];
   clientName: string; clientInstagram?: string; clientTgUsername?: string; clientPhone?: string; comment?: string;
 }): Appointment {
   const appt: Appointment = { id: `a${Date.now()}`, status: 'pending', createdAt: Date.now(), ...input };
@@ -252,3 +257,20 @@ export const STATUS_LABEL: Record<ApptStatus, { ru: string; en: string; tone: 'w
   cancelled: { ru: 'Отменена',           en: 'Cancelled',             tone: 'bad' },
   'no-show': { ru: 'Не пришёл',          en: 'No-show',               tone: 'bad' },
 };
+
+/* ── Визит из нескольких процедур ──────────────────────────
+   Анжелика часто делает две-три за один приход: чистка и следом уход,
+   брови вместе с пилингом. Раньше это была отдельная заявка на каждую —
+   и в расписании они вставали как два разных человека. */
+
+export const apptServiceIds = (a: Appointment): string[] => [a.serviceId, ...(a.extras ?? [])];
+
+/** Суммарная длительность визита — от неё зависит, влезает ли он в слот */
+export function apptDuration(a: Appointment): number {
+  return apptServiceIds(a).reduce((sum, id) => sum + (findService(id)?.duration ?? 0), 0);
+}
+
+/** Сумма по прайсу за весь визит */
+export function apptPrice(a: Appointment): number {
+  return apptServiceIds(a).reduce((sum, id) => sum + (findService(id)?.priceUsd ?? 0), 0);
+}

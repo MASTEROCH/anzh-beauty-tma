@@ -103,12 +103,17 @@ const MATCHERS: Array<{
   },
 ];
 
-/** Что из анкеты пересекается с противопоказаниями конкретной услуги */
-export function flagsFor(serviceId: string, passport: HealthPassport | null): Flag[] {
+/** Что из анкеты пересекается с противопоказаниями услуг визита.
+ *  Принимает и одну услугу, и весь набор: визит из трёх процедур опасен
+ *  противопоказанием ЛЮБОЙ из них, а проверять только первую — значит
+ *  пропускать две трети риска. */
+export function flagsFor(serviceId: string | string[], passport: HealthPassport | null): Flag[] {
   if (!passport) return [];
-  const svc = findService(serviceId);
-  if (!svc) return [];
-  const contra = svc.contraindications.map((c) => c.toLowerCase());
+  const ids = Array.isArray(serviceId) ? serviceId : [serviceId];
+  const contra = ids
+    .flatMap((id) => findService(id)?.contraindications ?? [])
+    .map((c) => c.toLowerCase());
+  if (contra.length === 0) return [];
 
   const out: Flag[] = [];
   for (const m of MATCHERS) {
@@ -150,7 +155,7 @@ export function buildClientCard(
       title: findService(a.serviceId)?.title ?? a.serviceId,
       amount: a.amount,
     })),
-    flags: flagsFor(appt.serviceId, passport),
+    flags: flagsFor([appt.serviceId, ...(appt.extras ?? [])], passport),
     passport,
     quizzes: [...quizzes].sort((a, b) => b.takenAt - a.takenAt),
   };

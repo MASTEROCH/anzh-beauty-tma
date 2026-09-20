@@ -149,13 +149,23 @@ button { -webkit-tap-highlight-color: transparent; }
 }
 
 /* ─── Screen — the only scrolling element ────────────────── */
+/* Сколько места снизу занято плавающими элементами. Таббар стоит на
+   `nav-gap + safe-area`, а нижний отступ экрана эту safe-area не учитывал —
+   на телефоне с жестовой полосой последняя строка уезжала под панель ровно
+   на её высоту. Считаем ОДИН раз здесь и пользуемся везде: три разных
+   формулы в трёх местах и разошлись. */
+:root {
+  --bottom-safe: max(env(safe-area-inset-bottom, 0px), var(--tg-inset-bottom, 0px));
+  --bottom-clear: calc(var(--nav-h) + var(--nav-gap) * 2 + var(--bottom-safe));
+}
+
 .screen {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: calc(var(--nav-h) + var(--nav-gap) + 24px);
+  padding-bottom: calc(var(--bottom-clear) + 24px);
   position: relative;
   z-index: 1;
   animation: screenIn .35s var(--ease-out);
@@ -164,7 +174,7 @@ button { -webkit-tap-highlight-color: transparent; }
 @keyframes screenIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
 /* Screens with a sticky bottom CTA need extra bottom padding */
-.screen.has-cta { padding-bottom: calc(var(--nav-h) + var(--nav-gap) + 100px); }
+.screen.has-cta { padding-bottom: calc(var(--bottom-clear) + 104px); }
 
 /* ─── Sticky header ──────────────────────────────────────── */
 .header {
@@ -834,18 +844,18 @@ button.card:active { transform: scale(0.985); }
   letter-spacing: -0.028em;
   line-height: 1.02;
   margin-bottom: 8px;
-  background: linear-gradient(174deg, #ffffff 30%, #d9f5ea 78%, var(--brand-mint));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  /* Сплошной цвет вместо градиента по тексту: на Android клип не
+     срабатывал и имя оставалось почти чёрным на чёрном */
+  color: #fff;
   text-shadow: 0 2px 30px rgba(18,192,136,0.10);
 }
 /* Italic accent word inside a serif display headline (ANZH signature) */
+/* Последний градиент по тексту убран туда же: на Android он давал почти
+   невидимое слово посреди заголовка. Курсив и мятный цвет дают тот же
+   акцент и не зависят от background-clip. */
 .profile-name em, .serif-accent {
   font-style: italic;
-  background: linear-gradient(120deg, var(--brand-mint), var(--brand-primary-bright));
-  -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--brand-mint);
 }
 .profile-role {
   font-size: 12px;
@@ -1255,10 +1265,7 @@ button.card:active { transform: scale(0.985); }
   letter-spacing: -0.025em;
   margin-bottom: 6px;
   line-height: 1.15;
-  background: linear-gradient(180deg, #fff, rgba(255,255,255,0.72));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #fff;
 }
 .service-detail-meta {
   display: flex; align-items: center;
@@ -1515,10 +1522,7 @@ button.card:active { transform: scale(0.985); }
   font-weight: 700;
   letter-spacing: -0.025em;
   margin-bottom: 6px;
-  background: linear-gradient(180deg, #fff, rgba(255,255,255,0.72));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #fff;
 }
 .account-sub {
   color: var(--text-hint);
@@ -1594,10 +1598,7 @@ button.card:active { transform: scale(0.985); }
   font-weight: 700;
   letter-spacing: -0.035em;
   line-height: 1;
-  background: linear-gradient(180deg, #fff, rgba(255,255,255,0.7));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #fff;
 }
 .loyalty-points small {
   -webkit-text-fill-color: var(--text-hint);
@@ -2478,7 +2479,9 @@ body[data-near-bottom] .ai-bubble {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 8px 24px 150px;   /* нижний отступ = высота плавающей CTA + запас */
+  /* Кнопка онбординга плавает над safe-area — отступ обязан её учесть,
+     иначе до согласия внизу формы не доскроллить */
+  padding: 8px 24px calc(120px + var(--bottom-safe));
   position: relative;
   z-index: 1;
   display: flex;
@@ -2513,17 +2516,11 @@ body[data-near-bottom] .ai-bubble {
   letter-spacing: -0.03em;
   line-height: 1.1;
   margin-bottom: 8px;
-  background: linear-gradient(180deg, #fff, rgba(255,255,255,0.7));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #fff;
 }
 .onb-title-sm { font-size: clamp(26px, 7vw, 30px); }
 .onb-name-accent {
-  background: linear-gradient(180deg, #F2D080, #A88838);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--brand-gold-bright);
 }
 .onb-lead {
   color: var(--brand-primary);
@@ -5911,3 +5908,48 @@ body[data-sheet-open] .lang-hud { display: none; }
   border: 0.5px solid rgba(var(--accent-rgb), 0.24);
 }
 .te-note svg { color: var(--brand-primary-bright); flex-shrink: 0; }
+
+/* ─── Несколько процедур в одном визите ───────────────────── */
+.bk-extras {
+  display: grid; gap: 6px;
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 14px;
+  background: rgba(var(--accent-rgb), 0.06);
+  border: 0.5px solid rgba(var(--accent-rgb), 0.24);
+}
+.bk-extra {
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 11px;
+  border-radius: 11px;
+  background: var(--bg-card-2);
+  border: 0.5px solid var(--border);
+  font-size: 13px;
+}
+.bk-extra > svg { color: var(--brand-primary-bright); flex-shrink: 0; }
+.bk-extra-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bk-extra-meta { font-size: 11px; color: var(--text-tertiary); white-space: nowrap; flex-shrink: 0; }
+.bk-extra-off {
+  position: relative;
+  flex: 0 0 24px; width: 24px; height: 24px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: 0; color: var(--text-tertiary);
+  cursor: pointer;
+}
+.bk-extra-off::after {
+  content: ''; position: absolute;
+  left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: 44px; height: 44px; border-radius: 50%;
+}
+.bk-extra-total {
+  font-size: 12px; font-weight: 700;
+  color: var(--brand-primary-bright);
+  padding: 4px 2px 0;
+}
+/* Чип процедуры, уже добавленной к визиту */
+.chip.extra {
+  border-color: rgba(var(--accent-rgb), 0.45);
+  color: var(--brand-primary-bright);
+}

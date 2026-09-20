@@ -26,6 +26,7 @@ import {
   confirmAppointment, declineAppointment, offerAnotherTime,
   markCompleted, markNoShow, formatShort, fromISODate, toISODate,
   type Appointment,
+  apptServiceIds, apptDuration, apptPrice,
 } from '../lib/appointments';
 
 // Кабинет мастера. Анжелика сказала прямо: список, который сам всё
@@ -141,7 +142,7 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
         <>
           <ClientStrip card={buildClientCard(a, mine, passport, quizResults)} />
           <ul className="info-list" style={{ marginTop: 12 }}>
-            <li>Сумма по прайсу: ${priceOf(a.serviceId)}</li>
+            <li>Сумма по прайсу: ${apptPrice(a)}{a.extras?.length ? ` · ${apptServiceIds(a).length} процедуры` : ''}</li>
             <li>Визит попадёт в карточку клиента и в выручку</li>
             <li>Через 14 дней клиенту уйдёт запрос отзыва</li>
           </ul>
@@ -149,8 +150,8 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
       ),
       actions: (
         <>
-          <button className="btn btn-primary btn-block" onClick={() => { markCompleted(a.id, priceOf(a.serviceId)); closeSheet(); toast('Визит закрыт ✓', 'success'); }}>
-            Закрыть визит · ${priceOf(a.serviceId)}
+          <button className="btn btn-primary btn-block" onClick={() => { markCompleted(a.id, apptPrice(a)); closeSheet(); toast('Визит закрыт ✓', 'success'); }}>
+            Закрыть визит · ${apptPrice(a)}
           </button>
           <button className="btn btn-ghost btn-block" onClick={() => { markNoShow(a.id); closeSheet(); toast('Отмечено: не пришла'); }}>
             Не пришла
@@ -295,12 +296,14 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
                 </div>
                 <div className="studio-req-what">
                   <Icon name={svc?.icon ?? 'sparkles'} size={15} strokeWidth={1.8} />
-                  <span>{svc ? sTitle(svc, 'ru') : a.serviceId}</span>
-                  <span className="faint">· ${priceOf(a.serviceId)}</span>
+                  <span>
+                    {apptServiceIds(a).map((id) => findService(id)?.title ?? id).join(' + ')}
+                  </span>
+                  <span className="faint">· ${apptPrice(a)}</span>
                 </div>
                 <div className="studio-req-when">
                   <Icon name="calendar" size={14} strokeWidth={1.8} />
-                  {formatShort(a.dateISO)} · {a.slot} · {svc?.duration} мин
+                  {formatShort(a.dateISO)} · {a.slot} · {apptDuration(a)} мин
                 </div>
                 {/* Кто пришёл и что нельзя — до кнопки «Принять», а не после */}
                 <ClientStrip card={card} />
@@ -332,7 +335,7 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             {today.map((a) => {
               const svc = findService(a.serviceId);
-              const dayFlags = flagsFor(a.serviceId, passport);
+              const dayFlags = flagsFor(apptServiceIds(a), passport);
               return (
                 <button key={a.id} className="studio-day-row" onClick={() => completeSheet(a)}>
                   <div className="studio-day-time">{a.slot}</div>
@@ -341,7 +344,9 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
                       {a.clientName}
                       {a.clientInstagram && <span className="faint"> · @{a.clientInstagram}</span>}
                     </div>
-                    <div className="studio-day-svc">{svc ? sTitle(svc, 'ru') : a.serviceId} · {svc?.duration} мин</div>
+                    <div className="studio-day-svc">
+                      {apptServiceIds(a).map((id) => findService(id)?.title ?? id).join(' + ')} · {apptDuration(a)} мин
+                    </div>
                     {dayFlags.length > 0 && (
                       <span className={`studio-day-flag ${dayFlags[0].level}`}>
                         <Icon name={dayFlags[0].level === 'stop' ? 'warning' : 'info'} size={11} strokeWidth={2.4} />

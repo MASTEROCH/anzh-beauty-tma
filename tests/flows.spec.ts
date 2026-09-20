@@ -112,3 +112,32 @@ test('язык переключается на любом экране и дер
   await page.waitForSelector('.bottom-nav');
   await expect(page.locator('.nav-item').first()).toContainText(/PROFILE/i);
 });
+
+test('несколько процедур в одну запись: время и сумма складываются', async ({ page }) => {
+  const errors = watchConsole(page);
+  await fresh(page);
+  await tab(page, /ЗАПИСЬ|BOOKING/i);
+
+  // Итог до добавления
+  const before = await page.locator('.summary-row').filter({ hasText: /Длительность|Duration/i }).innerText();
+
+  // Добавляем вторую процедуру чипом
+  // Лента чипов бесконечно едет, и обычный клик по ней нестабилен:
+  // берём первую (не продублированную) группу и жмём принудительно
+  const chip = page.locator('.marquee-group:not([aria-hidden]) .chip').filter({ hasText: /LED/ }).first();
+  await chip.click({ force: true });
+  await page.waitForTimeout(350);
+
+  await expect(page.locator('.bk-extra')).toHaveCount(1);
+  await expect(page.locator('.bk-extra-total')).toContainText(/мин|min/i);
+
+  const after = await page.locator('.summary-row').filter({ hasText: /Длительность|Duration/i }).innerText();
+  expect(after, 'длительность визита обязана вырасти').not.toBe(before);
+
+  // Снимаем — возвращается к исходному
+  await page.locator('.bk-extra-off').click();
+  await page.waitForTimeout(300);
+  expect(await page.locator('.bk-extra').count()).toBe(0);
+  expect(await page.locator('.summary-row').filter({ hasText: /Длительность|Duration/i }).innerText()).toBe(before);
+  expect(errors).toEqual([]);
+});

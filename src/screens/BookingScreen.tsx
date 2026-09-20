@@ -6,6 +6,7 @@ import { Icon } from '../components/Icon';
 import { PingPong } from '../components/PingPong';
 import { useLang, t } from '../lib/i18n';
 import { requestAppointment, isSlotTaken, toISODate, useAppointments } from '../lib/appointments';
+import { select } from '../lib/haptics';
 import { useHealthPassport, matchContraindications } from '../lib/healthPassport';
 import { useBonuses, bestBonus, redeemBonus } from '../lib/bonuses';
 import type { ClientProfile } from '../App';
@@ -54,23 +55,36 @@ export function BookingScreen({
   const dates = useMemo(() => nextDays(21), []);
   const { live } = useCatalog();
   const [serviceId, setServiceId] = useState<string>(initialServiceId ?? live[0].id);
+  /* Дополнительные процедуры того же визита. Анжелика часто делает две-три
+     за один приход — раньше это была отдельная заявка на каждую, и в её
+     расписании они вставали как разные люди. */
+  const [extras, setExtras] = useState<string[]>([]);
   const [dateIdx, setDateIdx] = useState(() => dates.findIndex((d) => WORK_DAYS.includes(d.getDay())));
   const [slot, setSlot] = useState<string | null>(null);
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const service = findService(serviceId)!;
+  const chosen = [service, ...extras.map((id) => findService(id)!).filter(Boolean)];
+  const totalMin = chosen.reduce((n, x) => n + x.duration, 0);
+  const totalUsd = chosen.reduce((n, x) => n + x.priceUsd, 0);
+  const totalGel = chosen.reduce((n, x) => n + x.priceGel, 0);
+
+  const toggleExtra = (id: string) => {
+    select();
+    setExtras((x) => (x.includes(id) ? x.filter((i) => i !== id) : [...x, id]));
+  };
   // Бонус из кабинета применяется сам — за него не надо просить на месте
   const bonuses = useBonuses();
   const bonus = useMemo(() => bestBonus(bonuses), [bonuses]);
   const date = dates[dateIdx] ?? dates[0];
   const dateISO = toISODate(date);
   const dayOff = !WORK_DAYS.includes(date.getDay());
-  const price = currency === 'usd' ? `$${service.priceUsd}` : `${service.priceGel} GEL`;
+  const price = currency === 'usd' ? `$${totalUsd}` : `${totalGel} GEL`;
   const withBonus = (v: number) => (bonus ? Math.round(v * (1 - bonus.percent / 100)) : v);
   const finalPrice = currency === 'usd'
-    ? `$${withBonus(service.priceUsd)}`
-    : `${withBonus(service.priceGel)} GEL`;
+    ? `$${withBonus(totalUsd)}`
+    : `${withBonus(totalGel)} GEL`;
 
   // Реальная занятость: слот закрыт, только если на него уже есть ПОДТВЕРЖДЁННАЯ
   // запись. Заявки друг друга не блокируют — решает Анжелика.
@@ -112,6 +126,7 @@ export function BookingScreen({
       dateISO,
       slot,
       serviceId,
+      extras: extras.length ? extras : undefined,
       clientName: client.name,
       clientInstagram: client.instagram || undefined,
       clientTgUsername: client.tgUsername,
@@ -185,6 +200,37 @@ export function BookingScreen({
             </div>
             <span style={{ position: 'absolute', top: '50%', right: 14, transform: 'translateY(-50%)', color: 'var(--tl)', fontSize: 18 }}>›</span>
           </button>
+          {/* Добавленные к визиту — списком, а не чипами: их надо видеть
+              целиком и уметь снять одним тапом */}
+          {extras.length > 0 && (
+            <div className="bk-extras">
+              {extras.map((id) => {
+                const x = findService(id);
+                if (!x) return null;
+                return (
+                  <div key={id} className="bk-extra">
+                    <Icon name={x.icon} size={15} strokeWidth={1.9} />
+                    <span className="bk-extra-title">{sTitle(x, lang)}</span>
+                    <span className="bk-extra-meta">+{x.duration} {t('common.min', lang)} · ${x.priceUsd}</span>
+                    <button
+                      className="bk-extra-off"
+                      aria-label={ru ? `Убрать: ${sTitle(x, lang)}` : `Remove ${sTitle(x, lang)}`}
+                      onClick={() => toggleExtra(id)}
+                    >
+                      <Icon name="x" size={13} strokeWidth={2.6} />
+                    </button>
+                  </div>
+                );
+              })}
+              <div className="bk-extra-total">
+                {ru ? 'Визит целиком' : 'Whole visit'} · {totalMin} {t('common.min', lang)} · {price}
+              </div>
+            </div>
+          )}
+
+          <div className="eyebrow" style={{ margin: '14px 0 6px' }}>
+            {ru ? 'добавить к этому визиту' : 'add to this visit'}
+          </div>
           <div className="trust-row marquee chip-marquee" style={{ marginTop: 8 }} aria-label="Услуги">
             <div className="marquee-track">
               {[0, 1].map((dup) => (
@@ -194,8 +240,13 @@ export function BookingScreen({
                     return (
                       <button
                         key={s.id}
-                        className={`chip ${serviceId === s.id ? 'active' : ''}`}
-                        onClick={() => setServiceId(s.id)}
+                        className={`chip ${serviceId === s.id ? 'active' : ''}${extras.includes(s.id) ? ' extra' : ''}`}
+                        onClick={() => {
+                          if (s.id === serviceId) return;
+                          // Уже выбранная основной — не трогаем; остальные
+                          // добавляются к визиту, а не заменяют его
+                          toggleExtra(s.id);
+                        }}
                         tabIndex={dup === 1 ? -1 : undefined}
                       >
                         <Icon name={s.icon} size={14} strokeWidth={1.8} />
@@ -324,7 +375,7 @@ export function BookingScreen({
           </div>
           <div className="summary-row">
             <span className="k">{t('booking.sum.duration', lang)}</span>
-            <span className="v">{service.duration} {t('common.min', lang)}</span>
+            <span className="v">{totalMin} {t('common.min', lang)}</span>
           </div>
           <div className="summary-row">
             <span className="k">{t('booking.sum.date', lang)}</span>

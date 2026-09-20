@@ -253,15 +253,17 @@ export function ProfileScreen({
         <p className="about-text">
           {ru ? (
             <>
-              Анжелика ведёт приём в Батуми одна — <strong>без администраторов и потока</strong>.
-              Каждую заявку подтверждает лично, протокол собирает после осмотра, а историю
-              процедур помнит приложение, а не переписка в директе.
+              В кабинете есть администратор и мастера по своим направлениям, но
+              <strong> протокол Анжелика собирает сама</strong>: смотрит кожу, подтверждает
+              заявку лично и назначает курс. История процедур живёт в приложении,
+              а не в переписке в директе.
             </>
           ) : (
             <>
-              Anjelika works solo in Batumi — <strong>no front desk, no conveyor</strong>. She
-              confirms every request herself, builds the protocol after seeing your skin, and the
-              app remembers your treatment history instead of a DM thread.
+              There is a receptionist and masters for their own treatments, but
+              <strong> Anjelika builds the protocol herself</strong>: she sees your skin,
+              confirms the request personally and sets the course. Your history lives in
+              the app, not in a DM thread.
             </>
           )}
         </p>
