@@ -1,4 +1,6 @@
 import { useEffect, useMemo } from 'react';
+import { telegramUrl } from '../data/location';
+import { openTelegram } from '../lib/telegram';
 import { Icon } from '../components/Icon';
 import { toast } from '../lib/ui';
 import { useAppointments, formatLongDate, fromISODate } from '../lib/appointments';
@@ -101,7 +103,7 @@ export function ConfirmScreen({ onDone, onAccount }: { onDone: () => void; onAcc
             className="btn btn-ghost"
             style={{ flex: 1 }}
             onClick={() => {
-              window.open('https://t.me/anzh_cosmetology', '_blank');
+              openTelegram(telegramUrl());
               toast(ru ? 'Открываю чат с Анжеликой' : 'Opening the chat with Anjelika', 'success');
             }}
           >

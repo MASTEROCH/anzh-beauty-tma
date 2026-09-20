@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { openExternal } from '../lib/telegram';
 import { Icon } from './Icon';
 import { STUDIO, googleMapsUrl, yandexMapsUrl, osmEmbedUrl, studioAddress, ZOOM_STEPS, DEFAULT_ZOOM } from '../data/location';
 import { useLang } from '../lib/i18n';
@@ -18,7 +19,7 @@ export function StudioMap() {
 
   const open = (url: string) => {
     tap();
-    window.open(url, '_blank', 'noopener,noreferrer');
+    openExternal(url);
   };
 
   return (

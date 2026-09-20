@@ -274,6 +274,7 @@ export function App() {
       {screen === 'account' && (
         <AccountScreen
           onBook={() => openBooking()}
+          onBookAgain={(id) => openBooking(id)}
           onReschedule={() => openBooking(serviceId ?? 'lip-filler')}
           lang={lang}
           onLang={handleLang}

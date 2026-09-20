@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { telegramUrl, instagramUrl } from '../data/location';
+import { openTelegram, openExternal } from '../lib/telegram';
 import { useScrolling } from '../lib/scrollIdle';
 import { Mascot, type MascotEmotion } from './Mascot';
 import { onMascotMood } from '../lib/mascot-events';
@@ -195,21 +197,25 @@ export function AiChatBubble({ screen, onBookingNav, onOpenService, onOpenCatalo
           <button
             className="btn btn-primary btn-block"
             onClick={() => {
-              window.open(`https://t.me/anzh_cosmetology?text=${encodeURIComponent(q)}`, '_blank');
+              openTelegram(telegramUrl(q));
               closeSheet();
               toast('Открываю Telegram', 'success');
             }}
           >
             Написать в Telegram
           </button>
+          {/* Кнопка WhatsApp вела на номер 995500000000 — его не существует.
+              Чат открывался в никуда. Анжелика работает через Telegram и
+              инстаграм; второй канал — инстаграм, а не выдуманный номер. */}
           <button
-            className="btn btn-ghost btn-block"
+            className="btn btn-quiet btn-block"
             onClick={() => {
-              window.open(`https://wa.me/995500000000?text=${encodeURIComponent(q)}`, '_blank');
+              openExternal(instagramUrl());
               closeSheet();
+              toast('Открываю инстаграм', 'success');
             }}
           >
-            Написать в WhatsApp
+            Написать в инстаграм
           </button>
         </>
       ),

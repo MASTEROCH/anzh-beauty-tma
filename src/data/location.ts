@@ -5,6 +5,19 @@
 // Проверено по Nominatim: 41.6462404, 41.6323794 — это дом 92/94 по
 // ფარნავაზ მეფის ქუჩა (ул. Parnavaz Mepe), Батуми.
 
+/* Контакты. Были вписаны прямо в JSX восьми файлов — включая номер
+   WhatsApp 995500000000, которого не существует: кнопка «Написать в
+   WhatsApp» открывала чат в никуда. Фальшивая кнопка хуже отсутствующей. */
+export const CONTACTS = {
+  telegram: 'anzh_cosmetology',
+  instagram: 'dr.domnich',
+} as const;
+
+export const telegramUrl = (text?: string) =>
+  `https://t.me/${CONTACTS.telegram}${text ? `?text=${encodeURIComponent(text)}` : ''}`;
+export const instagramUrl = (handle: string = CONTACTS.instagram) =>
+  `https://instagram.com/${handle.replace(/^@/, '')}`;
+
 export const STUDIO = {
   lat: 41.6462404,
   lon: 41.6323794,

@@ -42,6 +42,7 @@ interface TgWebApp {
   setHeaderColor?: (c: string) => void;
   setBackgroundColor?: (c: string) => void;
   openLink?: (url: string, opts?: { try_instant_view?: boolean }) => void;
+  openTelegramLink?: (url: string) => void;
   viewportStableHeight?: number;
   safeAreaInset?: { top: number; bottom: number; left: number; right: number };
   contentSafeAreaInset?: { top: number; bottom: number; left: number; right: number };
@@ -81,17 +82,20 @@ export function tgHandle(u: TgUser | null): string {
    которая всегда возвращает true. */
 export const isTelegram = () => Boolean(webApp()?.initData) || Boolean(webApp()?.initDataUnsafe?.user);
 
-/** Язык клиента Telegram — чтобы не спрашивать то, что уже известно */
-export function tgLang(): 'ru' | 'en' | undefined {
-  const code = webApp()?.initDataUnsafe?.user?.language_code;
-  if (!code) return undefined;
-  return code.startsWith('ru') ? 'ru' : 'en';
-}
-
 /** Открыть наружу: внутри Telegram — его собственным браузером */
 export function openExternal(url: string) {
   const app = webApp();
   if (app?.openLink) app.openLink(url);
+  else window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+/* Ссылка на сам Telegram — отдельный метод. Через openLink мини-апп
+   выкидывает человека во внешний браузер, который тут же пытается
+   вернуть его обратно в Telegram: лишний прыжок и потерянный контекст. */
+export function openTelegram(url: string) {
+  const app = webApp();
+  if (app?.openTelegramLink) app.openTelegramLink(url);
+  else if (app?.openLink) app.openLink(url);
   else window.open(url, '_blank', 'noopener,noreferrer');
 }
 

@@ -1,4 +1,5 @@
 import { Icon } from './Icon';
+import { instagramUrl } from '../data/location';
 import { closeSheet, openSheet, toast } from '../lib/ui';
 import { notify, tap } from '../lib/haptics';
 import { useLang } from '../lib/i18n';
@@ -7,7 +8,7 @@ import {
   doneCount, PER_TASK, MAX_PERCENT, TASK_COUNT,
   type QuestId, type Quests as QuestMap,
 } from '../lib/quests';
-import { getTgUser } from '../lib/telegram';
+import { getTgUser, openExternal } from '../lib/telegram';
 
 // Скидка за задание, а не за нажатие.
 //
@@ -134,7 +135,7 @@ export function QuestList({ onWriteReview }: { onWriteReview: () => void }) {
     }
 
     // Сторис: открываем инстаграм и ставим в очередь на подтверждение
-    window.open('https://instagram.com/dr.domnich', '_blank', 'noopener,noreferrer');
+    openExternal(instagramUrl());
     sendForReview('story');
     notify('success');
     toast(ru ? 'Отправлено Анжелике на проверку' : 'Sent to Anjelika for review', 'success');

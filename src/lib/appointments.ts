@@ -185,6 +185,20 @@ export function getUpcoming(list: Appointment[] = items) {
 }
 
 
+/* Отклонённые заявки. Они не входят ни в активные (ACTIVE), ни в историю
+   кабинета (там только completed) — и до этой функции просто ИСЧЕЗАЛИ у
+   клиентки: человек отправил заявку, Анжелика отказала, и ответа он не
+   видел никогда. Молчание в ответ на запрос — худшее, что может сделать
+   сервис. Показываем две недели: позже отказ уже неактуален. */
+export function getDeclined(list: Appointment[] = items, days = 14) {
+  const from = new Date();
+  from.setDate(from.getDate() - days);
+  const fromISO = toISODate(from);
+  return list
+    .filter((a) => a.status === 'declined' && a.dateISO >= fromISO)
+    .sort((a, b) => b.createdAt - a.createdAt);
+}
+
 export function getPast(list: Appointment[] = items) {
   return list
     .filter((a) => a.status === 'completed' || a.status === 'no-show' || a.status === 'cancelled' || a.status === 'declined')

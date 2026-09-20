@@ -3,6 +3,8 @@ import { openSheet, closeSheet, openLightbox, toast } from '../lib/ui';
 import { ReviewSheet } from '../components/ReviewSheet';
 import { StoryCarousel } from '../components/StoryCarousel';
 import { StudioMap } from '../components/StudioMap';
+import { instagramUrl } from '../data/location';
+import { openExternal } from '../lib/telegram';
 import { Gallery } from '../components/Gallery';
 import { Icon } from '../components/Icon';
 import { t } from '../lib/i18n';
@@ -74,10 +76,10 @@ export function ProfileScreen({
         <button
           className="btn btn-primary btn-block"
           onClick={() => {
-            const url = 'https://instagram.com/dr.domnich';
+            const url = instagramUrl();
             const nav = navigator as Navigator & { share?: (d: { title?: string; text?: string; url?: string }) => Promise<void> };
             if (nav.share) nav.share({ title: 'ANZH Cosmetology', text: ru ? 'Косметолог Анжелика · Батуми' : 'Cosmetologist Anjelika · Batumi', url }).catch(() => {});
-            else window.open(url, '_blank');
+            else openExternal(url);
             toast(ru ? 'Открываю Instagram Анжелики' : 'Opening Anjelika’s Instagram', 'success');
           }}
         >

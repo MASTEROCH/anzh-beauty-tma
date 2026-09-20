@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { instagramUrl } from '../data/location';
+import { openExternal } from '../lib/telegram';
 import { durationLabel } from '../lib/plural';
 import { Icon } from '../components/Icon';
 import { StudioAsk } from '../components/StudioAsk';
@@ -230,7 +232,7 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
         </>
       ),
       actions: row.instagram ? (
-        <button className="btn btn-ghost btn-block" onClick={() => window.open(`https://instagram.com/${row.instagram}`, '_blank')}>
+        <button className="btn btn-ghost btn-block" onClick={() => openExternal(instagramUrl(row.instagram))}>
           Открыть @{row.instagram} в инстаграме
         </button>
       ) : undefined,

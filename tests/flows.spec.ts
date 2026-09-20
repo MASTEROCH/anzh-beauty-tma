@@ -141,3 +141,23 @@ test('несколько процедур в одну запись: время �
   expect(await page.locator('.summary-row').filter({ hasText: /Длительность|Duration/i }).innerText()).toBe(before);
   expect(errors).toEqual([]);
 });
+
+test('отклонённая заявка доходит до клиентки с причиной и выходом', async ({ page }) => {
+  const today = new Date().toLocaleDateString('sv');
+  await fresh(page, {
+    anzh_appointments_v2: JSON.stringify([{
+      id: 'd1', dateISO: today, slot: '16:30', serviceId: 'lip-filler',
+      clientName: 'Маша', clientInstagram: 'mashab',
+      status: 'declined', declineReason: 'В этот день я на обучении — давай перенесём',
+      createdAt: Date.now(),
+    }]),
+    anzh_client_v1: JSON.stringify({ name: 'Маша', instagram: 'mashab' }),
+  });
+  await tab(page, /ПАСПОРТ|PASSPORT/i);
+
+  // До этого отказ исчезал совсем: ни в активных, ни в истории
+  await expect(page.locator('.declined-card')).toBeVisible({ timeout: 5000 });
+  await expect(page.locator('.declined-why')).toContainText(/обучении/);
+  await page.locator('.declined-card button').click();
+  await expect(page.locator('.screen')).toContainText(/Выбор времени|Pick a time/i, { timeout: 5000 });
+});

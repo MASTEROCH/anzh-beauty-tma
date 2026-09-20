@@ -1,14 +1,17 @@
 import { useMemo } from 'react';
+import { googleMapsUrl } from '../data/location';
+import { openExternal } from '../lib/telegram';
+import { studioAddress } from '../data/location';
 import { openSheet, toast } from '../lib/ui';
 import { Icon } from '../components/Icon';
 import { ReviewSheet } from '../components/ReviewSheet';
 import { SettingsSheet } from '../components/SettingsSheet';
 import { HealthPassportSheet } from '../components/HealthPassportSheet';
 import { PinGate } from '../components/PinGate';
-import { t } from '../lib/i18n';
+import { t, pts } from '../lib/i18n';
 import { findService, sTitle, servicePhoto } from '../data/services';
 import {
-  useAppointments, getUpcoming, getPast, getMyAppointments,
+  useAppointments, getUpcoming, getPast, getDeclined, getMyAppointments,
   cancelAppointment, acceptOffer, formatLongDate, formatWeekday, formatMonthShort,
   fromISODate, formatShort, STATUS_LABEL, type Appointment,
 } from '../lib/appointments';
@@ -28,6 +31,7 @@ type Currency = 'usd' | 'gel';
 
 export function AccountScreen({
   onBook,
+  onBookAgain,
   onReschedule,
   lang,
   onLang,
@@ -40,6 +44,8 @@ export function AccountScreen({
   onStudio,
 }: {
   onBook: () => void;
+  /** Повторная запись на конкретную процедуру — из отклонённой заявки */
+  onBookAgain: (serviceId: string) => void;
   onReschedule: () => void;
   lang: Lang;
   onLang: (l: Lang) => void;
@@ -65,6 +71,7 @@ export function AccountScreen({
   );
   const upcoming = useMemo(() => getUpcoming(mine), [mine]);
   const history = useMemo(() => getPast(mine).filter((a) => a.status === 'completed'), [mine]);
+  const declined = useMemo(() => getDeclined(mine), [mine]);
 
   const tier = tierOf(points);
   const nTier = nextTier(points);
@@ -99,10 +106,10 @@ export function AccountScreen({
         <>
           <div className="loyalty-card" style={{ margin: 0, width: '100%' }}>
             <div className="loyalty-tier">★ {tier.label} · сейчас твой тир</div>
-            <div className="loyalty-points">{points}<small> {lang === 'ru' ? 'баллов' : 'points'}</small></div>
+            <div className="loyalty-points">{points}<small> {pts(points, lang)}</small></div>
             <div className="loyalty-progress"><div className="loyalty-progress-fill" style={{ width: `${tierProgress(points)}%` }} /></div>
             <div className="loyalty-hint">
-              {nTier ? `До ${nTier.label} ещё ${pointsToNext(points)} баллов.` : 'Максимальный тир — спасибо, что ты с Анжеликой 💛'}
+              {nTier ? `До ${nTier.label} ещё ${pointsToNext(points)} ${pts(pointsToNext(points), lang)}.` : 'Максимальный тир — спасибо, что ты с Анжеликой 💛'}
             </div>
           </div>
           <div style={{ marginTop: 16 }}>
@@ -169,7 +176,7 @@ export function AccountScreen({
           <ul className="info-list" style={{ marginTop: 14 }}>
             <li>{svc?.short}</li>
             <li>Длительность {svc?.duration} мин</li>
-            <li>Parnavaz Mepe 92/94, 1 этаж · домофон 12</li>
+            <li>{studioAddress(lang)}</li>
             <li>К оплате на месте ${svc?.priceUsd}</li>
           </ul>
           {a.comment && <p className="muted" style={{ fontSize: 13, marginTop: 10 }}>Твой комментарий: «{a.comment}»</p>}
@@ -198,7 +205,7 @@ export function AccountScreen({
           <button
             className="btn btn-ghost btn-block"
             onClick={() => {
-              window.open('https://www.google.com/maps/search/?api=1&query=41.6462,41.6324', '_blank');
+              openExternal(googleMapsUrl());
               toast('Открываю маршрут', 'success');
             }}
           >
@@ -284,7 +291,7 @@ export function AccountScreen({
 
       <button className="loyalty-card" onClick={showLoyalty}>
         <div className="loyalty-tier">★ {tier.label} · Anjelika Club</div>
-        <div className="loyalty-points">{points}<small> {lang === 'ru' ? 'баллов' : 'points'}</small></div>
+        <div className="loyalty-points">{points}<small> {pts(points, lang)}</small></div>
         <div className="loyalty-progress"><div className="loyalty-progress-fill" style={{ width: `${tierProgress(points)}%` }} /></div>
         <div className="loyalty-hint">
           {nTier
@@ -296,6 +303,42 @@ export function AccountScreen({
                 : `Top tier · ${tier.cashback}% cashback`)}
         </div>
       </button>
+
+      {/* Ответ мастера на отклонённую заявку. Без этого блока отказ
+          просто исчезал: человек ждал ответа, которого не будет. */}
+      {declined.length > 0 && (
+        <section className="section" style={{ paddingBottom: 0 }}>
+          <div className="eyebrow" style={{ marginBottom: 8 }}>
+            {lang === 'ru' ? 'ответ на заявку' : 'reply to your request'}
+          </div>
+          <div className="col" style={{ gap: 10 }}>
+            {declined.map((a) => {
+              const svc = findService(a.serviceId);
+              return (
+                <div key={a.id} className="declined-card">
+                  <div className="declined-head">
+                    <Icon name="info" size={15} strokeWidth={2.2} />
+                    {lang === 'ru' ? 'Это время не получилось' : 'This time did not work out'}
+                  </div>
+                  <div className="declined-what">
+                    {svc ? sTitle(svc, lang) : a.serviceId} · {formatShort(a.dateISO, lang)} · {a.slot}
+                  </div>
+                  {a.declineReason && (
+                    <p className="declined-why">«{a.declineReason}»</p>
+                  )}
+                  <button
+                    className="btn btn-primary btn-block"
+                    style={{ marginTop: 12 }}
+                    onClick={() => onBookAgain(a.serviceId)}
+                  >
+                    {lang === 'ru' ? 'Выбрать другое время' : 'Pick another time'}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {upcoming.length > 0 ? (
         <section className="section" style={{ paddingBottom: 0 }}>

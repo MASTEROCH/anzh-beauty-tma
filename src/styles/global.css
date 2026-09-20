@@ -6028,3 +6028,26 @@ body[data-sheet-open] .lang-hud { display: none; }
   .ai-bubble { transition: opacity 160ms linear; }
   .ai-bubble.away { transform: none; }
 }
+
+/* ─── Ответ мастера на отклонённую заявку ─────────────────
+   Раньше отказ просто исчезал: заявки нет ни в активных, ни в истории.
+   Человек ждал ответа, которого не будет, — молчание в ответ на запрос
+   хуже отказа. */
+.declined-card {
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(255, 184, 107, 0.07);
+  border: 0.5px solid rgba(255, 184, 107, 0.26);
+}
+.declined-head {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 700;
+  color: #FFB86B;
+}
+.declined-what { font-size: 14px; font-weight: 650; margin-top: 8px; }
+.declined-why {
+  font-size: 13px; line-height: 1.5;
+  color: var(--text-secondary);
+  margin: 8px 0 0;
+  font-style: italic;
+}

@@ -4,8 +4,20 @@ export type Lang = 'ru' | 'en';
 
 /* ── Global language store — any component re-renders on switch ── */
 const KEY = 'anzh_lang';
+
+/* Язык по умолчанию берём из клиента Telegram, а не назначаем русский:
+   приложение открывают и грузинки, и приезжие. Ручной выбор, если он был,
+   всегда сильнее — его и храним в KEY. */
+function fromTelegram(): Lang | null {
+  if (typeof window === 'undefined') return null;
+  const code = (window as unknown as {
+    Telegram?: { WebApp?: { initDataUnsafe?: { user?: { language_code?: string } } } };
+  }).Telegram?.WebApp?.initDataUnsafe?.user?.language_code;
+  if (!code) return null;
+  return code.startsWith('ru') ? 'ru' : 'en';
+}
 let current: Lang =
-  (typeof window !== 'undefined' && (localStorage.getItem(KEY) as Lang)) || 'ru';
+  (typeof window !== 'undefined' && (localStorage.getItem(KEY) as Lang)) || fromTelegram() || 'ru';
 const listeners = new Set<(l: Lang) => void>();
 
 export function getLang(): Lang {
