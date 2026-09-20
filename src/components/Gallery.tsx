@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { durationLabel } from '../lib/plural';
 import { useReveal } from '../lib/reveal';
 import { Icon } from './Icon';
 import { closeSheet, openSheet, openLightbox } from '../lib/ui';
@@ -43,7 +44,7 @@ export function Gallery({ onBook, onOpenService }: { onBook: (id: string) => voi
     const photo = servicePhoto(s.id)!;
     openSheet({
       title: sTitle(s, lang),
-      subtitle: `${s.duration} ${t('common.min', lang)} · $${s.priceUsd}`,
+      subtitle: `${durationLabel(s.duration, s.days)} · $${s.priceUsd}`,
       body: (
         <>
           <button
@@ -128,7 +129,7 @@ export function Gallery({ onBook, onOpenService }: { onBook: (id: string) => voi
             <span className="gallery-tile-scrim" aria-hidden />
             <span className="gallery-tile-meta">
               <span className="gallery-tile-title">{sTitle(s, lang)}</span>
-              <span className="gallery-tile-sub">{s.duration} {t('common.min', lang)} · ${s.priceUsd}</span>
+              <span className="gallery-tile-sub">{durationLabel(s.duration, s.days)} · ${s.priceUsd}</span>
             </span>
             <span className="gallery-tile-go" aria-hidden><Icon name="chevron-right" size={14} strokeWidth={2.6} /></span>
           </button>

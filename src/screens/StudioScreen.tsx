@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { durationLabel } from '../lib/plural';
 import { Icon } from '../components/Icon';
 import { StudioAsk } from '../components/StudioAsk';
 import { ClientStrip } from '../components/ClientCardView';
@@ -590,7 +591,7 @@ function PriceRow({ serviceId }: { serviceId: string }) {
       <div className="price-row-body">
         <div className="price-row-title">{sTitle(svc, 'ru')}</div>
         <div className="price-row-sub">
-          {svc.duration} мин{custom !== undefined && <span className="price-row-was"> · было ${svc.priceUsd}</span>}
+          {durationLabel(svc.duration, svc.days)}{custom !== undefined && <span className="price-row-was"> · было ${svc.priceUsd}</span>}
         </div>
       </div>
       <div className="price-row-edit">
@@ -706,7 +707,7 @@ function NextUp({ today }: { today: Appointment[] }) {
           {next.appt.clientName}
           {next.appt.clientInstagram && <span className="faint"> · @{next.appt.clientInstagram}</span>}
         </div>
-        <div className="nu-svc">{svc ? sTitle(svc, 'ru') : next.appt.serviceId} · {svc?.duration} мин</div>
+        <div className="nu-svc">{svc ? sTitle(svc, 'ru') : next.appt.serviceId} · {svc ? durationLabel(svc.duration, svc.days) : ''}</div>
       </div>
       {next.appt.status === 'pending' && <span className="chip chip-amber">не подтверждена</span>}
     </div>

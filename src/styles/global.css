@@ -6002,3 +6002,21 @@ body[data-sheet-open] .lang-hud { display: none; }
   font-variant-numeric: tabular-nums;
 }
 .studio-req-when { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+
+/* Шар ассистента уходит, пока человек листает: он плавает поверх контента
+   и на узком экране накрывает сердечко избранного у карточки под ним.
+   Возвращается, как только прокрутка остановилась. */
+.ai-bubble {
+  transition:
+    opacity 260ms var(--ease-out),
+    transform 320ms var(--ease-spring);
+}
+.ai-bubble.away {
+  opacity: 0;
+  transform: translateY(14px) scale(0.86);
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-bubble { transition: opacity 160ms linear; }
+  .ai-bubble.away { transform: none; }
+}

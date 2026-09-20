@@ -1,6 +1,7 @@
 import { Icon } from './Icon';
 import { openSheet } from '../lib/ui';
 import { formatShort } from '../lib/appointments';
+import { times } from '../lib/plural';
 import type { ClientCard } from '../lib/clientCard';
 
 // Карта клиента в кабинете мастера.
@@ -14,14 +15,6 @@ import type { ClientCard } from '../lib/clientCard';
 // Противопоказания стоят ВЫШЕ истории намеренно: пропустить их дороже, чем
 // не вспомнить прошлый визит.
 
-/** 1 раз · 2 раза · 5 раз — без этого метка спотыкается на каждом числе */
-function plural(n: number): string {
-  const d = n % 10, h = n % 100;
-  if (d === 1 && h !== 11) return 'раз';
-  if (d >= 2 && d <= 4 && (h < 12 || h > 14)) return 'раза';
-  return 'раз';
-}
-
 export function ClientStrip({ card }: { card: ClientCard }) {
   const stop = card.flags.filter((f) => f.level === 'stop').length;
   const check = card.flags.filter((f) => f.level === 'check').length;
@@ -31,7 +24,7 @@ export function ClientStrip({ card }: { card: ClientCard }) {
       <span className={`cc-badge${card.returning ? ' returning' : ' first'}`}>
         {/* «1-й визит» читалось как «пришла впервые», хотя визит уже был.
             Говорим о прошлом прямо: сколько раз доходила до процедуры. */}
-        {card.returning ? `была ${card.visits} ${plural(card.visits)}` : 'впервые'}
+        {card.returning ? `была ${times(card.visits)}` : 'впервые'}
       </span>
       {card.noShows > 0 && (
         <span className="cc-badge warn">{card.noShows} не пришла</span>
@@ -49,7 +42,7 @@ export function openClientCard(card: ClientCard) {
     title: card.name,
     subtitle: [
       card.handle ? `@${card.handle}` : null,
-      card.returning ? `была ${card.visits} ${plural(card.visits)}` : 'первый визит',
+      card.returning ? `была ${times(card.visits)}` : 'первый визит',
       card.spentUsd > 0 ? `$${card.spentUsd}` : null,
     ].filter(Boolean).join(' · '),
     body: <ClientCardBody card={card} />,
@@ -136,7 +129,7 @@ function ClientCardBody({ card }: { card: ClientCard }) {
       {card.noShows > 0 && (
         <div className="cc-noshow">
           <Icon name="warning" size={14} strokeWidth={2.2} />
-          Не пришла {card.noShows} {plural(card.noShows)} — стоит подтвердить накануне
+          Не пришла {times(card.noShows)} — стоит подтвердить накануне
         </div>
       )}
     </div>

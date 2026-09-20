@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useScrolling } from '../lib/scrollIdle';
 import { Mascot, type MascotEmotion } from './Mascot';
 import { onMascotMood } from '../lib/mascot-events';
 import { onAskMascot } from '../lib/chat-events';
@@ -32,6 +33,7 @@ interface Props {
 }
 
 export function AiChatBubble({ screen, onBookingNav, onOpenService, onOpenCatalog, onOpenPlan, onOpenPassport }: Props) {
+  const scrolling = useScrolling();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -251,7 +253,14 @@ export function AiChatBubble({ screen, onBookingNav, onOpenService, onOpenCatalo
   return (
     <>
       {!isOpen && (
-        <button className="ai-bubble" onClick={() => setIsOpen(true)} aria-label="Открыть AI-ассистента">
+        <button
+          className={`ai-bubble${scrolling ? ' away' : ''}`}
+          onClick={() => setIsOpen(true)}
+          aria-label="Открыть AI-ассистента"
+          /* Во время прокрутки шар уходит: он перекрывает то, что под ним,
+             а листающему человеку ассистент не нужен */
+          tabIndex={scrolling ? -1 : undefined}
+        >
           <Mascot mood={currentMood} size={56} className="ai-bubble-mascot" onTap={() => {}} />
         </button>
       )}

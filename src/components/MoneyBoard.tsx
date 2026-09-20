@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Icon } from './Icon';
+import { visits, people } from '../lib/plural';
 import { select } from '../lib/haptics';
 import type { Appointment } from '../lib/appointments';
 import {
@@ -73,7 +74,7 @@ export function MoneyBoard({ list, showStaff }: { list: Appointment[]; showStaff
           <div className="mb-hero">
             <div className="mb-hero-sum">${t.revenue}</div>
             <div className="mb-hero-sub">
-              {t.visits} визит(ов) · {t.clients} человек · средний чек ${t.average}
+              {visits(t.visits)} · {people(t.clients)} · средний чек ${t.average}
             </div>
             {/* Сравнение с тем же куском прошлого года. Нет данных — молчим,
                 а не рисуем «+100%» от нуля */}
@@ -96,7 +97,7 @@ export function MoneyBoard({ list, showStaff }: { list: Appointment[]; showStaff
                 <div className="mb-bar-track">
                   <i style={{ width: `${Math.max(3, r.share * 100)}%` }} />
                 </div>
-                <div className="mb-bar-foot">{r.visits} визит(ов) · {Math.round(r.share * 100)}%</div>
+                <div className="mb-bar-foot">{visits(r.visits)} · {Math.round(r.share * 100)}%</div>
               </div>
             ))}
           </div>
@@ -114,7 +115,7 @@ export function MoneyBoard({ list, showStaff }: { list: Appointment[]; showStaff
                     <div className="mb-bar-track">
                       <i className="staff" style={{ width: `${Math.max(3, r.share * 100)}%` }} />
                     </div>
-                    <div className="mb-bar-foot">{r.visits} визит(ов) · {Math.round(r.share * 100)}%</div>
+                    <div className="mb-bar-foot">{visits(r.visits)} · {Math.round(r.share * 100)}%</div>
                   </div>
                 ))}
               </div>

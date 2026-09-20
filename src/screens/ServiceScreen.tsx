@@ -1,4 +1,5 @@
 import { findService, services, sTitle, servicePhoto, serviceResultPair } from '../data/services';
+import { durationLabel } from '../lib/plural';
 import { openSheet, openLightbox, toast } from '../lib/ui';
 import { Icon } from '../components/Icon';
 import { BeforeAfterSlider } from '../components/BeforeAfterSlider';
@@ -124,7 +125,7 @@ export function ServiceScreen({
         <div className="service-detail-meta">
           <strong>{price}</strong>
           <span>· {altPrice}</span>
-          <span className="svc-dur"><Icon name="clock" size={13} strokeWidth={2} /> {s.duration} {t('common.min', lang)}</span>
+          <span className="svc-dur"><Icon name="clock" size={13} strokeWidth={2} /> {durationLabel(s.duration, s.days)}</span>
         </div>
         <p className="service-detail-text">{s.description}</p>
 

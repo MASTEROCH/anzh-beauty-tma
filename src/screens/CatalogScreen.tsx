@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { durationLabel } from '../lib/plural';
 import { categories, sTitle, sShort, CATEGORY_KEY, servicePhoto, type Service } from '../data/services';
 import { useCatalog } from '../lib/catalog';
 import { toast } from '../lib/ui';
@@ -140,7 +141,7 @@ export function CatalogScreen({
                   <span className="faint" style={{ fontSize: 12 }}>· {price.sub}</span>
                   <span className="service-duration">
                     <Icon name="clock" size={12} strokeWidth={2} />
-                    {s.duration} {t('common.min', lang)}
+                    {durationLabel(s.duration, s.days)}
                   </span>
                 </div>
               </div>
