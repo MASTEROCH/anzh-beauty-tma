@@ -1,0 +1,1046 @@
+openapi: 3.1.0
+
+# Главный артефакт поставки (контракт §0.1).
+#
+# Смысл в том, что зафиксированный контракт эндпоинтов позволяет позже
+# заменить бэкенд целиком, не тронув фронтенд: поменяется одна
+# переменная окружения с базовым адресом. Если контракт не зафиксирован,
+# переписывать придётся обе стороны.
+#
+# Отсюда второе требование, к клиенту: фронтенд ходит в сеть только
+# через один модуль, ни одного fetch вне него, базовый адрес — из
+# переменной окружения, а не строкой в коде.
+#
+# Описаны ТОЛЬКО реализованные эндпоинты. Оплата, уведомления и
+# ассистент появятся здесь вместе с кодом, а не раньше него.
+
+info:
+  title: ANZH Beauty API
+  version: '1.0.0'
+  description: |
+    Бэкенд мини-приложения ANZH Cosmetology.
+
+    **Личность.** Все запросы, кроме витрины и здоровья, требуют
+    сессии. Сессия выдаётся в обмен на `initData` из Telegram, подпись
+    которого проверяется на сервере (HMAC + срок жизни 1 час). Роль
+    берётся с сервера по `telegram_id`, а не из запроса.
+
+    **Деньги.** Целое в минорных единицах плюс код валюты: `45000` и
+    `GEL` означают 450.00 лари. Telegram Stars — отдельное поле
+    `stars_amount`, это не валюта ISO-4217.
+
+    **Время.** Всё в UTC, ISO-8601. Часовой пояс салона —
+    `Asia/Tbilisi` — параметр конфигурации, а не свойство данных.
+
+    **Итог визита считает сервер.** Клиент присылает состав, а не сумму.
+
+servers:
+  - url: '{base}/api/v1'
+    description: Базовый адрес берётся из переменной окружения клиента
+    variables:
+      base:
+        default: http://localhost:8080
+
+tags:
+  - name: Служебное
+  - name: Вход
+  - name: Каталог
+  - name: Записи
+  - name: Команда
+  - name: Клиентки
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      tags: [Служебное]
+      summary: Живость процесса и доступность базы
+      security: []
+      responses:
+        '200':
+          description: Процесс жив, база отвечает
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+        '503':
+          description: Процесс жив, база недоступна
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+
+  /health/live:
+    get:
+      tags: [Служебное]
+      summary: Живость без обращения к базе
+      security: []
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { status: { type: string, const: ok } }
+
+  /auth/telegram:
+    post:
+      tags: [Вход]
+      summary: Обменять initData на сессию
+      description: |
+        Единственный вход. Возвращает токен, профиль и **готовую**
+        реферальную ссылку: клиент её только показывает и копирует, но
+        не собирает из кусков.
+
+        Если в `start_param` была метка приглашения, привязка пишется
+        при **первом** её появлении и больше не меняется.
+
+        Ограничение частоты: 20 запросов в минуту с адреса.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [init_data]
+              properties:
+                init_data:
+                  type: string
+                  description: Сырая строка `initData` из Telegram WebApp
+      responses:
+        '200':
+          description: Сессия выдана
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [token, user]
+                properties:
+                  token: { type: string, description: 'JWT, срок 7 дней' }
+                  user: { $ref: '#/components/schemas/Me' }
+                  target:
+                    type: [string, 'null']
+                    description: Экран из composite-метки `ref_<код>__<цель>`
+                    example: service-peeling
+        '401':
+          $ref: '#/components/responses/BadInitData'
+        '422':
+          $ref: '#/components/responses/Invalid'
+        '429':
+          $ref: '#/components/responses/TooMany'
+
+  /me:
+    get:
+      tags: [Вход]
+      summary: Кто я сейчас
+      description: Роль отдаётся из базы, а не из токена — мастера могли добавить после входа.
+      responses:
+        '200':
+          description: Профиль
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user: { $ref: '#/components/schemas/Me' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /services:
+    get:
+      tags: [Каталог]
+      summary: Витрина
+      description: Открыта без сессии — каталог публичен. Снятые с витрины процедуры не показываются.
+      security: []
+      parameters:
+        - name: kind
+          in: query
+          schema: { type: string, enum: [procedure, training, analysis] }
+      responses:
+        '200':
+          description: Список
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  services:
+                    type: array
+                    items: { $ref: '#/components/schemas/Service' }
+        '422':
+          description: '`bad_kind` — неизвестный вид. Пустой список на опечатку ищут в данных, а не в коде'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /services/{slug}:
+    parameters:
+      - $ref: '#/components/parameters/Slug'
+    get:
+      tags: [Каталог]
+      summary: Одна процедура
+      security: []
+      responses:
+        '200':
+          description: Процедура
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service: { $ref: '#/components/schemas/Service' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Каталог]
+      summary: Правка прайса
+      description: |
+        Только владелица. Отдельной админки нет — прайс правится из
+        кабинета. Обновляются только присланные поля: `null` стирает
+        значение, отсутствие поля оставляет как было.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ServicePatch' }
+      responses:
+        '200':
+          description: Обновлено
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service: { $ref: '#/components/schemas/Service' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Invalid' }
+    delete:
+      tags: [Каталог]
+      summary: Снять с витрины
+      description: |
+        Мягко: строка остаётся, на неё ссылается история визитов.
+        Жёсткое удаление сломало бы карточки прошлых клиенток.
+      responses:
+        '200':
+          description: Снято
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { archived: { type: string } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /services/{slug}/restore:
+    parameters:
+      - $ref: '#/components/parameters/Slug'
+    post:
+      tags: [Каталог]
+      summary: Вернуть на витрину
+      responses:
+        '200':
+          description: Возвращено
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { restored: { type: string } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /services/quote:
+    post:
+      tags: [Каталог]
+      summary: Сколько выйдет визит
+      description: |
+        Считает ту же функция, что и при создании заявки — поэтому
+        показанный итог и записанный совпадают по построению.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [slugs]
+              properties:
+                slugs:
+                  type: array
+                  items: { type: string }
+                  minItems: 1
+                  maxItems: 6
+      responses:
+        '200':
+          description: Расчёт
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  quote: { $ref: '#/components/schemas/Quote' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422':
+          description: |
+            `empty_visit` · `too_many` · `unknown_service` ·
+            `incomplete_service` (нет цены или длительности) ·
+            `mixed_currency`
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /bookings:
+    post:
+      tags: [Записи]
+      summary: Оставить заявку
+      description: |
+        Создаёт заявку в статусе `pending`. Подтверждает её человек —
+        заявки друг друга не блокируют.
+
+        Мастер выбирается по тому, кто ведёт эти процедуры; если
+        прислан `staff_id`, он проверяется на соответствие.
+
+        Сумму, скидку и длительность из тела запроса сервер игнорирует
+        и считает сам.
+
+        Ограничение частоты: 10 заявок за 5 минут на человека.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [slugs, starts_at]
+              properties:
+                slugs:
+                  type: array
+                  items: { type: string }
+                  minItems: 1
+                  maxItems: 6
+                starts_at: { type: string, format: date-time }
+                staff_id: { type: [integer, 'null'], format: int64 }
+                note:
+                  type: [string, 'null']
+                  maxLength: 1000
+                  description: |
+                    Свободный текст клиентки. Может содержать сведения о
+                    здоровье, поэтому не попадает ни в логи, ни в текст
+                    уведомлений.
+      responses:
+        '201':
+          description: Заявка создана (или возвращена по тому же ключу идемпотентности)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  booking: { $ref: '#/components/schemas/Booking' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422':
+          description: '`bad_slugs` · `bad_time` · `past_time` · `staff_mismatch` · `no_staff` · `bad_idempotency_key`'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '429': { $ref: '#/components/responses/TooMany' }
+    get:
+      tags: [Записи]
+      summary: Мои записи
+      responses:
+        '200':
+          description: Список, новые сверху
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BookingList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /bookings/declined:
+    get:
+      tags: [Записи]
+      summary: Отклонённые заявки за две недели
+      description: Клиентка должна видеть отказ и его причину, а не тишину.
+      responses:
+        '200':
+          description: Список
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BookingList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /bookings/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Записи]
+      summary: Одна запись
+      description: |
+        Право проверяется на конкретный объект: своя запись, своя как у
+        мастера, либо владелица. Иначе `403`, даже если сессия есть.
+      responses:
+        '200':
+          description: Запись
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  booking: { $ref: '#/components/schemas/Booking' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Записи]
+      summary: Сменить статус
+      description: |
+        Разрешённые переходы:
+
+        | из | мастер может | клиентка может |
+        |---|---|---|
+        | `pending` | `confirmed`, `declined` | `cancelled` |
+        | `confirmed` | `done`, `no_show`, `cancelled` | `cancelled` |
+        | остальные | — | — |
+
+        Отклонение требует причины: отказ без объяснения клиентка
+        видит как молчание.
+
+        Подтверждение занимает слот. Конфликт ловит уникальный индекс
+        в базе, а не проверка в коде.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { $ref: '#/components/schemas/BookingStatus' }
+                reason: { type: [string, 'null'], maxLength: 500 }
+      responses:
+        '200':
+          description: Статус изменён
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  booking: { $ref: '#/components/schemas/Booking' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`slot_taken` — время занято · `bad_transition` · `stale` — статус изменили одновременно'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          description: '`bad_status` · `reason_required`'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /staff/bookings:
+    get:
+      tags: [Записи]
+      summary: День мастера и очередь заявок
+      description: Мастер видит свои записи. `scope=all` действует только для владелицы.
+      parameters:
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/BookingStatus' } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: scope, in: query, schema: { type: string, enum: [mine, all] } }
+      responses:
+        '200':
+          description: Список
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BookingList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /staff/{staffId}/busy:
+    get:
+      tags: [Записи]
+      summary: Занятые слоты мастера
+      description: |
+        Занятыми считаются только подтверждённые записи. Ответ не
+        раскрывает, кто записан и на что.
+      parameters:
+        - { name: staffId, in: path, required: true, schema: { type: integer, format: int64 } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+      responses:
+        '200':
+          description: Времена начала занятых визитов
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  busy:
+                    type: array
+                    items: { type: string, format: date-time }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422':
+          description: '`bad_staff` · `bad_range` · `range_too_long` (больше 90 дней)'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /team:
+    get:
+      tags: [Команда]
+      summary: Состав студии
+      description: Открыт без сессии. Ни PIN, ни его хэш не отдаются никогда.
+      security: []
+      responses:
+        '200':
+          description: Команда
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  team:
+                    type: array
+                    items: { $ref: '#/components/schemas/StaffMember' }
+    post:
+      tags: [Команда]
+      summary: Добавить или вернуть сотрудника
+      description: Только владелица. Повторный вызов с тем же `telegram_id` обновляет запись.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [telegram_id, name]
+              properties:
+                telegram_id: { type: integer, format: int64 }
+                name: { type: string }
+                title: { type: [string, 'null'] }
+                role: { type: string, enum: [staff, owner], default: staff }
+      responses:
+        '201':
+          description: Заведён
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  staff: { $ref: '#/components/schemas/StaffMember' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Invalid' }
+
+  /team/{telegramId}:
+    parameters:
+      - { name: telegramId, in: path, required: true, schema: { type: integer, format: int64 } }
+    delete:
+      tags: [Команда]
+      summary: Снять доступ
+      description: |
+        Мягко: записи этого мастера остаются в истории и в выручке.
+        Снять доступ у себя нельзя — вернуть его через приложение
+        было бы уже нечем.
+      responses:
+        '200':
+          description: Доступ снят
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { deactivated: { type: integer, format: int64 } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422':
+          description: '`self_removal`'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /team/{telegramId}/services:
+    parameters:
+      - { name: telegramId, in: path, required: true, schema: { type: integer, format: int64 } }
+    put:
+      tags: [Команда]
+      summary: Что ведёт мастер
+      description: Полная замена набора — снятие процедуры работает тем же запросом, что добавление.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [slugs]
+              properties:
+                slugs: { type: array, items: { type: string } }
+      responses:
+        '200':
+          description: Набор заменён
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  staff_id: { type: integer, format: int64 }
+                  services: { type: array, items: { type: string } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422':
+          description: '`bad_slugs` · `unknown_service`'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /staff/me:
+    get:
+      tags: [Команда]
+      summary: Кабинет — кто я как сотрудник
+      responses:
+        '200':
+          description: Сотрудник
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  staff:
+                    allOf:
+                      - $ref: '#/components/schemas/StaffMember'
+                      - type: object
+                        properties: { pin_set: { type: boolean } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: '`not_staff`'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /staff/pin:
+    post:
+      tags: [Команда]
+      summary: Подтвердить PIN
+      description: |
+        **Это не вход.** Вход уже состоялся через `initData`, роль взята
+        из базы. PIN — второй фактор: подтверждает, что за телефоном
+        тот же человек. Кто не мастер, тот им не станет, введя верный
+        код.
+
+        Ограничение частоты: 5 попыток за 5 минут.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pin]
+              properties: { pin: { type: string } }
+      responses:
+        '200':
+          description: Подтверждён
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { confirmed: { type: boolean, const: true } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: '`forbidden` — не сотрудник · `bad_pin` — код не подошёл'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          description: '`bad_pin` · `pin_not_set`'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '429': { $ref: '#/components/responses/TooMany' }
+
+  /staff/pin/set:
+    post:
+      tags: [Команда]
+      summary: Задать или сменить свой PIN
+      description: |
+        Хранится только хэш (scrypt с солью). Демо-коды из спецификации
+        (`2024`, `1111`, `2222`) ходили по переписке и отклоняются.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pin]
+              properties: { pin: { type: string, pattern: '^\d{4,8}$' } }
+      responses:
+        '200':
+          description: Установлен
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { updated: { type: boolean, const: true } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422':
+          description: '`bad_pin` · `pin_leaked` — код известен из переписки'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /clients:
+    get:
+      tags: [Клиентки]
+      summary: Список клиенток с историей
+      description: Мастер видит тех, кто приходил к нему; владелица — всех.
+      parameters:
+        - { name: search, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, default: 100, maximum: 500 } }
+      responses:
+        '200':
+          description: Список
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  clients:
+                    type: array
+                    items: { $ref: '#/components/schemas/ClientSummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /clients/{telegramId}:
+    get:
+      tags: [Клиентки]
+      summary: Карточка клиентки
+      description: |
+        История визитов, неявки, потраченное, заработанная скидка.
+
+        🔒 **Анкеты здоровья и результатов разборов здесь нет.** Они
+        приезжают отдельным эндпоинтом, с записью в журнал доступа и
+        после ответов юриста по §1 контракта. Иначе каждое открытие
+        списка клиенток становилось бы доступом к медданным.
+
+        Мастеру, к которому эта клиентка не приходила, отвечаем `404`,
+        а не `403`: `403` подтвердил бы, что такая клиентка есть.
+      parameters:
+        - { name: telegramId, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        '200':
+          description: Карточка и история
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  client: { $ref: '#/components/schemas/ClientCard' }
+                  history:
+                    type: array
+                    items: { $ref: '#/components/schemas/HistoryEntry' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Invalid' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        `Authorization: Bearer <токен>`. Полезная нагрузка ровно такая:
+        `{ telegram_id, app_source: "beauty", role }`. Поле `app_source`
+        сверяется при каждом запросе — токен другого приложения это не
+        открывает.
+
+  parameters:
+    Slug:
+      name: slug
+      in: path
+      required: true
+      schema: { type: string, pattern: '^[a-z0-9]([a-z0-9-]*[a-z0-9])?$' }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema: { type: string, format: uuid }
+      description: |
+        Повтор с тем же ключом возвращает тот же результат, а не
+        создаёт второй объект. Сеть теряет ответ, человек жмёт кнопку
+        второй раз — без ключа получилось бы две записи.
+
+  responses:
+    Unauthorized:
+      description: Нет сессии
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { code: no_session, message: Нужно войти заново } }
+    BadInitData:
+      description: Подпись Telegram не подтверждена либо устарела
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { code: bad_init_data, message: Не удалось подтвердить вход из Telegram } }
+    Forbidden:
+      description: Роли или прав на объект не хватает
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Объекта нет
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Invalid:
+      description: Не проходит проверку
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    TooMany:
+      description: Слишком часто. Заголовок `Retry-After` — через сколько секунд можно снова
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      description: |
+        Единая форма на все отказы. Ни трассировки стека, ни текста
+        запроса к базе: по ним читается устройство сервера, а в тексте
+        запроса могут оказаться данные из анкеты.
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string, example: slot_taken }
+            message: { type: string, example: Время уже занято }
+
+    Health:
+      type: object
+      properties:
+        status: { type: string, enum: [ok, degraded] }
+        process: { type: string, const: ok }
+        database: { type: string, enum: [ok, unreachable] }
+        took_ms: { type: integer }
+        time: { type: string, format: date-time }
+
+    Role:
+      type: string
+      enum: [client, staff, owner]
+
+    Me:
+      type: object
+      properties:
+        telegram_id: { type: integer, format: int64 }
+        first_name: { type: [string, 'null'] }
+        last_name: { type: [string, 'null'] }
+        username: { type: [string, 'null'] }
+        role: { $ref: '#/components/schemas/Role' }
+        staff_name: { type: [string, 'null'] }
+        referral_code:
+          type: string
+          pattern: '^[A-Za-z0-9]{6}$'
+          description: Выдаётся один раз при первом входе и не меняется никогда.
+        referral_link:
+          type: string
+          format: uri
+          example: https://t.me/anzh_bot/beauty?startapp=ref_a7Kp2X
+          description: |
+            Готовая строка целиком. Клиент её только показывает и
+            копирует — не собирает из кусков и не берёт адрес из
+            `window.location`. Пустое значение означает, что кнопка
+            «Поделиться» должна быть недоступна: ссылка без метки
+            выглядит рабочей и молча теряет приглашение.
+        invited_count: { type: integer }
+        notifications:
+          type: object
+          properties:
+            reminders: { type: boolean }
+            review: { type: boolean }
+            marketing: { type: boolean }
+
+    Service:
+      type: object
+      properties:
+        slug: { type: string }
+        kind: { type: string, enum: [procedure, training, analysis] }
+        category:
+          type: string
+          enum: [inj, clean, peel, apparatus, care, derma, brows, training, analysis]
+        zone: { type: string, enum: [face, body, brows, general] }
+        title:
+          type: object
+          properties: { ru: { type: string }, en: { type: string } }
+        subtitle:
+          type: object
+          properties: { ru: { type: [string, 'null'] }, en: { type: [string, 'null'] } }
+        description:
+          type: object
+          properties: { ru: { type: [string, 'null'] }, en: { type: [string, 'null'] } }
+        price_minor:
+          type: [integer, 'null']
+          format: int64
+          description: Минорные единицы. 45000 при currency GEL — это 450.00 лари.
+        currency: { type: [string, 'null'], pattern: '^[A-Z]{3}$' }
+        price_from: { type: boolean, description: Цена «от» — объём заранее не известен }
+        stars_amount:
+          type: [integer, 'null']
+          description: Telegram Stars. Не валюта ISO-4217, с выручкой салона не смешивается.
+        duration_min: { type: [integer, 'null'] }
+        days: { type: [integer, 'null'], description: Для обучения }
+        includes: { type: array, items: { type: string } }
+        contraindications:
+          type: array
+          items: { type: string }
+          description: Сверяются с анкетой клиентки перед подтверждением записи.
+        photo_url: { type: [string, 'null'] }
+        sort: { type: integer }
+
+    ServicePatch:
+      type: object
+      minProperties: 1
+      description: Только присланные поля. `null` стирает значение.
+      properties:
+        title_ru: { type: string }
+        title_en: { type: string }
+        subtitle_ru: { type: [string, 'null'] }
+        subtitle_en: { type: [string, 'null'] }
+        description_ru: { type: [string, 'null'] }
+        description_en: { type: [string, 'null'] }
+        price_minor: { type: [integer, 'null'], format: int64, minimum: 0 }
+        currency: { type: [string, 'null'], pattern: '^[A-Z]{3}$' }
+        price_from: { type: boolean }
+        stars_amount: { type: [integer, 'null'], minimum: 0 }
+        duration_min: { type: [integer, 'null'], minimum: 1 }
+        days: { type: [integer, 'null'], minimum: 1 }
+        includes: { type: array, items: { type: string } }
+        contraindications: { type: array, items: { type: string } }
+        photo_url: { type: [string, 'null'] }
+        sort: { type: integer }
+
+    Quote:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              service_id: { type: string, format: uuid }
+              slug: { type: string }
+              title_ru: { type: string }
+              title_en: { type: string }
+              price_minor: { type: integer, format: int64 }
+              currency: { type: string }
+              duration_min: { type: integer }
+        subtotal_minor: { type: integer, format: int64 }
+        discount_percent:
+          type: integer
+          maximum: 30
+          description: 10% за задание, не больше 30. Считается из подтверждённых оснований.
+        discount_minor: { type: integer, format: int64 }
+        total_minor: { type: integer, format: int64 }
+        currency: { type: string }
+        duration_min: { type: integer }
+
+    BookingStatus:
+      type: string
+      enum: [pending, confirmed, declined, done, no_show, cancelled]
+
+    Booking:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        telegram_id: { type: integer, format: int64 }
+        staff_id: { type: integer, format: int64 }
+        staff_name: { type: [string, 'null'] }
+        starts_at: { type: string, format: date-time }
+        duration_min: { type: integer }
+        status: { $ref: '#/components/schemas/BookingStatus' }
+        total_minor: { type: integer, format: int64 }
+        currency: { type: string }
+        discount_percent: { type: integer }
+        client_note: { type: [string, 'null'] }
+        decline_reason: { type: [string, 'null'] }
+        created_at: { type: string, format: date-time }
+        items:
+          type: array
+          description: Цены зафиксированы на момент записи — прайс меняется, история нет.
+          items:
+            type: object
+            properties:
+              slug: { type: string }
+              title_ru: { type: string }
+              title_en: { type: string }
+              price_minor: { type: integer, format: int64 }
+
+    BookingList:
+      type: object
+      properties:
+        bookings:
+          type: array
+          items: { $ref: '#/components/schemas/Booking' }
+
+    StaffMember:
+      type: object
+      properties:
+        telegram_id: { type: integer, format: int64 }
+        name: { type: string }
+        title: { type: [string, 'null'] }
+        role: { type: string, enum: [staff, owner] }
+        photo_url: { type: [string, 'null'] }
+        services: { type: array, items: { type: string } }
+
+    ClientSummary:
+      type: object
+      properties:
+        telegram_id: { type: integer, format: int64 }
+        first_name: { type: [string, 'null'] }
+        last_name: { type: [string, 'null'] }
+        username: { type: [string, 'null'] }
+        visits: { type: integer }
+        no_shows: { type: integer }
+        cancelled: { type: integer }
+        spent_minor: { type: integer, format: int64 }
+        currency: { type: [string, 'null'] }
+        first_visit: { type: [string, 'null'], format: date-time }
+        last_visit: { type: [string, 'null'], format: date-time }
+
+    ClientCard:
+      type: object
+      properties:
+        telegram_id: { type: integer, format: int64 }
+        first_name: { type: [string, 'null'] }
+        last_name: { type: [string, 'null'] }
+        username: { type: [string, 'null'] }
+        created_at: { type: string, format: date-time }
+        visits: { type: integer }
+        no_shows: { type: integer }
+        cancelled: { type: integer }
+        spent_minor: { type: integer, format: int64 }
+        currency: { type: [string, 'null'] }
+        discount_percent: { type: integer }
+        health:
+          type: object
+          description: 🔒 Пока закрыто — см. ОТЧЁТ-§1.md
+          properties:
+            available: { type: boolean }
+            reason: { type: string, example: pending_legal_review }
+
+    HistoryEntry:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        starts_at: { type: string, format: date-time }
+        status: { $ref: '#/components/schemas/BookingStatus' }
+        total_minor: { type: integer, format: int64 }
+        currency: { type: string }
+        staff_id: { type: integer, format: int64 }
+        services: { type: array, items: { type: string } }

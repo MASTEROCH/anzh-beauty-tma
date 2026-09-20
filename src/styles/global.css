@@ -311,6 +311,38 @@ button { -webkit-tap-highlight-color: transparent; }
           mask-image: linear-gradient(180deg, transparent, #000 46%);
 }
 
+/* Та же вуаль, но сверху. Снизу она нужна была, чтобы контент не
+   просвечивал в зазорах плавающей пилюли; сверху задача другая и тоньше:
+   у шапки жёсткий нижний край, и строка текста под ним обрывалась ножом.
+   Вуаль выходит на 22px ниже шапки и растворяет этот стык — уходящий
+   контент размывается, а не отрезается.
+
+   Высота считается от `--header-h` (её публикует JS): шапка у каждого
+   экрана своя, фиксированное число разъезжалось бы на половине из них.
+   Слой лежит МЕЖДУ контентом (z-index 1) и шапкой (--z-sticky). */
+.header-veil {
+  position: absolute;
+  left: 0; right: 0;
+  /* Начинается ровно под шапкой, а не от нуля. Под шапку класть нельзя:
+     она полупрозрачная (--bg-header, 0.72), непрозрачная подложка сзади
+     убила бы просвет и шапка стала бы плоской плашкой. */
+  top: var(--header-h, 60px);
+  height: 26px;
+  z-index: calc(var(--z-sticky) - 1);
+  pointer-events: none;
+  /* Цвет шапки продолжается вниз и растворяется — стык вместо ножа. */
+  background: linear-gradient(180deg, var(--bg-header), transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  -webkit-mask-image: linear-gradient(180deg, #000, transparent);
+          mask-image: linear-gradient(180deg, #000, transparent);
+  /* Уходит вместе с шапкой: оставшаяся висеть полоса размытия без шапки
+     над ней читается как артефакт рендеринга. */
+  transition: opacity 200ms var(--ease-out);
+}
+.chrome-away .header-veil { opacity: 0; }
+.app:not(.chrome-away) .header-veil { transition-duration: 160ms; }
+
 .nav-icon { font-size: 22px; line-height: 1; }
 
 /* ─── Patient card (health passport) ─────────────────────── */
@@ -4660,38 +4692,45 @@ input, textarea, select { font-size: max(16px, 1em); }
 }
 
 /* ─── HUD языка — в верхней полосе, на всех экранах ──────── */
+
+/* ПОЗИЦИОНЕР. Ничего не рисует.
+   Ровно по центру шапки: её высота приходит из JS (`--header-h`), потому
+   что шапка растёт и от содержимого, и от safe-area — формулой в CSS это
+   не повторить, HUD уезжал на 4px и читался как перекос.
+
+   🚨 Фона и рамки здесь быть не должно. Когда позиция и вид жили на одном
+   элементе, подложка растягивалась на все 78×60 и вокруг двух маленьких
+   кнопок висела плашка размером с шапку. */
 .lang-hud {
   /* Ширина зафиксирована здесь и отсюда же считается резерв в шапке —
      иначе они разъезжаются: 88px «на глаз» давали нахлёст в 4px на каждом
      экране, кроме профиля, где справа пусто. */
   --lang-hud-w: 78px;
   min-width: var(--lang-hud-w);
-  justify-content: center;
+  min-height: 0;
   position: absolute;
-  /* Верх справа: язык это свойство приложения, а не экрана, и живёт он в той
-     же полосе, что логотип и заголовок. Над шаром ассистента он оказался
-     лишней стопкой в углу — шар и язык не связаны ничем. */
-  /* Тот же вертикальный пояс, что у содержимого шапки: она даёт
-     padding-top = max(14px, safe-area) и держит строку высотой 32px.
-     Раньше HUD центрировался «примерно» и вставал на пару пикселей выше
-     соседнего шильдика — на глаз это читается как перекос. */
-  /* Ровно по центру шапки. Её высота приходит из JS (`--header-h`):
-     шапка растёт от содержимого и от safe-area, и повторить это
-     формулой в CSS нельзя — HUD уезжал на 4px и читался как перекос. */
   top: 0;
   height: var(--header-h, 60px);
-  align-items: center;
   right: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   /* Выше шапки: у неё свой backdrop-filter, он создаёт слой */
   z-index: calc(var(--z-sticky) + 1);
+  /* Пустое поле вокруг пилюли не перехватывает касания соседей по шапке */
+  pointer-events: none;
+}
+
+/* ПИЛЮЛЯ. Размер по содержимому, ни пикселем больше. */
+.lang-hud-pill {
+  pointer-events: auto;
   display: inline-flex; gap: 2px;
   padding: 3px;
   border-radius: var(--pill);
   background: var(--bg-card-2);
   border: 0.5px solid var(--border);
 }
-.lang-hud { min-height: 0; }
-.lang-hud > button {
+.lang-hud button {
   border: 0; background: none;
   font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
   padding: 4px 9px;

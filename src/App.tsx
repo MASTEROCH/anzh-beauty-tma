@@ -293,6 +293,7 @@ export function App() {
       )}
       {screen === 'anzh' && <AnzhScreen onBook={(id) => openBooking(id)} />}
 
+      <div className="header-veil" aria-hidden />
       <div className="nav-veil" aria-hidden />
 
       {screen !== 'studio' && (
