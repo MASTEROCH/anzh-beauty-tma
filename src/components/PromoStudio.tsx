@@ -31,8 +31,9 @@ interface Props {
 }
 
 export function PromoStudio({ upcoming }: Props) {
+  const services = liveServices();
   const [kind, setKind] = useState<Kind>('slot');
-  const [serviceId, setServiceId] = useState(() => liveServices()[0]?.id ?? '');
+  const [serviceId, setServiceId] = useState(() => services[0]?.id ?? '');
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   /* Свободное окно ищем в завтрашнем дне: сегодняшнее уже не продать —
@@ -133,6 +134,21 @@ export function PromoStudio({ upcoming }: Props) {
     );
   };
 
+  /* Каталог пуст — все процедуры в архиве. Рисовать сторис не из чего, и
+     показывать пустой холст хуже, чем честно сказать, чего не хватает. */
+  if (services.length === 0) {
+    return (
+      <div className="card empty-state">
+        <div className="empty-icon"><Icon name="sparkles" size={26} strokeWidth={1.7} /></div>
+        <div className="empty-title">Не из чего собрать сторис</div>
+        <div className="empty-sub">
+          В каталоге нет ни одной активной процедуры. Верни её во вкладке «Прайс» —
+          и макеты соберутся сами, с ценой и временем из расписания.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="ps">
       <div className="ps-kinds" role="tablist">
@@ -157,7 +173,7 @@ export function PromoStudio({ upcoming }: Props) {
         <label className="ps-pick">
           <span>Процедура на макете</span>
           <select value={serviceId} onChange={(e) => setServiceId(e.target.value)}>
-            {liveServices().map((s) => (
+            {services.map((s) => (
               <option key={s.id} value={s.id}>{s.title} · ${priceOf(s.id)}</option>
             ))}
           </select>

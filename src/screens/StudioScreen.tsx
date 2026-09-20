@@ -294,16 +294,24 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
                   </div>
                   <span className="chip chip-amber">новая</span>
                 </div>
-                <div className="studio-req-what">
-                  <Icon name={svc?.icon ?? 'sparkles'} size={15} strokeWidth={1.8} />
-                  <span>
-                    {apptServiceIds(a).map((id) => findService(id)?.title ?? id).join(' + ')}
-                  </span>
-                  <span className="faint">· ${apptPrice(a)}</span>
-                </div>
+                {/* Процедуры списком, а не строкой через «+»: визит из трёх
+                    превращал строку в стену текста, а цена повисала по центру
+                    четырёх строк с разделителем на отдельной строке. */}
+                <ul className="studio-req-list">
+                  {apptServiceIds(a).map((id) => {
+                    const x = findService(id);
+                    return (
+                      <li key={id}>
+                        <Icon name={x?.icon ?? 'sparkles'} size={14} strokeWidth={1.8} />
+                        <span>{x?.title ?? id}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
                 <div className="studio-req-when">
                   <Icon name="calendar" size={14} strokeWidth={1.8} />
-                  {formatShort(a.dateISO)} · {a.slot} · {apptDuration(a)} мин
+                  {formatShort(a.dateISO)} · {a.slot}
+                  <span className="studio-req-sum">{apptDuration(a)} мин · ${apptPrice(a)}</span>
                 </div>
                 {/* Кто пришёл и что нельзя — до кнопки «Принять», а не после */}
                 <ClientStrip card={card} />

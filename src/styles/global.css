@@ -5953,3 +5953,52 @@ body[data-sheet-open] .lang-hud { display: none; }
   border-color: rgba(var(--accent-rgb), 0.45);
   color: var(--brand-primary-bright);
 }
+
+/* ─── Узкие телефоны (360px и уже) ────────────────────────────
+   На 320px карточка услуги отдавала тексту 71px: фото 84px, сердце и
+   отступы съедали всё остальное, название ломалось на три строки, а
+   описание обрезалось клампом. 360×640 — всё ещё массовый Android, и
+   «поместилось на iPhone» там ничего не значит. */
+@media (max-width: 360px) {
+  .service-image { flex-basis: 64px; height: 64px; }
+  .service-body { padding-right: 30px; }
+  .service-title { font-size: 14px; line-height: 1.25; }
+  .service-desc { font-size: 11px; }
+  .service-meta { gap: 6px; }
+  .fav-btn { width: 28px; height: 28px; }
+
+  /* Экранные поля: 20px по краям на 320 — это 12% ширины */
+  .screen > section, .section { padding-left: 14px; padding-right: 14px; }
+  .header { padding-inline: 12px; padding-right: 96px; }
+
+  /* Две колонки галереи на 320 дают плитку в 140px — подписи в ней не живут */
+  .gallery-grid { grid-template-columns: 1fr; }
+  .gallery-tile { aspect-ratio: 16 / 10; }
+  .gallery-tile:last-child:nth-child(odd) { aspect-ratio: 16 / 10; }
+
+  /* Тройные сетки фактов на узком становятся нечитаемыми столбиками */
+  .pw-facts, .case-facts { gap: 6px; }
+  .pw-fact, .case-fact { padding: 10px 4px; }
+  .pw-fact-v, .case-fact-v { font-size: 16px; }
+  .pw-fact-k, .case-fact-k { font-size: 10px; }
+}
+
+/* Процедуры визита — списком: три названия через «+» на узком экране
+   становились стеной текста, а цена повисала по центру четырёх строк */
+.studio-req-list {
+  list-style: none; margin: 8px 0 0; padding: 0;
+  display: grid; gap: 5px;
+}
+.studio-req-list li {
+  display: flex; align-items: flex-start; gap: 8px;
+  font-size: 13px; line-height: 1.35;
+}
+.studio-req-list svg { color: var(--brand-primary-bright); flex-shrink: 0; margin-top: 2px; }
+.studio-req-sum {
+  margin-left: auto;
+  font-weight: 700;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.studio-req-when { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
