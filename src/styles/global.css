@@ -6327,13 +6327,14 @@ body[data-sheet-open] .lang-hud { display: none; }
   --chrome-shift: calc(var(--header-h, 60px) * -1);
 }
 
-.header, .header-veil, .lang-hud {
+.header, .header-veil, .lang-hud, .studio-exit {
   transform: translateY(var(--chrome-shift));
   transition: transform 260ms var(--ease-out), opacity 200ms var(--ease-out);
   will-change: transform;
 }
 .chrome-away .header,
 .chrome-away .header-veil,
+.chrome-away .studio-exit,
 .chrome-away .lang-hud {
   opacity: 0;
   /* Спрятанная полоса не должна перехватывать касания */
@@ -6351,6 +6352,7 @@ body[data-sheet-open] .lang-hud { display: none; }
 }
 /* Возврат: та же дистанция, вдвое короче по времени */
 .app:not(.chrome-away) .header,
+.app:not(.chrome-away) .studio-exit,
 .app:not(.chrome-away) .header-veil,
 .app:not(.chrome-away) .bottom-nav,
 .app:not(.chrome-away) .lang-hud {
@@ -6670,6 +6672,22 @@ body[data-sheet-open] .lang-hud { display: none; }
 /* Нижняя навигация кабинета. Горизонтальная лента чипов обрезалась на
    узком экране, и половина разделов была не видна вовсе — именно так
    «Сторис» и всё за ними пропадали из продукта. */
+/* Вуаль кабинета. Лежит ПОД навигацией и внутри того же экрана — в
+   отличие от клиентской, которая висит на .app и потому оказывалась
+   поверх всего кабинета. */
+.studio-veil {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: calc(var(--bottom-clear) + 16px);
+  z-index: calc(var(--z-bottom-nav) - 1);
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent, var(--bg-app) 62%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 46%);
+          mask-image: linear-gradient(180deg, transparent, #000 46%);
+}
+
 .studio-nav {
   position: absolute;
   left: var(--nav-gap); right: var(--nav-gap);

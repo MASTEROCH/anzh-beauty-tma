@@ -215,3 +215,68 @@ test('мастер не видит кассу салона и чужой пра�
   expect(subs, 'прайс правит владелица').not.toMatch(/Прайс/);
   expect(subs, 'команду ведёт владелица').not.toMatch(/Команда/);
 });
+
+test('🚨 хром кабинета не едет вместе с контентом', async ({ page }) => {
+  await fresh(page);
+  await gate(page, /Анжелика/, '2024');
+
+  const geom = () => page.evaluate(() => {
+    const n = document.querySelector('.studio-nav')!.getBoundingClientRect();
+    const el = document.querySelector('.studio-exit') as HTMLElement;
+    const e = el.getBoundingClientRect();
+    return {
+      navTop: Math.round(n.top),
+      navBottom: Math.round(n.bottom),
+      exitTop: Math.round(e.top),
+      exitShown: Number(getComputedStyle(el).opacity) > 0.05,
+      vh: window.innerHeight,
+    };
+  });
+
+  const rest = await geom();
+  await page.locator('.screen').evaluate((e) => { e.scrollTop = 700; });
+  await page.waitForTimeout(800);
+  const scrolled = await geom();
+
+  /* Дефект выглядел так: навигация кабинета оказывалась ПОСРЕДИ экрана
+     после прокрутки, а «Выйти» уезжал за верхний край. Причина — оба
+     лежали внутри `.screen`, то есть внутри прокручиваемого элемента.
+     Клиентский таббар этого не знал, потому что всегда жил в `.app`. */
+  expect(scrolled.navTop, 'навигация уехала вместе с контентом').toBe(rest.navTop);
+  expect(scrolled.navBottom, 'навигация обязана оставаться над нижним краем')
+    .toBeLessThanOrEqual(scrolled.vh);
+  expect(scrolled.navTop, 'навигация всплыла в середину экрана')
+    .toBeGreaterThan(scrolled.vh - 140);
+  /* «Выйти» — часть строки шапки и ездит вместе с ней. Правило не
+     «всегда на экране», а «никогда не висит над контентом сиротой»:
+     либо он наверху, либо спрятан заодно с шапкой. Раньше он ни того ни
+     другого — уезжал вверх вместе с прокруткой, оставаясь видимым
+     поверх карточек. */
+  expect(
+    scrolled.exitTop >= 0 || !scrolled.exitShown,
+    '«Выйти» висит над контентом: не наверху и при этом виден',
+  ).toBe(true);
+});
+
+test('🚨 вуаль клиентского таббара не накрывает кабинет', async ({ page }) => {
+  await fresh(page);
+  await gate(page, /Анжелика/, '2024');
+
+  /* `.nav-veil` висит на `.app` с z-index 199, а `.studio-nav` лежала
+     внутри `.screen` (z-index: 1) — её собственные 200 действовали
+     только внутри экрана. Вуаль размывала навигацию кабинета целиком:
+     из-под полосы еле проступали иконки. */
+  const covered = await page.evaluate(() => {
+    const nav = document.querySelector('.studio-nav')!.getBoundingClientRect();
+    const x = nav.left + nav.width / 2;
+    const y = nav.top + nav.height / 2;
+    const top = document.elementFromPoint(x, y);
+    return {
+      clientVeil: !!document.querySelector('.nav-veil'),
+      topIsNav: !!top?.closest('.studio-nav'),
+    };
+  });
+
+  expect(covered.clientVeil, 'клиентская вуаль в кабинете лишняя').toBe(false);
+  expect(covered.topIsNav, 'поверх навигации кабинета что-то лежит').toBe(true);
+});

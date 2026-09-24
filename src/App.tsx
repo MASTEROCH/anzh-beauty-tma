@@ -295,8 +295,17 @@ export function App() {
       )}
       {screen === 'anzh' && <AnzhScreen onBook={(id) => openBooking(id)} />}
 
-      <div className="header-veil" aria-hidden />
-      <div className="nav-veil" aria-hidden />
+      {/* 🚨 Вуали принадлежат КЛИЕНТСКОМУ хрому и в кабинете вредны.
+
+          Они висят на `.app` с z-index 99 и 199, а `.studio-nav` лежит
+          внутри `.screen` (z-index 1) — её собственные 200 действуют
+          только внутри экрана. Нижняя вуаль накрывала навигацию
+          кабинета целиком: полоса размытия поверх кнопок, из-под
+          которой еле проступали иконки.
+
+          У кабинета своя навигация и свои вуали, см. .studio-veil. */}
+      {screen !== 'studio' && <div className="header-veil" aria-hidden />}
+      {screen !== 'studio' && <div className="nav-veil" aria-hidden />}
 
       {screen !== 'studio' && (
         <BottomNav
