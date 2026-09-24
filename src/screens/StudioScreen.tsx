@@ -2,14 +2,20 @@ import { useEffect, useMemo, useState } from 'react';
 import { instagramUrl } from '../data/location';
 import { openExternal } from '../lib/telegram';
 import { durationLabel } from '../lib/plural';
-import { Icon } from '../components/Icon';
+import { Icon, type IconName } from '../components/Icon';
 import { StudioAsk } from '../components/StudioAsk';
 import { ClientStrip } from '../components/ClientCardView';
 import { MoneyBoard } from '../components/MoneyBoard';
 import { openServiceEditor, ArchiveButton } from '../components/ServiceEditor';
 import { QuestQueue } from '../components/QuestQueue';
 import { PromoStudio } from '../components/PromoStudio';
-import { TeamEditor } from '../components/TeamEditor';
+import { StudioTeam } from '../components/StudioTeam';
+import { StudioPromos } from '../components/StudioPromos';
+import { StudioReviews } from '../components/StudioReviews';
+import { StudioChats } from '../components/StudioChats';
+import { ClientRevenue } from '../components/ClientRevenue';
+import { useReviews } from '../lib/reviews';
+import { useThreads, unansweredCount } from '../lib/chats';
 import { useCatalog } from '../lib/catalog';
 import { buildClientCard, flagsFor } from '../lib/clientCard';
 import { useSession, accessOf, signOut, staffForService } from '../lib/staff';
@@ -37,7 +43,13 @@ import {
 // (принять / отклонить / предложить другое время), потому что параллельно
 // ведёт записи по телефону и из инстаграма.
 
-type Tab = 'requests' | 'day' | 'clients' | 'money' | 'price' | 'promo';
+/* Пять пунктов нижней навигации — первичные места, куда мастер ходит
+   каждый день. Всё, что настраивают раз в месяц (прайс, команда, акции,
+   отзывы, сторис), живёт под «Студией»: канон мобильной оболочки —
+   bottom-tabs это назначения, а не список всех функций. */
+type Tab = 'requests' | 'day' | 'clients' | 'money' | 'studio';
+type StudioTab = 'price' | 'team' | 'promo' | 'reviews' | 'stories';
+type ClientsTab = 'base' | 'money' | 'chats';
 
 const SLOTS = ['09:00', '10:30', '12:00', '13:30', '15:00', '16:30', '18:00', '19:30'];
 
@@ -58,6 +70,17 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
     if (!me) onExit();
   }, [me, onExit]);
   const [tab, setTab] = useState<Tab>('requests');
+  const [studioTab, setStudioTab] = useState<StudioTab>('price');
+  const [clientsTab, setClientsTab] = useState<ClientsTab>('base');
+
+  /* Счётчики на навигации. Показывают ровно то, что требует действия
+     сегодня: диалог, где последнее слово за клиенткой, и отзыв, который
+     ещё никто не смотрел. Число «всего» на значке бесполезно — оно не
+     уменьшается от работы. */
+  const threads = useThreads();
+  const waitingChats = unansweredCount(threads);
+  const allReviews = useReviews();
+  const newReviews = allReviews.filter((r) => r.state === 'new').length;
 
   /* Мастер видит только СВОИ процедуры. Фильтруем на входе, а не в каждой
      вкладке по отдельности: один пропущенный фильтр — и чужие записи
@@ -70,7 +93,7 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
   /* Вкладка переживает смену пользователя: мастер, войдя после владелицы,
      оказывался на «Прайсе», которого ему не положено. Возвращаем в начало. */
   useEffect(() => {
-    if (tab === 'price' && !can.editPrices) setTab('requests');
+    if (tab === 'studio' && !can.editPrices && studioTab === 'price') setStudioTab('promo');
   }, [tab, can.editPrices]);
 
   const pending = useMemo(() => getPending(mine), [mine]);
@@ -246,32 +269,27 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
           <div className="eyebrow">{me?.role === 'owner' ? 'кабинет · владелица' : 'кабинет мастера'}</div>
           <div className="header-title">{me?.name ?? 'Кабинет'}</div>
         </div>
-        <button className="chip" onClick={() => { signOut(); onExit(); }}>
-          <Icon name="x" size={13} strokeWidth={2.2} /> выйти
-        </button>
       </header>
 
-      <NextUp today={today} />
+      {/* «Выйти» — в правом верхнем углу отдельным слоем, как переключатель
+          языка на клиентской стороне. Внутри шапки он стоял в потоке и
+          съезжал влево на экранах с длинным именем: кнопка выхода обязана
+          быть там, где её ищут, а не там, где осталось место. */}
+      <button className="studio-exit" onClick={() => { signOut(); onExit(); }}>
+        <Icon name="x" size={13} strokeWidth={2.2} /> выйти
+      </button>
 
-      <StudioAsk all={all} />
-
-      <div className="studio-tabs">
-        {([
-          ['requests', 'Заявки', pending.length],
-          ['day', 'Сегодня', today.length],
-          ['clients', 'Клиенты', clients.length],
-          ['money', can.seeAllMoney ? 'Деньги' : 'Мой доход', 0],
-          // Прайс правит только владелица: цена — это её решение, а не
-          // мастера, который по этой цене работает
-          ...(can.editPrices ? [['price', 'Прайс', 0]] : []),
-          ['promo', 'Сторис', 0],
-        ] as Array<[Tab, string, number]>).map(([id, label, count]) => (
-          <button key={id} className={`studio-tab ${tab === id ? 'active' : ''}`} onClick={() => setTab(id)}>
-            {label}
-            {count > 0 && <span className="studio-tab-count">{count}</span>}
-          </button>
-        ))}
-      </div>
+      {/* Контекст дня — только там, где он и нужен: в заявках и в
+          расписании. На «Клиентах», «Деньгах» и «Студии» эти два блока
+          занимали по четыреста пикселей сверху и отодвигали за сгиб то,
+          ради чего в раздел вообще зашли. Постоянная шапка полезна, пока
+          она отвечает на вопрос текущего экрана. */}
+      {(tab === 'requests' || tab === 'day') && (
+        <>
+          <NextUp today={today} />
+          <StudioAsk all={all} />
+        </>
+      )}
 
       {tab === 'requests' && (
         <section className="section" style={{ paddingTop: 10 }}>
@@ -377,33 +395,59 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
       )}
 
       {tab === 'clients' && (
-        <section className="section" style={{ paddingTop: 10 }}>
-          <div className="eyebrow mb-sm">база · {clients.length} человек</div>
-          {clients.length === 0 && (
-            <div className="card empty-state">
-              <div className="empty-icon"><Icon name="user" size={26} strokeWidth={1.7} /></div>
-              <div className="empty-title">База пустая</div>
-              <div className="empty-sub">
-                Она соберётся сама: каждая принятая заявка заводит карточку с историей процедур.
-                Вести таблицу руками не нужно.
-              </div>
-            </div>
-          )}
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            {clients.map((c) => (
-              <button key={c.key} className="studio-day-row" onClick={() => clientSheet(c.key)}>
-                <div className="studio-client-av">{c.name.slice(0, 1).toUpperCase()}</div>
-                <div className="studio-day-body">
-                  <div className="studio-day-name">{c.name}</div>
-                  <div className="studio-day-svc">
-                    {c.instagram ? `@${c.instagram}` : 'без инстаграма'} · {c.visits} визитов
-                    {c.noShows > 0 && <span className="studio-warn"> · {c.noShows} неявк.</span>}
+        <section className="section section-tight">
+          {/* Два взгляда на одних и тех же людей: список для работы и
+              разрез по деньгам. Разделены, потому что отвечают на разные
+              вопросы — «кто это» и «кто приносит». Смешанные в одну
+              таблицу, они не отвечают ни на один. */}
+          <div className="studio-sub">
+            {([['base', 'База'], ['money', 'По выручке'], ['chats', 'Переписка']] as Array<[ClientsTab, string]>)
+              .map(([id, label]) => (
+                <button
+                  key={id}
+                  className={`chip${clientsTab === id ? ' chip-gold' : ''}`}
+                  onClick={() => setClientsTab(id)}
+                >
+                  {label}
+                  {id === 'chats' && waitingChats > 0 && <span className="chip-count">{waitingChats}</span>}
+                </button>
+              ))}
+          </div>
+
+          {clientsTab === 'chats' && <StudioChats />}
+
+          {clientsTab === 'money' && <ClientRevenue list={mine} all={all} />}
+
+          {clientsTab === 'base' && (
+            <>
+              <div className="eyebrow mb-sm">база · {clients.length} человек</div>
+              {clients.length === 0 && (
+                <div className="card empty-state">
+                  <div className="empty-icon"><Icon name="user" size={26} strokeWidth={1.7} /></div>
+                  <div className="empty-title">База пустая</div>
+                  <div className="empty-sub">
+                    Она соберётся сама: каждая принятая заявка заводит карточку с историей процедур.
+                    Вести таблицу руками не нужно.
                   </div>
                 </div>
-                <div className="history-amount">${c.spent}</div>
-              </button>
-            ))}
-          </div>
+              )}
+              <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                {clients.map((c) => (
+                  <button key={c.key} className="studio-day-row" onClick={() => clientSheet(c.key)}>
+                    <div className="studio-client-av">{c.name.slice(0, 1).toUpperCase()}</div>
+                    <div className="studio-day-body">
+                      <div className="studio-day-name">{c.name}</div>
+                      <div className="studio-day-svc">
+                        {c.instagram ? `@${c.instagram}` : 'без инстаграма'} · {c.visits} визитов
+                        {c.noShows > 0 && <span className="studio-warn"> · {c.noShows} неявк.</span>}
+                      </div>
+                    </div>
+                    <div className="history-amount">${c.spent}</div>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </section>
       )}
 
@@ -483,14 +527,46 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
           </p>
         </section>
       )}
-      {tab === 'promo' && (
-        <section className="section" style={{ paddingTop: 10 }}>
+      {tab === 'studio' && (
+        <div className="studio-sub">
+          {([
+            ...(can.editPrices ? [['price', 'Прайс']] : []),
+            ...(can.manageTeam ? [['team', 'Команда']] : []),
+            ['promo', 'Акции'],
+            ['reviews', 'Отзывы'],
+            ['stories', 'Сторис'],
+          ] as Array<[StudioTab, string]>).map(([id, label]) => (
+            <button
+              key={id}
+              className={`chip${studioTab === id ? ' chip-gold' : ''}`}
+              onClick={() => setStudioTab(id)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {tab === 'studio' && studioTab === 'stories' && (
+        <section className="section section-tight">
           <div className="eyebrow mb-sm">сторис из своих данных</div>
           <PromoStudio upcoming={mine} />
         </section>
       )}
 
-      {tab === 'price' && (
+      {tab === 'studio' && studioTab === 'team' && (
+        <section className="section section-tight"><StudioTeam /></section>
+      )}
+
+      {tab === 'studio' && studioTab === 'promo' && (
+        <section className="section section-tight"><StudioPromos /></section>
+      )}
+
+      {tab === 'studio' && studioTab === 'reviews' && (
+        <section className="section section-tight"><StudioReviews /></section>
+      )}
+
+      {tab === 'studio' && studioTab === 'price' && (
         <section className="section" style={{ paddingTop: 10 }}>
           <div className="studio-price-head">
             <div className="eyebrow">прайс и состав</div>
@@ -535,15 +611,37 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
             исчезает у клиентов, но остаётся в истории и в отчётах.
           </p>
 
-          {/* Команда — там же, где прайс: и то и другое про устройство
-              кабинета, и правит их один человек */}
-          {can.manageTeam && (
-            <div style={{ marginTop: 26 }}>
-              <TeamEditor />
-            </div>
-          )}
         </section>
       )}
+
+      {/* ── Нижняя навигация кабинета ──────────────────────────
+          Кабинет — полноценное приложение внутри приложения, и ходить по
+          нему горизонтальной лентой чипов нельзя: на узком экране она
+          обрезалась, и половина разделов была не видна вовсе (именно так
+          пропадали «Сторис» и всё, что за ними). Пять назначений внизу,
+          остальное — под «Студией». */}
+      <nav className="studio-nav" aria-label="Разделы кабинета">
+        {([
+          ['requests', 'Заявки', 'message', pending.length],
+          ['day', 'День', 'calendar', today.length],
+          ['clients', 'Клиенты', 'user', waitingChats],
+          ['money', can.seeAllMoney ? 'Деньги' : 'Доход', 'star', 0],
+          ['studio', 'Студия', 'settings', newReviews],
+        ] as Array<[Tab, string, IconName, number]>).map(([id, label, icon, count]) => (
+          <button
+            key={id}
+            className={`studio-nav-item${tab === id ? ' active' : ''}`}
+            onClick={() => setTab(id)}
+            aria-current={tab === id ? 'page' : undefined}
+          >
+            <span className="studio-nav-ic">
+              <Icon name={icon} size={20} strokeWidth={1.8} />
+              {count > 0 && <span className="studio-nav-dot">{count > 9 ? '9+' : count}</span>}
+            </span>
+            <span className="studio-nav-label">{label}</span>
+          </button>
+        ))}
+      </nav>
     </div>
   );
 }
@@ -700,9 +798,17 @@ function NextUp({ today }: { today: Appointment[] }) {
 
   return (
     <div className={`next-up${soon ? ' soon' : ''}`}>
+      {/* Одно время, не два. Когда до приёма больше часа, верхняя строка
+          писала «в 18:00», а нижняя — «18:00»: одна и та же цифра дважды,
+          одна из них лишняя. Слово нужно только пока идёт обратный
+          отсчёт — дальше достаточно самого времени. */}
       <div className="next-up-time">
-        <span className="nu-in">{inMin < 60 ? `через ${inMin} мин` : `в ${next.appt.slot}`}</span>
-        <span className="nu-slot">{next.appt.slot}</span>
+        {inMin < 60
+          ? <>
+              <span className="nu-in">через {inMin} мин</span>
+              <span className="nu-slot">{next.appt.slot}</span>
+            </>
+          : <span className="nu-slot">{next.appt.slot}</span>}
       </div>
       <div className="next-up-body">
         <div className="nu-name">

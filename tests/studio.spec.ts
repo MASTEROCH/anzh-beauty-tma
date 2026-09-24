@@ -2,11 +2,27 @@ import { test, expect } from '@playwright/test';
 import { fresh, watchConsole } from './helpers';
 import { PER_TASK } from '../src/lib/quests';
 
+/* Кабинет перестроен: пять пунктов нижней навигации, а всё, что
+   настраивают редко (прайс, команда, акции, отзывы, сторис), — под
+   «Студией». Горизонтальная лента чипов `.studio-tab` обрезалась на
+   узком экране, и половина разделов была не видна вовсе. */
+async function goStudio(page: import('@playwright/test').Page, nav: RegExp, sub?: RegExp) {
+  await page.locator('.studio-nav-item').filter({ hasText: nav }).first().click();
+  await page.waitForTimeout(400);
+  if (sub) {
+    await page.locator('.studio-sub .chip').filter({ hasText: sub }).first().click();
+    await page.waitForTimeout(400);
+  }
+}
+
+
 // Кабинет мастера: сверка анкеты с противопоказаниями процедуры.
 // Это не «отрисовалось ли», а «поймает ли система то, что человек
 // в конце смены пропустит».
 
 const PIN = '2024';
+
+const WHO = /Анжелика/;
 
 async function enterStudio(page: import('@playwright/test').Page) {
   await page.locator('.nav-item').filter({ hasText: /ПАСПОРТ|PASSPORT/i }).first().click();
@@ -16,6 +32,11 @@ async function enterStudio(page: import('@playwright/test').Page) {
   const master = page.locator('button').filter({ hasText: /Кабинет мастера|кабинет мастера/i }).first();
   await master.click();
   await page.waitForTimeout(400);
+  /* Вход стал двухшаговым: сперва выбираешь, кто ты, потом набираешь
+     свой код. Раньше код искался по всей команде, и человек, набравший
+     чужой, входил под ним не заметив. */
+  await page.locator('.gate-person').filter({ hasText: WHO }).first().click();
+  await page.waitForTimeout(300);
   for (const d of PIN) await page.locator('.pin-key', { hasText: new RegExp(`^${d}$`) }).first().click();
   await page.waitForTimeout(600);
 }
@@ -88,7 +109,7 @@ test('кабинет мастера не открывается по адрес�
   await page.goto('/#studio');
   await page.waitForTimeout(800);
   // Ни базы клиентов, ни выручки: экран обязан быть клиентским
-  expect(await page.locator('.studio-tabs').count(), 'кабинет не должен открыться без PIN').toBe(0);
+  expect(await page.locator('.studio-nav').count(), 'кабинет не должен открыться без PIN').toBe(0);
   await expect(page.locator('.bottom-nav')).toBeVisible();
 });
 
@@ -100,22 +121,28 @@ test('мастер не видит прайс и чужие деньги', async
   await page.waitForTimeout(400);
   await page.locator('button').filter({ hasText: /Кабинет мастера/i }).first().click();
   await page.waitForTimeout(400);
-  // 1111 — код мастера Марины
+  // Вход двухшаговый: сперва «кто ты», потом свой код
+  await page.locator('.gate-person').filter({ hasText: /Марина/ }).first().click();
+  await page.waitForTimeout(300);
   for (const d of '1111') await page.locator('.pin-key', { hasText: new RegExp(`^${d}$`) }).first().click();
   await page.waitForTimeout(800);
 
-  await expect(page.locator('.studio-tabs')).toBeVisible();
+  await expect(page.locator('.studio-nav')).toBeVisible();
   // Сверяем НАБОР вкладок целиком, а не подстроку в склейке: подстрока
   // совпала бы и с «Прайс мой доход», то есть почти ни с чем
-  const tabs = (await page.locator('.studio-tab').allInnerTexts()).map((t) => t.trim());
+  const tabs = (await page.locator('.studio-nav-item, .studio-sub .chip').allInnerTexts()).map((t) => t.trim());
   expect(tabs, 'прайс правит только владелица').not.toContain('Прайс');
-  expect(tabs, 'мастеру показываем его доход, а не кассу салона').toContain('Мой доход');
+  /* Набор целиком, а не подстрока: «Доход» нашёлся бы и в мусоре.
+     Мастеру показывают его доход, владелице — кассу салона. */
+  const clean = tabs.map((t) => t.replace(/\d+\+?/g, '').trim()).filter(Boolean);
+  expect(clean).toContain('Доход');
+  expect(clean, 'касса салона мастеру не положена').not.toContain('Деньги');
 });
 
 test('добавленная процедура появляется у клиента, убранная исчезает', async ({ page }) => {
   await fresh(page);
   await enterStudio(page);
-  await page.locator('.studio-tab').filter({ hasText: /Прайс/ }).click();
+  await goStudio(page, /Студия/, /Прайс/);
   await page.waitForTimeout(300);
 
   // Добавляем свою процедуру
@@ -149,7 +176,7 @@ test('архив не ломает историю: услуга исчезает
 
   // А в кабинете визит по ней читается, а не превращается в «услуга не найдена»
   await enterStudio(page);
-  await page.locator('.studio-tab').filter({ hasText: /Клиенты/ }).click();
+  await goStudio(page, /Клиенты/);
   await page.waitForTimeout(400);
   await expect(page.locator('.screen')).toContainText(/Аня/);
 });
@@ -212,7 +239,7 @@ test('промо-студия рисует все три макета в фор�
   const errors = watchConsole(page);
   await fresh(page);
   await enterStudio(page);
-  await page.locator('.studio-tab').filter({ hasText: /Сторис/ }).click();
+  await goStudio(page, /Студия/, /Сторис/);
   await page.waitForTimeout(500);
 
   for (const label of ['Свободное окно', 'Процедура', 'Офер']) {
@@ -237,17 +264,27 @@ test('промо-студия рисует все три макета в фор�
 test('новый мастер входит своим кодом и видит только своё', async ({ page }) => {
   await fresh(page);
   await enterStudio(page);
-  await page.locator('.studio-tab').filter({ hasText: /Прайс/ }).click();
+  await goStudio(page, /Студия/, /Команда/);
   await page.waitForTimeout(400);
 
-  // Заводим мастера с кодом 3333 и одной процедурой
-  await page.locator('.chip-gold').filter({ hasText: /мастер/ }).click();
-  await page.locator('.se-field input').first().fill('Лена');
-  await page.locator('.se-field input').nth(1).fill('3333');
-  await page.locator('.se-cat').filter({ hasText: /LED-терапия/ }).click();
-  await page.locator('button').filter({ hasText: /^Сохранить$/ }).click();
-  await page.waitForTimeout(500);
-  await expect(page.locator('.te-row').filter({ hasText: 'Лена' })).toHaveCount(1);
+  /* Заводим сотрудницу, потом отдельно назначаем ей код. Это два разных
+     действия и в жизни: человека добавляют сразу, а код выдают, когда
+     он впервые придёт в кабинет. До назначения он в списке входа виден,
+     но не нажимается. */
+  await page.locator('.chip-gold').filter({ hasText: /сотрудник/ }).click();
+  await page.locator('.field input').first().fill('Лена');
+  await page.locator('.chip').filter({ hasText: /LED-терапия/ }).click();
+  await page.locator('button').filter({ hasText: /Добавить в команду/ }).click();
+  await page.waitForTimeout(600);
+  await expect(page.locator('.team-row').filter({ hasText: 'Лена' })).toHaveCount(1);
+
+  await page.locator('.team-row').filter({ hasText: 'Лена' }).click();
+  await page.waitForTimeout(400);
+  await page.locator('button').filter({ hasText: /Назначить код/ }).click();
+  await page.waitForTimeout(400);
+  await page.locator('.input').first().fill('3333');
+  await page.locator('button').filter({ hasText: /^Назначить$/ }).click();
+  await page.waitForTimeout(600);
 
   // Выходим и входим её кодом
   await page.goto('/');
@@ -258,21 +295,26 @@ test('новый мастер входит своим кодом и видит �
   await page.waitForTimeout(400);
   await page.locator('button').filter({ hasText: /Кабинет мастера/i }).first().click();
   await page.waitForTimeout(400);
+  await page.locator('.gate-person').filter({ hasText: /Лена/ }).first().click();
+  await page.waitForTimeout(300);
   for (const d of '3333') await page.locator('.pin-key', { hasText: new RegExp(`^${d}$`) }).first().click();
   await page.waitForTimeout(800);
 
   await expect(page.locator('.header-title')).toContainText('Лена');
-  const tabs = (await page.locator('.studio-tab').allInnerTexts()).map((t) => t.trim());
+  const tabs = (await page.locator('.studio-nav-item, .studio-sub .chip').allInnerTexts()).map((t) => t.trim());
   expect(tabs, 'мастеру прайс и команда не положены').not.toContain('Прайс');
 });
 
 test('владельца нельзя выключить', async ({ page }) => {
   await fresh(page);
   await enterStudio(page);
-  await page.locator('.studio-tab').filter({ hasText: /Прайс/ }).click();
+  await goStudio(page, /Студия/, /Команда/);
   await page.waitForTimeout(400);
-  await page.locator('.te-row').filter({ hasText: /Анжелика/ }).locator('.te-edit').click();
-  await page.waitForTimeout(400);
-  expect(await page.locator('button').filter({ hasText: /Выключить доступ/ }).count()).toBe(0);
-  await expect(page.locator('.te-note')).toBeVisible();
+  await page.locator('.team-row').filter({ hasText: /Анжелика/ }).click();
+  await page.waitForTimeout(500);
+
+  /* Кабинет без владельца — кирпич: вернуть её будет уже некому.
+     Поэтому у неё нет ни «отключить», ни «исключить». */
+  expect(await page.locator('button').filter({ hasText: /Временно отключить/ }).count()).toBe(0);
+  expect(await page.locator('button').filter({ hasText: /Исключить из команды/ }).count()).toBe(0);
 });

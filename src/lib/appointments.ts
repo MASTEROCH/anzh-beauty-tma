@@ -60,19 +60,111 @@ const shift = (n: number) => {
   return toISODate(d);
 };
 
-/** Демо-база: своя запись клиента + чужие заявки, чтобы кабинет мастера был не пустой */
+/* Демо-база кабинета.
+ *
+ * 🚨 РАБОТА ДОЛЖНА БЫТЬ У КАЖДОГО МАСТЕРА. Прежняя база состояла из
+ * процедур, которые ведёт только владелица; Марина, у которой в профиле
+ * одно ламинирование бровей, входила в кабинет и видела «Новых заявок
+ * нет» и «На сегодня всё» — то есть пустой продукт. Код при этом работал
+ * правильно: он фильтрует записи по мастеру. Пустой кабинет у половины
+ * команды — это дефект данных, который читается как дефект продукта.
+ *
+ * Поэтому здесь: заявки и визиты на КАЖДОГО из троих, история на полгода
+ * назад (иначе разрезы по периодам и сезонам показывают одну колонку),
+ * повторные визиты у части клиенток (иначе выручка по клиенткам не
+ * отличается от списка) и неявки (иначе нечего показывать в рисках).
+ */
+const C = {
+  masha: { clientName: 'Маша', clientInstagram: 'mashab' },
+  nino:  { clientName: 'Нино К.', clientInstagram: 'nino.k' },
+  katya: { clientName: 'Катя', clientInstagram: 'kate_bt' },
+  olya:  { clientName: 'Оля', clientInstagram: 'olya.batumi' },
+  lena:  { clientName: 'Лена', clientInstagram: 'lena.gr' },
+  tata:  { clientName: 'Тата', clientInstagram: 'tata.tt' },
+  sofi:  { clientName: 'Софи', clientInstagram: 'sofi.wave' },
+  dasha: { clientName: 'Даша', clientInstagram: 'dasha.btm' },
+} as const;
+
 function seed(): Appointment[] {
+  let n = 0;
+  const a = (
+    who: keyof typeof C,
+    days: number,
+    slot: string,
+    serviceId: string,
+    status: ApptStatus,
+    amount?: number,
+    extra?: Partial<Appointment>,
+  ): Appointment => ({
+    id: `s${++n}`,
+    dateISO: shift(days),
+    slot,
+    serviceId,
+    status,
+    ...(amount !== undefined ? { amount } : {}),
+    ...C[who],
+    createdAt: Date.now() - n * 1000,
+    ...extra,
+  });
+
   return [
-    { id: 's1', dateISO: shift(1), slot: '16:30', serviceId: 'lip-filler', clientName: 'Маша', clientInstagram: 'mashab', status: 'confirmed', createdAt: Date.now() },
-    { id: 's2', dateISO: shift(0), slot: '12:00', serviceId: 'biorevit', clientName: 'Нино', clientInstagram: 'nino.k', status: 'confirmed', createdAt: Date.now() - 1 },
-    { id: 's3', dateISO: shift(0), slot: '15:00', serviceId: 'deep-cleansing', clientName: 'Катя', clientInstagram: 'kate_bt', status: 'pending', createdAt: Date.now() - 2 },
-    { id: 's4', dateISO: shift(2), slot: '10:30', serviceId: 'pdrn', clientName: 'Оля', clientInstagram: 'olya.batumi', status: 'pending', createdAt: Date.now() - 3 },
-    { id: 's5', dateISO: shift(-14), slot: '11:00', serviceId: 'biorevit', clientName: 'Маша', clientInstagram: 'mashab', status: 'completed', amount: 110, createdAt: Date.now() - 4 },
-    { id: 's6', dateISO: shift(-41), slot: '15:00', serviceId: 'deep-cleansing', clientName: 'Маша', clientInstagram: 'mashab', status: 'completed', amount: 80, createdAt: Date.now() - 5 },
-    { id: 's7', dateISO: shift(-58), slot: '13:30', serviceId: 'lip-filler', clientName: 'Маша', clientInstagram: 'mashab', status: 'completed', amount: 150, createdAt: Date.now() - 6 },
-    { id: 's8', dateISO: shift(-94), slot: '10:30', serviceId: 'pdrn', clientName: 'Маша', clientInstagram: 'mashab', status: 'completed', amount: 180, createdAt: Date.now() - 7 },
-    { id: 's9', dateISO: shift(-7), slot: '18:00', serviceId: 'rf-lifting', clientName: 'Лена', clientInstagram: 'lena.gr', status: 'no-show', createdAt: Date.now() - 8 },
-    { id: 's10', dateISO: shift(-21), slot: '09:00', serviceId: 'led-therapy', clientName: 'Тата', clientInstagram: 'tata.tt', status: 'completed', amount: 40, createdAt: Date.now() - 9 },
+    // ── Ждут решения. По одной на каждого мастера, иначе «Заявки» пусты
+    //    у того, кто вошёл не владелицей.
+    a('katya', 0, '15:00', 'deep-cleansing', 'pending', undefined,
+      { comment: 'Можно пораньше, если освободится' }),
+    a('olya', 2, '10:30', 'pdrn', 'pending'),
+    a('sofi', 1, '11:00', 'brow-lamination', 'pending'),
+    a('dasha', 3, '14:00', 'tattoo-removal', 'pending',
+      undefined, { comment: 'Маленькая татуировка на запястье' }),
+    a('lena', 2, '17:00', 'carbon-peel', 'pending'),
+
+    // ── Подтверждённые: сегодня и ближайшие дни
+    a('masha', 1, '16:30', 'lip-filler', 'confirmed'),
+    a('nino', 0, '12:00', 'biorevit', 'confirmed'),
+    a('tata', 0, '18:00', 'brow-lamination', 'confirmed'),
+    a('katya', 1, '13:00', 'carbon-peel', 'confirmed'),
+    a('sofi', 4, '15:30', 'rf-lifting', 'confirmed'),
+
+    // ── История: повторные визиты. Маша — постоянная клиентка, по ней
+    //    видно, ради чего вообще считать выручку по людям.
+    a('masha', -14, '11:00', 'biorevit', 'completed', 110),
+    a('masha', -41, '15:00', 'deep-cleansing', 'completed', 80),
+    a('masha', -58, '13:30', 'lip-filler', 'completed', 150),
+    a('masha', -94, '10:30', 'pdrn', 'completed', 180),
+    a('masha', -132, '12:00', 'biorevit', 'completed', 110),
+    a('masha', -171, '16:00', 'lip-filler', 'completed', 150),
+
+    a('nino', -9, '14:00', 'led-therapy', 'completed', 40),
+    a('nino', -37, '11:30', 'biorevit', 'completed', 110),
+    a('nino', -76, '13:00', 'rf-lifting', 'completed', 90),
+    a('nino', -118, '10:00', 'deep-cleansing', 'completed', 80),
+
+    a('tata', -21, '09:00', 'led-therapy', 'completed', 40),
+    a('tata', -52, '18:30', 'brow-lamination', 'completed', 45),
+    a('tata', -83, '18:00', 'brow-lamination', 'completed', 45),
+    a('tata', -145, '17:30', 'brow-lamination', 'completed', 45),
+
+    a('katya', -28, '15:00', 'carbon-peel', 'completed', 95),
+    a('katya', -63, '15:30', 'deep-cleansing', 'completed', 80),
+    a('katya', -101, '16:00', 'prx-t33', 'completed', 75),
+
+    a('olya', -33, '10:30', 'pdrn', 'completed', 180),
+    a('olya', -88, '11:00', 'biorevit', 'completed', 110),
+
+    a('sofi', -18, '12:30', 'brow-lamination', 'completed', 45),
+    a('sofi', -66, '13:00', 'rf-lifting', 'completed', 90),
+
+    a('dasha', -25, '16:00', 'tattoo-removal', 'completed', 120),
+    a('dasha', -70, '16:30', 'tattoo-removal', 'completed', 120),
+    a('dasha', -112, '15:00', 'carbon-peel', 'completed', 95),
+
+    // ── Неявки и отказы: без них нечего показывать в рисках, а кнопка
+    //    «отклонить» выглядит как та, которой никогда не пользуются.
+    a('lena', -7, '18:00', 'rf-lifting', 'no-show'),
+    a('lena', -49, '17:00', 'led-therapy', 'no-show'),
+    a('lena', -95, '18:30', 'carbon-peel', 'completed', 95),
+    a('olya', -12, '09:30', 'prx-t33', 'declined', undefined,
+      { declineReason: 'В этот день не работаю — предложила другое время' }),
   ];
 }
 

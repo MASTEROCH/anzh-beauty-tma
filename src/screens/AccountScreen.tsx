@@ -95,7 +95,7 @@ export function AccountScreen({
   const openStudioGate = () =>
     openSheet({
       title: 'Кабинет мастера',
-      subtitle: 'Только для Анжелики',
+      subtitle: 'Анжелика и мастера студии',
       body: <PinGate onUnlock={onStudio} />,
     });
 

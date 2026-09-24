@@ -6110,49 +6110,6 @@ body[data-sheet-open] .lang-hud { display: none; }
 .ps-hint { font-size: 11px; color: var(--text-tertiary); line-height: 1.5; margin: 0; }
 
 /* ─── Команда кабинета ────────────────────────────────────── */
-.te-row {
-  display: flex; align-items: center; gap: 11px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: var(--bg-card-2);
-  border: 0.5px solid var(--border);
-}
-.te-row.off { opacity: 0.5; border-style: dashed; }
-.te-dot { flex: 0 0 10px; width: 10px; height: 10px; border-radius: 50%; }
-.te-body { flex: 1; min-width: 0; }
-.te-name { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 7px; }
-.te-role {
-  font-size: 10px; font-weight: 800;
-  letter-spacing: 0.08em; text-transform: uppercase;
-  padding: 2px 7px; border-radius: var(--pill);
-  color: var(--brand-gold); background: rgba(var(--gold-rgb), 0.14);
-}
-.te-what { font-size: 11px; color: var(--text-tertiary); margin-top: 3px; line-height: 1.4; }
-.te-edit {
-  position: relative;
-  flex: 0 0 32px; width: 32px; height: 32px;
-  border-radius: 50%;
-  display: grid; place-items: center;
-  background: rgba(255, 255, 255, 0.05);
-  border: 0.5px solid var(--border);
-  color: var(--text-tertiary);
-  cursor: pointer;
-}
-.te-edit::after {
-  content: ''; position: absolute;
-  left: 50%; top: 50%; transform: translate(-50%, -50%);
-  width: 44px; height: 44px; border-radius: 50%;
-}
-.te-note {
-  display: flex; align-items: center; gap: 8px;
-  padding: 11px 13px;
-  border-radius: 13px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  background: rgba(var(--accent-rgb), 0.08);
-  border: 0.5px solid rgba(var(--accent-rgb), 0.24);
-}
-.te-note svg { color: var(--brand-primary-bright); flex-shrink: 0; }
 
 /* ─── Несколько процедур в одном визите ───────────────────── */
 .bk-extras {
@@ -6639,4 +6596,415 @@ body[data-sheet-open] .lang-hud { display: none; }
   background: currentColor;
   -webkit-mask: url('/brand/anzh-logo.svg') center / contain no-repeat;
           mask: url('/brand/anzh-logo.svg') center / contain no-repeat;
+}
+
+/* ─── Вход в кабинет: выбор человека ──────────────────────
+   Список людей, а не поле пароля: вход это «я вот этот человек», а не
+   «угадай код». Строка читается сразу — фото, имя, должность. */
+.gate-people { display: flex; flex-direction: column; gap: var(--sp-sm); }
+.gate-person {
+  display: flex; align-items: center; gap: var(--sp);
+  width: 100%;
+  padding: var(--sp-10) var(--sp);
+  text-align: left;
+  border-radius: var(--radius);
+  background: var(--bg-card-2);
+  border: 0.5px solid var(--border);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background var(--duration) var(--ease-out), transform var(--duration-fast) var(--ease-spring);
+}
+.gate-person:active { transform: scale(0.985); background: var(--bg-card-3); }
+.gate-person.locked { opacity: 0.55; cursor: default; }
+.gate-person.locked:active { transform: none; background: var(--bg-card-2); }
+.gate-person-ph {
+  flex: 0 0 44px; width: 44px; height: 44px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: grid; place-items: center;
+}
+.gate-person-ph img { width: 100%; height: 100%; object-fit: cover; }
+.gate-person-ini { font-size: 18px; font-weight: 700; color: #06131a; }
+.gate-person-b { display: flex; flex-direction: column; gap: 1px; flex: 1 1 auto; min-width: 0; }
+.gate-person-n { font-size: 15px; font-weight: 600; }
+.gate-person-r { font-size: 12px; color: var(--text-hint); }
+
+.gate-back {
+  background: none; border: 0; padding: 0;
+  margin-bottom: var(--sp);
+  font: inherit; font-size: 13px; font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.gate-back:active { color: var(--text-primary); }
+
+/* Подсказка живёт, только пока код заводской, — и исчезает, когда его
+   сменили. Механика, а не надпись «демо». */
+.gate-hint {
+  margin: var(--sp-md) 0 0;
+  font-size: 12px; line-height: 1.5;
+  color: var(--text-hint);
+  text-align: center;
+}
+.gate-hint b { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+
+/* ═══ КАБИНЕТ: НАВИГАЦИЯ И РАЗДЕЛЫ ═══════════════════════ */
+
+/* Кнопка выхода — правый верхний угол, отдельным слоем над шапкой.
+   Внутри шапки она стояла в потоке и съезжала влево на длинном имени:
+   выход обязан быть там, где его ищут, а не там, где осталось место. */
+.studio-exit {
+  position: absolute;
+  top: 0; right: 14px;
+  height: var(--header-h, 60px);
+  display: inline-flex; align-items: center; gap: var(--sp-xs);
+  z-index: calc(var(--z-sticky) + 1);
+  background: none; border: 0; padding: 0;
+  font: inherit; font-size: 12px; font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.studio-exit:active { color: var(--text-primary); }
+
+/* Нижняя навигация кабинета. Горизонтальная лента чипов обрезалась на
+   узком экране, и половина разделов была не видна вовсе — именно так
+   «Сторис» и всё за ними пропадали из продукта. */
+.studio-nav {
+  position: absolute;
+  left: var(--nav-gap); right: var(--nav-gap);
+  bottom: calc(var(--nav-gap) + var(--bottom-safe));
+  height: var(--nav-h);
+  display: flex; align-items: stretch;
+  padding: 6px;
+  border-radius: 26px;
+  background: linear-gradient(180deg, rgba(9,28,30,0.80), rgba(5,15,17,0.88));
+  backdrop-filter: var(--blur-strong);
+  -webkit-backdrop-filter: var(--blur-strong);
+  border: 0.5px solid var(--border-strong);
+  box-shadow: var(--lg-rim), 0 16px 40px -12px rgba(0,0,0,0.72);
+  z-index: var(--z-bottom-nav);
+}
+.studio-nav-item {
+  flex: 1 1 0; min-width: 0;
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px;
+  background: none; border: 0;
+  color: var(--text-hint);
+  padding: 6px 2px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: color var(--duration) var(--ease-out), transform var(--duration-fast) var(--ease-spring);
+}
+.studio-nav-item:active { transform: scale(0.9); }
+.studio-nav-item.active { color: var(--brand-primary-bright); }
+.studio-nav-item.active::before {
+  content: '';
+  position: absolute; inset: 4px 6px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(53,228,166,0.20), rgba(18,192,136,0.06));
+  box-shadow: inset 0 0.5px 0 rgba(255,255,255,0.25);
+  z-index: -1;
+}
+.studio-nav-ic { position: relative; display: block; line-height: 0; }
+.studio-nav-label { font-size: 10px; font-weight: 600; letter-spacing: 0.02em; }
+
+/* Счётчик показывает то, что требует действия СЕГОДНЯ, а не «всего»:
+   число, которое не уменьшается от работы, перестают замечать. */
+.studio-nav-dot {
+  position: absolute; top: -5px; right: -8px;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  border-radius: 999px;
+  background: var(--brand-gold);
+  color: #1a0e02;
+  font-size: 10px; font-weight: 800; line-height: 16px;
+  text-align: center;
+}
+
+/* Экран кабинета освобождает место под свою навигацию */
+.studio { padding-bottom: calc(var(--bottom-clear) + var(--sp-lg)); }
+
+/* Лента подразделов — внутри вкладки, а не вместо навигации */
+.studio-sub {
+  display: flex; gap: var(--sp-sm);
+  overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none;
+  margin: 0 calc(var(--sp-lg) * -1) var(--sp-md);
+  padding: 0 var(--sp-lg) 2px;
+  scroll-padding-inline: var(--sp-lg);
+}
+.studio-sub::-webkit-scrollbar { display: none; }
+.studio-sub .chip { flex: 0 0 auto; }
+.chip-count {
+  margin-left: var(--sp-xs);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+
+.empty-card {
+  padding: var(--sp-xl) var(--sp-lg);
+  text-align: center;
+  color: var(--text-hint);
+}
+
+/* ═══ КОМАНДА ════════════════════════════════════════════ */
+
+.team-row {
+  display: flex; align-items: center; gap: var(--sp);
+  width: 100%;
+  padding: var(--sp-10) var(--sp);
+  text-align: left;
+  border-radius: var(--radius);
+  background: var(--bg-card-2);
+  border: 0.5px solid var(--border);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.team-row:active { background: var(--bg-card-3); }
+.team-row.off { opacity: 0.55; }
+.team-ph {
+  flex: 0 0 44px; width: 44px; height: 44px;
+  border-radius: 50%; overflow: hidden;
+  display: grid; place-items: center;
+}
+.team-ph img { width: 100%; height: 100%; object-fit: cover; }
+.team-ini { font-size: 18px; font-weight: 700; color: #06131a; }
+.team-b { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
+.team-n {
+  display: flex; align-items: center; gap: var(--sp-tight); flex-wrap: wrap;
+  font-size: 15px; font-weight: 600;
+}
+.team-r { font-size: 12px; color: var(--text-hint); }
+.team-load { font-size: 12px; color: var(--text-secondary); }
+.team-load b { color: var(--brand-gold-bright); font-weight: 600; }
+
+.staff-hero { gap: var(--sp); margin-bottom: var(--sp-md); align-items: center; }
+.staff-hero-ph {
+  flex: 0 0 64px; width: 64px; height: 64px;
+  border-radius: 50%; overflow: hidden;
+  display: grid; place-items: center;
+}
+.staff-hero-ph img { width: 100%; height: 100%; object-fit: cover; }
+.staff-hero-n { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
+.staff-hero-r { font-size: 13px; color: var(--text-secondary); }
+.staff-hero-since { font-size: 12px; color: var(--text-hint); margin-top: 2px; }
+
+.staff-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-sm);
+  margin-bottom: var(--sp-md);
+}
+.staff-stat {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: var(--sp-10) var(--sp-xs);
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.04);
+  border: 0.5px solid var(--border);
+  min-width: 0;
+}
+.staff-stat-v { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.staff-stat-v.warn { color: var(--brand-gold-bright); }
+.staff-stat-k { font-size: 10px; color: var(--text-hint); text-align: center; line-height: 1.3; }
+
+.field { display: block; margin-bottom: var(--sp); }
+.field-k {
+  display: block;
+  font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-hint);
+  margin-bottom: var(--sp-xs);
+}
+.form-why { font-size: 12px; color: var(--brand-gold-bright); margin: var(--sp-xs) 0 0; }
+.chips-wrap { display: flex; flex-wrap: wrap; gap: var(--sp-tight); }
+.btn.danger { color: #FF9A8B; }
+.btn-primary.danger {
+  background: linear-gradient(135deg, #C0453A, #A33128);
+  color: #fff; box-shadow: none;
+}
+
+/* ═══ АКЦИИ ══════════════════════════════════════════════ */
+
+.promo-row {
+  display: flex; align-items: center; gap: var(--sp);
+  padding: var(--sp) var(--sp-14);
+  border-radius: var(--radius);
+  background: var(--bg-card-2);
+  border: 0.5px solid var(--border);
+}
+.promo-row.live { border-color: rgba(53,228,166,0.34); background: rgba(53,228,166,0.06); }
+.promo-main {
+  flex: 1 1 auto; min-width: 0;
+  display: flex; flex-direction: column; gap: var(--sp-xs);
+  background: none; border: 0; padding: 0;
+  text-align: left; font: inherit; color: inherit;
+  cursor: pointer;
+}
+.promo-head { display: flex; align-items: center; gap: var(--sp-sm); }
+.promo-benefit {
+  font-size: 17px; font-weight: 800; letter-spacing: -0.02em;
+  color: var(--brand-gold-bright);
+}
+.promo-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.promo-meta { font-size: 12px; color: var(--text-hint); line-height: 1.4; }
+
+/* Переключатель отдельно от правки: запуск это решение, а не текст.
+   Перепутать «поправил формулировку» и «включил скидку всем» нельзя. */
+.promo-switch {
+  flex: 0 0 auto;
+  width: 46px; height: 28px;
+  border-radius: 999px;
+  border: 0.5px solid var(--border-strong);
+  background: rgba(255,255,255,0.06);
+  padding: 2px;
+  cursor: pointer;
+  transition: background var(--duration) var(--ease-out);
+}
+.promo-switch.on { background: linear-gradient(180deg, var(--brand-primary-bright), var(--brand-primary-deep)); }
+.promo-knob {
+  display: block; width: 22px; height: 22px;
+  border-radius: 50%; background: #fff;
+  transition: transform var(--duration) var(--ease-spring);
+}
+.promo-switch.on .promo-knob { transform: translateX(18px); }
+
+/* ═══ ОТЗЫВЫ ═════════════════════════════════════════════ */
+
+.rv-filters {
+  display: flex; gap: var(--sp-sm);
+  overflow-x: auto; scrollbar-width: none;
+  margin: 0 calc(var(--sp-lg) * -1) var(--sp-md);
+  padding: 0 var(--sp-lg) 2px;
+}
+.rv-filters::-webkit-scrollbar { display: none; }
+.rv-filters .chip { flex: 0 0 auto; }
+
+.rv {
+  padding: var(--sp-14);
+  border-radius: var(--radius);
+  background: var(--bg-card-2);
+  border: 0.5px solid var(--border);
+}
+.rv.low { border-color: rgba(245,200,66,0.30); }
+.rv-head { margin-bottom: var(--sp-xs); }
+.rv-stars { color: var(--brand-gold-bright); font-size: 13px; letter-spacing: 1px; }
+.rv-stars-off { color: var(--text-faint); }
+.rv-who { font-size: 13px; font-weight: 600; }
+.rv-svc { font-size: 11px; color: var(--text-hint); margin-bottom: var(--sp-sm); }
+.rv-text { font-size: 14px; line-height: 1.55; color: var(--text-primary); margin: 0 0 var(--sp); }
+.rv-reply {
+  padding: var(--sp-sm) var(--sp);
+  border-radius: var(--radius-sm);
+  background: rgba(53,228,166,0.08);
+  border-left: 2px solid var(--brand-primary);
+  font-size: 13px; line-height: 1.5;
+  color: var(--text-secondary);
+  margin-bottom: var(--sp);
+}
+.rv-reply-k {
+  display: block;
+  font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--brand-primary-bright);
+  margin-bottom: 2px;
+}
+.rv-actions { display: flex; flex-wrap: wrap; gap: var(--sp-tight); }
+.rv-quote {
+  font-size: 14px; line-height: 1.55;
+  color: var(--text-secondary);
+  padding: var(--sp) var(--sp-14);
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.04);
+  margin: 0 0 var(--sp-md);
+}
+
+/* ═══ ПЕРЕПИСКА ══════════════════════════════════════════ */
+
+.chat-row {
+  display: flex; align-items: center; gap: var(--sp);
+  width: 100%;
+  padding: var(--sp-10) var(--sp);
+  text-align: left;
+  border-radius: var(--radius);
+  background: var(--bg-card-2);
+  border: 0.5px solid var(--border);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.chat-row:active { background: var(--bg-card-3); }
+.chat-b { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
+.chat-n {
+  display: flex; align-items: center; gap: var(--sp-tight);
+  font-size: 15px; font-weight: 600;
+}
+.chat-last {
+  font-size: 12px; color: var(--text-hint);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.chat-me { color: var(--text-faint); }
+
+.chat-thread {
+  display: flex; flex-direction: column; gap: var(--sp-sm);
+  max-height: 46vh; overflow-y: auto;
+  margin-bottom: var(--sp-md);
+  padding-right: 2px;
+}
+.chat-msg { max-width: 82%; }
+.chat-msg.mine { align-self: flex-end; }
+.chat-msg-text {
+  padding: var(--sp-sm) var(--sp);
+  border-radius: var(--radius);
+  font-size: 14px; line-height: 1.5;
+}
+.chat-msg.theirs .chat-msg-text {
+  background: var(--bg-card-3);
+  border-bottom-left-radius: var(--sp-xs);
+}
+.chat-msg.mine .chat-msg-text {
+  background: linear-gradient(180deg, #2A5C52, #1A453F);
+  border-bottom-right-radius: var(--sp-xs);
+}
+.chat-msg-meta { font-size: 10px; color: var(--text-faint); margin-top: 2px; padding: 0 var(--sp-xs); }
+.chat-msg.mine .chat-msg-meta { text-align: right; }
+/* «Ждёт отправки» — прямо, а не галочкой «доставлено»: ложное
+   «доставлено» опаснее отсутствия функции. */
+.chat-queued { color: var(--brand-gold); }
+.chat-compose { margin-top: var(--sp-sm); }
+
+/* ═══ ВЫРУЧКА ПО КЛИЕНТКАМ ═══════════════════════════════ */
+
+.cr-total { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cr-row {
+  display: flex; align-items: flex-start; gap: var(--sp);
+  padding: var(--sp-10) var(--sp);
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.035);
+}
+.cr-rank {
+  flex: 0 0 20px;
+  font-size: 12px; font-weight: 700;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+  padding-top: 2px;
+}
+.cr-b { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.cr-n {
+  display: flex; align-items: center; gap: var(--sp-tight); flex-wrap: wrap;
+  font-size: 14px; font-weight: 600;
+}
+.cr-meta { font-size: 11px; color: var(--text-hint); }
+.cr-bar {
+  display: block; height: 3px; margin-top: 2px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.07);
+  overflow: hidden;
+}
+.cr-bar-fill {
+  display: block; height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--brand-primary-bright), var(--brand-gold));
+}
+.cr-sum {
+  flex: 0 0 auto;
+  font-size: 14px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding-top: 2px;
 }

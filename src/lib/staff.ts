@@ -29,6 +29,16 @@ export interface Staff {
   pin: string;
   colour: string;
   active: boolean;
+
+  /* Карточка сотрудника. Владелица держит команду в голове, пока людей
+     трое; на пятом человеке «кто чем занимается и как с ним связаться»
+     начинает теряться. Всё необязательное — заполняется по мере сил. */
+  title?: string;        // должность: «мастер по бровям», «администратор»
+  photo?: string;        // путь к фото
+  phone?: string;
+  instagram?: string;
+  /** Когда человек пришёл в команду — для стажа в карточке */
+  joinedISO?: string;
 }
 
 const KEY = 'anzh_staff_v1';
@@ -45,6 +55,10 @@ const SEED: Staff[] = [
     pin: '2024',
     colour: '#12C088',
     active: true,
+    title: 'Косметолог · владелица',
+    photo: '/photos/anjelika.jpg',
+    instagram: 'dr.domnich',
+    joinedISO: '2018-03-01',
   },
   {
     id: 'marina',
@@ -54,6 +68,8 @@ const SEED: Staff[] = [
     pin: '1111',
     colour: '#C9A52F',
     active: true,
+    title: 'Мастер по бровям',
+    joinedISO: '2024-05-12',
   },
   {
     id: 'nino',
@@ -63,6 +79,8 @@ const SEED: Staff[] = [
     pin: '2222',
     colour: '#35E4A6',
     active: true,
+    title: 'Аппаратные процедуры',
+    joinedISO: '2025-02-03',
   },
 ];
 
@@ -124,6 +142,44 @@ export function activateStaff(id: string) {
   updateStaff(id, { active: true });
 }
 
+/**
+ * Назначить или сменить код сотруднику.
+ *
+ * Четыре цифры, и не из числа заводских: код, который ходил по
+ * переписке, способом входа быть не должен — его надо не поменять, а
+ * вывести из употребления.
+ */
+export function setPin(id: string, pin: string): { ok: true } | { ok: false; why: string } {
+  if (!/^\d{4}$/.test(pin)) return { ok: false, why: 'Код — ровно четыре цифры' };
+  if (DEFAULT_PINS.has(pin)) return { ok: false, why: 'Этот код известен из переписки, выберите другой' };
+  // Два человека с одним кодом — это два человека, которых кабинет не
+  // различает. Проверяем по всей команде, включая выключенных.
+  if (team.some((s) => s.id !== id && s.pin === pin)) {
+    return { ok: false, why: 'Такой код уже у другого сотрудника' };
+  }
+  updateStaff(id, { pin });
+  return { ok: true };
+}
+
+/**
+ * Исключить из команды НАСОВСЕМ.
+ *
+ * Отличается от `deactivateStaff`: тот оставляет человека в списке
+ * выключенным, и его записи по-прежнему находятся по id. Исключение
+ * убирает строку целиком — применять, когда человек не просто в отпуске,
+ * а больше не работает.
+ *
+ * Владельца исключить нельзя: кабинет без владельца превращается в
+ * кирпич, а вернуть её будет уже некому.
+ */
+export function removeStaff(id: string): { ok: true } | { ok: false; why: string } {
+  if (id === OWNER_ID) return { ok: false, why: 'Владельца нельзя исключить из команды' };
+  if (sessionId === id) return { ok: false, why: 'Нельзя исключить себя — вы сейчас в кабинете' };
+  team = team.filter((s) => s.id !== id);
+  persist();
+  return { ok: true };
+}
+
 /** Кто может делать эту услугу. Владелец — всегда */
 export function staffForService(serviceId: string): Staff[] {
   return team.filter(
@@ -141,6 +197,34 @@ function loadSession(): string | null {
 }
 
 let sessionId: string | null = loadSession();
+
+const DEFAULT_PINS = new Set(['2024', '1111', '2222']);
+
+/**
+ * Код ещё заводской?
+ *
+ * Подсказка с кодом показывается на входе ТОЛЬКО пока человек не сменил
+ * его сам. Это не «демо-надпись», которая переживёт все переделки, а
+ * механика: владелица назначила сотруднику свой код — подсказка исчезла
+ * сама. Заодно видно в панели команды, кто ещё сидит на заводском.
+ */
+export const hasDefaultPin = (person: Staff) => DEFAULT_PINS.has(person.pin);
+
+/**
+ * Вход конкретным человеком.
+ *
+ * `who` обязателен: раньше код искался по всей команде, и человек,
+ * набравший чужой код, входил под ним, не заметив этого. Теперь сперва
+ * выбираешь, кто ты, и код проверяется только против твоего.
+ */
+export function signInAs(who: string, pin: string): Staff | null {
+  const person = team.find((s) => s.active && s.id === who && s.pin === pin);
+  if (!person) return null;
+  sessionId = person.id;
+  try { localStorage.setItem(SESSION_KEY, person.id); } catch { /* ignore */ }
+  sessionListeners.forEach((l) => l(sessionId));
+  return person;
+}
 
 export function signIn(pin: string): Staff | null {
   const person = team.find((s) => s.active && s.pin === pin);

@@ -1,5 +1,19 @@
 import { test } from '@playwright/test';
 
+/* Кабинет перестроен: пять пунктов нижней навигации, а всё, что
+   настраивают редко (прайс, команда, акции, отзывы, сторис), — под
+   «Студией». Горизонтальная лента чипов `.studio-tab` обрезалась на
+   узком экране, и половина разделов была не видна вовсе. */
+async function goStudio(page: import('@playwright/test').Page, nav: RegExp, sub?: RegExp) {
+  await page.locator('.studio-nav-item').filter({ hasText: nav }).first().click();
+  await page.waitForTimeout(400);
+  if (sub) {
+    await page.locator('.studio-sub .chip').filter({ hasText: sub }).first().click();
+    await page.waitForTimeout(400);
+  }
+}
+
+
 // Снимки кабинета мастера для показа. @probe — вне обычного прогона.
 test('@probe админка в кадрах', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -45,6 +59,9 @@ test('@probe админка в кадрах', async ({ page }) => {
   await page.waitForTimeout(400);
   await page.locator('button').filter({ hasText: /Кабинет мастера/i }).first().click();
   await page.waitForTimeout(400);
+  /* Вход двухшаговый: сперва «кто ты», потом свой код. */
+  await page.locator('.gate-person').filter({ hasText: /Анжелика/ }).first().click();
+  await page.waitForTimeout(300);
   for (const c of '2024') await page.locator('.pin-key', { hasText: new RegExp(`^${c}$`) }).first().click();
   await page.waitForTimeout(2600);
 
@@ -56,18 +73,28 @@ test('@probe админка в кадрах', async ({ page }) => {
   await page.locator('.sheet-close').click();
   await page.waitForTimeout(500);
 
-  for (const [tab, file] of [['Деньги', 'adm-3-money'], ['Прайс', 'adm-4-price'], ['Сторис', 'adm-5-promo']] as const) {
-    const t = page.locator('.studio-tab').filter({ hasText: tab });
-    await t.scrollIntoViewIfNeeded();
-    await t.click();
-    await page.waitForTimeout(900);
+  /* Кабинет перестроен: пять пунктов внизу, редко настраиваемое — под
+     «Студией». Снимаем оба уровня, иначе кадры показывают половину. */
+  await goStudio(page, /Деньги/);
+  await page.screenshot({ path: 'test-results/adm-3-money.png' });
+
+  for (const [sub, file] of [
+    ['Прайс', 'adm-4-price'],
+    ['Команда', 'adm-5-team'],
+    ['Акции', 'adm-6-promos'],
+    ['Отзывы', 'adm-7-reviews'],
+    ['Сторис', 'adm-8-stories'],
+  ] as const) {
+    await goStudio(page, /Студия/, new RegExp(sub));
+    await page.waitForTimeout(700);
     await page.screenshot({ path: `test-results/${file}.png` });
   }
 
-  // Команда — внизу вкладки «Прайс»
-  await page.locator('.studio-tab').filter({ hasText: 'Прайс' }).click();
-  await page.waitForTimeout(600);
-  await page.locator('.te-row').first().scrollIntoViewIfNeeded();
-  await page.waitForTimeout(500);
-  await page.screenshot({ path: 'test-results/adm-6-team.png' });
+  await goStudio(page, /Клиенты/, /По выручке/);
+  await page.waitForTimeout(700);
+  await page.screenshot({ path: 'test-results/adm-9-clients-money.png' });
+
+  await goStudio(page, /Клиенты/, /Переписка/);
+  await page.waitForTimeout(700);
+  await page.screenshot({ path: 'test-results/adm-10-chats.png' });
 });

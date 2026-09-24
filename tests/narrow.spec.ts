@@ -105,6 +105,9 @@ test('кабинет мастера на 320: визит из трёх проц�
   await page.waitForTimeout(400);
   await page.locator('button').filter({ hasText: /Кабинет мастера/i }).first().click();
   await page.waitForTimeout(400);
+  /* Вход двухшаговый: сперва «кто ты», потом свой код. */
+  await page.locator('.gate-person').filter({ hasText: /Анжелика/ }).first().click();
+  await page.waitForTimeout(300);
   for (const d of '2024') await page.locator('.pin-key', { hasText: new RegExp(`^${d}$`) }).first().click();
   await page.waitForTimeout(800);
 

@@ -10,6 +10,7 @@
 import { findService } from '../data/services';
 import type { Appointment } from './appointments';
 import { fromISODate, toISODate } from './appointments';
+import { clientKeyOf } from './clientCard';
 import { priceOf } from './studio';
 import { getTeam, staffForService } from './staff';
 
@@ -137,6 +138,73 @@ export function byStaff(list: Appointment[]): Row[] {
     .sort((a, b) => b.revenue - a.revenue);
 }
 
+export interface ClientRow extends Row {
+  /** Средний чек: выручка, делённая на число визитов */
+  average: number;
+  /** Когда приходила в последний раз, ISO-дата */
+  lastVisit: string | null;
+  /** Сколько раз не пришла — это меняет отношение к её заявкам */
+  noShows: number;
+  instagram?: string;
+}
+
+/**
+ * Выручка ПО КЛИЕНТКАМ.
+ *
+ * Отвечает на вопрос, которого не было ни в одном другом разрезе: кто
+ * приносит деньги. Салон живёт повторными визитами, и разница между
+ * «сто клиенток по разу» и «двадцать по пять» видна только здесь —
+ * по услугам и по мастерам она не читается никак.
+ *
+ * Ключ — тот же `clientKeyOf`, что и в карточке: инстаграм, иначе
+ * телеграм, иначе имя. Телефона у клиенток Анжелики чаще нет.
+ */
+export function byClient(list: Appointment[], all: Appointment[] = list): ClientRow[] {
+  const map = new Map<string, {
+    revenue: number; visits: number; last: string | null;
+    name: string; instagram?: string;
+  }>();
+
+  for (const a of list) {
+    const key = clientKeyOf(a);
+    const row = map.get(key) ?? {
+      revenue: 0, visits: 0, last: null, name: a.clientName, instagram: a.clientInstagram,
+    };
+    row.revenue += a.amount ?? priceOf(a.serviceId);
+    row.visits += 1;
+    // Самый поздний визит, а не последний в массиве: порядок не гарантирован.
+    if (!row.last || a.dateISO > row.last) row.last = a.dateISO;
+    // Имя могло смениться — берём из самой свежей записи.
+    if (row.last === a.dateISO) row.name = a.clientName;
+    map.set(key, row);
+  }
+
+  /* Неявки считаем по ВСЕМ записям, а не по отфильтрованным: человек,
+     не пришедший в мае, остаётся риском и в июньском отчёте. Фильтр
+     здесь про деньги, а не про репутацию. */
+  const noShow = new Map<string, number>();
+  for (const a of all) {
+    if (a.status !== 'no-show') continue;
+    const k = clientKeyOf(a);
+    noShow.set(k, (noShow.get(k) ?? 0) + 1);
+  }
+
+  const total = [...map.values()].reduce((s, r) => s + r.revenue, 0) || 1;
+  return [...map.entries()]
+    .map(([id, r]) => ({
+      id,
+      label: r.name,
+      instagram: r.instagram,
+      revenue: r.revenue,
+      visits: r.visits,
+      average: Math.round(r.revenue / r.visits),
+      lastVisit: r.last,
+      noShows: noShow.get(id) ?? 0,
+      share: r.revenue / total,
+    }))
+    .sort((a, b) => b.revenue - a.revenue);
+}
+
 /** Тот же период годом раньше — чтобы «лето к лету», а не «лето к зиме» */
 export function previousYear(list: Appointment[], f: Filter): Appointment[] {
   const p = PERIODS.find((x) => x.id === f.period)!;
@@ -158,3 +226,54 @@ export function previousYear(list: Appointment[], f: Filter): Appointment[] {
 }
 
 export const revenueOf = sum;
+
+export interface StaffStats {
+  /** Подтверждённые записи, которые ещё впереди — текущая загрузка */
+  upcoming: number;
+  /** Заявки, ждущие решения по его процедурам */
+  pending: number;
+  /** Выполнено за всё время */
+  done: number;
+  /** Выручка за всё время */
+  revenue: number;
+  /** Разных клиенток за всё время */
+  clients: number;
+  /** Когда был последний приём, ISO */
+  lastISO: string | null;
+}
+
+/**
+ * Счётчики по сотруднику: загрузка сейчас и итог за всё время.
+ *
+ * Считается из записей, а не хранится полем: хранимый счётчик
+ * расходится с правдой на первой же отменённой записи, и починить его
+ * потом нечем — исходного события уже нет.
+ *
+ * Принадлежность та же, что в `byStaff`: процедура, которую закреплённо
+ * ведёт ровно один мастер, — его; всё остальное владелицы. Делить
+ * пополам нельзя, получатся приёмы, которых никто не вёл.
+ */
+export function staffStats(list: Appointment[], staffId: string): StaffStats {
+  const owner = getTeam().find((s) => s.role === 'owner');
+  const belongs = (a: Appointment) => {
+    const only = staffForService(a.serviceId).filter((s) => s.role === 'master');
+    const id = only.length === 1 ? only[0].id : owner?.id ?? 'owner';
+    return id === staffId;
+  };
+
+  const mine = list.filter(belongs);
+  const today = toISODate(new Date());
+  const doneList = mine.filter((a) => a.status === 'completed');
+
+  return {
+    upcoming: mine.filter((a) => a.status === 'confirmed' && a.dateISO >= today).length,
+    pending: mine.filter((a) => a.status === 'pending').length,
+    done: doneList.length,
+    revenue: doneList.reduce((sum, a) => sum + (a.amount ?? priceOf(a.serviceId)), 0),
+    clients: new Set(doneList.map(clientKeyOf)).size,
+    lastISO: doneList.reduce<string | null>(
+      (last, a) => (!last || a.dateISO > last ? a.dateISO : last),
+      null,
+    ),
+  };
+}
