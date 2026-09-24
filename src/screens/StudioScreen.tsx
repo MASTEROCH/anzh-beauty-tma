@@ -631,7 +631,10 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
           клиентской стороне. Внутри шапки он стоял в потоке и съезжал
           влево на длинном имени. */}
       <button className="studio-exit" onClick={() => { signOut(); onExit(); }}>
-        <Icon name="x" size={13} strokeWidth={2.2} /> выйти
+        <span className="studio-exit-pill">
+          <Icon name="x" size={13} strokeWidth={2.2} />
+          выйти
+        </span>
       </button>
 
       <div className="studio-veil" aria-hidden />

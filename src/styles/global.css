@@ -6655,19 +6655,43 @@ body[data-sheet-open] .lang-hud { display: none; }
 /* Кнопка выхода — правый верхний угол, отдельным слоем над шапкой.
    Внутри шапки она стояла в потоке и съезжала влево на длинном имени:
    выход обязан быть там, где его ищут, а не там, где осталось место. */
+/* Кнопка выхода — ПИЛЮЛЯ, а не голый текст.
+
+   Сперва она была надписью без фона: в покое читалась, а стоило
+   контенту проехать под ней — висела обрывком поверх карточки и
+   сталкивалась с её чипами. Управляющий элемент поверх прокрутки
+   обязан иметь собственную поверхность, иначе он не читается как
+   кнопка. Тот же приём, что у переключателя языка на клиентской
+   стороне: позиционер во всю высоту шапки, пилюля по содержимому. */
 .studio-exit {
   position: absolute;
   top: 0; right: 14px;
   height: var(--header-h, 60px);
-  display: inline-flex; align-items: center; gap: var(--sp-xs);
+  display: inline-flex; align-items: center;
   z-index: calc(var(--z-sticky) + 1);
   background: none; border: 0; padding: 0;
-  font: inherit; font-size: 12px; font-weight: 600;
-  letter-spacing: 0.04em;
+  font: inherit;
   color: var(--text-secondary);
   cursor: pointer;
 }
-.studio-exit:active { color: var(--text-primary); }
+.studio-exit > * { pointer-events: none; }
+.studio-exit-pill {
+  display: inline-flex; align-items: center; gap: var(--sp-xs);
+  padding: var(--sp-tight) var(--sp);
+  border-radius: var(--pill);
+  background: var(--bg-card-2);
+  border: 0.5px solid var(--border);
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  font-size: 12px; font-weight: 600;
+  letter-spacing: 0.04em;
+  transition: background var(--duration-fast) var(--ease-out),
+              transform var(--duration-fast) var(--ease-spring);
+}
+.studio-exit:active .studio-exit-pill {
+  background: var(--bg-card-3);
+  transform: scale(0.94);
+}
 
 /* Нижняя навигация кабинета. Горизонтальная лента чипов обрезалась на
    узком экране, и половина разделов была не видна вовсе — именно так
