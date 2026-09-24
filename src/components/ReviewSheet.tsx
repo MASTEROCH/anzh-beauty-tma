@@ -85,7 +85,7 @@ export function ReviewSheet({ defaultServiceId, onAwardPoints }: Props) {
 
       {/* Service picker */}
       <div className="review-section">
-        <div className="eyebrow" style={{ marginBottom: 8 }}>{ru ? 'процедура' : 'treatment'}</div>
+        <div className="eyebrow mb-sm">{ru ? 'процедура' : 'treatment'}</div>
         <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
           {services.slice(0, 5).map((s) => {
             const title = sTitle(s, lang);
@@ -105,7 +105,7 @@ export function ReviewSheet({ defaultServiceId, onAwardPoints }: Props) {
 
       {/* Stars */}
       <div className="review-section">
-        <div className="eyebrow" style={{ marginBottom: 8 }}>{ru ? 'оценка' : 'rating'}</div>
+        <div className="eyebrow mb-sm">{ru ? 'оценка' : 'rating'}</div>
         <div
           className="review-stars"
           onMouseLeave={() => setHover(0)}
@@ -137,7 +137,7 @@ export function ReviewSheet({ defaultServiceId, onAwardPoints }: Props) {
 
       {/* Text */}
       <div className="review-section">
-        <div className="eyebrow" style={{ marginBottom: 8 }}>{ru ? 'отзыв' : 'review'}</div>
+        <div className="eyebrow mb-sm">{ru ? 'отзыв' : 'review'}</div>
         <textarea
           className="review-textarea"
           placeholder={ru

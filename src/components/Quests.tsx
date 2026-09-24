@@ -37,14 +37,6 @@ const TASKS: Task[] = [
     cta: { ru: 'Написать', en: 'Write' },
   },
   {
-    id: 'invite',
-    icon: 'send',
-    title: { ru: 'Позвать подругу', en: 'Invite a friend' },
-    what: { ru: 'Личная ссылка — по ней видно, что пришла именно от тебя', en: 'A personal link — it shows she came from you' },
-    how: { ru: 'Засчитается, когда она откроет приложение', en: 'Counts when she opens the app' },
-    cta: { ru: 'Отправить ссылку', en: 'Send the link' },
-  },
-  {
     id: 'story',
     icon: 'instagram',
     title: { ru: 'Сторис с отметкой', en: 'A Story with a tag' },
@@ -120,19 +112,12 @@ export function QuestList({ onWriteReview }: { onWriteReview: () => void }) {
       return;
     }
 
-    if (task.id === 'invite') {
-      const me = getTgUser();
-      const link = `https://t.me/anzh_cosmetology_bot?start=ref${me?.id ?? 'guest'}`;
-      const text = ru
-        ? 'Разбор кожи у Анжелики — попробуй, первый бесплатный'
-        : 'Anjelika’s skin analysis — try it, the first one is free';
-      const nav = navigator as Navigator & { share?: (d: { text?: string; url?: string }) => Promise<void> };
-      if (nav.share) nav.share({ text, url: link }).catch(() => {});
-      else navigator.clipboard?.writeText(`${text} ${link}`);
-      sendForReview('invite', link);
-      toast(ru ? 'Ссылка отправлена — ждём подругу' : 'Link sent — waiting for your friend', 'success');
-      return;
-    }
+    /* Задание «позвать подругу» убрано вместе со скидкой за него.
+       Отдельно стоит отметить, ПОЧЕМУ его нельзя было просто оставить:
+       ссылка-приглашение собиралась здесь, на клиенте, из telegram_id
+       (`?start=ref<id>`). Контракт бэкенда §4.2 и §4.3 это запрещают —
+       числовой идентификатор в ссылке утекает получателю, и отозвать
+       это нельзя. Приглашения теперь целиком на стороне сервера. */
 
     // Сторис: открываем инстаграм и ставим в очередь на подтверждение
     openExternal(instagramUrl());
@@ -183,9 +168,7 @@ export function QuestList({ onWriteReview }: { onWriteReview: () => void }) {
               <div className="quest-row-what">{task.what[lang]}</div>
               <div className="quest-row-how">
                 {rec.state === 'pending'
-                  ? task.id === 'invite'
-                    ? (ru ? 'Ссылка отправлена — ждём, когда подруга откроет' : 'Link sent — waiting for her to open it')
-                    : (ru ? 'На проверке у Анжелики' : 'Anjelika is checking it')
+                  ? (ru ? 'На проверке у Анжелики' : 'Anjelika is checking it')
                   : task.how[lang]}
               </div>
             </div>

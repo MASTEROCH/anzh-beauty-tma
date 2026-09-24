@@ -110,11 +110,11 @@ export function ReviewCard({ data }: { data: ReviewCardData }) {
       </div>
 
       <div className="row" style={{ gap: 8, marginTop: 14 }}>
-        <button className="btn btn-ghost" style={{ flex: 1 }} onClick={saveImage} disabled={saving}>
+        <button className="btn btn-secondary row-fill" onClick={saveImage} disabled={saving}>
           <Icon name="arrow-back" size={16} strokeWidth={2} style={{ transform: 'rotate(-90deg)' }} />
           {saving ? 'Рисую…' : 'Сохранить'}
         </button>
-        <button className="btn btn-primary" style={{ flex: 1 }} onClick={share}>
+        <button className="btn btn-primary row-fill" onClick={share}>
           <Icon name="share" size={16} strokeWidth={2} /> Поделиться
         </button>
       </div>

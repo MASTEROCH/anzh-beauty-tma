@@ -42,7 +42,10 @@ export function useLang(): Lang {
 type Entry = { ru: string; en: string };
 const DICT: Record<string, Entry> = {
   // nav
-  'nav.profile':  { ru: 'Профиль', en: 'Profile' },
+  /* «О нас», а не «Профиль». Профиль — это личный кабинет человека, а
+     вкладка ведёт на страницу студии: кто такая Анжелика, как устроен
+     приём, работы, отзывы, адрес. Личное живёт в «Паспорте». */
+  'nav.profile':  { ru: 'О нас', en: 'About' },
   'nav.catalog':  { ru: 'Услуги', en: 'Services' },
   'nav.booking':  { ru: 'Запись',  en: 'Booking' },
   'nav.account':  { ru: 'Паспорт', en: 'Passport' },

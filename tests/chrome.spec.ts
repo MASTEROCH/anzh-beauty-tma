@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { fresh } from './helpers';
 
 // Верхняя полоса — шапка, вуаль размытия под ней и переключатель языка —
@@ -113,12 +113,36 @@ test('в середине перехода вуаль тоже держится 
   expect(mid.hudTop).toBe(mid.headerTop);
 });
 
+/* Ждём, пока геометрия ЗАСТЫНЕТ.
+
+   `--header-h` публикует JS после замера шапки, то есть на кадр позже
+   самой шапки. В покое это незаметно, но под параллельной нагрузкой
+   прогон успевал измерить промежуточное состояние: шапка уже 75px,
+   переменная ещё 67 — тест падал на разнице в 8px, которой в продукте
+   не существует дольше одного кадра.
+
+   Ждём совпадения, а не фиксированной паузы: пауза «подлиннее» прячет
+   такие вещи ровно до следующей медленной машины. */
+async function settled(page: Page) {
+  await page.waitForFunction(
+    () => {
+      const h = document.querySelector('.header');
+      const v = document.querySelector('.header-veil');
+      if (!h || !v) return false;
+      return Math.abs(v.getBoundingClientRect().top - h.getBoundingClientRect().bottom) < 0.5;
+    },
+    undefined,
+    { timeout: 4000 },
+  );
+}
+
 test('шапка и вуаль уходят и возвращаются как одно целое на всех экранах', async ({ page }) => {
   await fresh(page);
 
   for (const name of [/Услуги/i, /Паспорт/i, /ANZH/i]) {
     await page.locator('.nav-item').filter({ hasText: name }).first().click();
     await page.waitForTimeout(500);
+    await settled(page);
 
     const top = await band(page);
     expect(top.veilTop, `${name}: у верха вуаль под шапкой`).toBe(top.headerBottom);

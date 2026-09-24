@@ -1,3 +1,4 @@
+import { PER_TASK } from '../lib/quests';
 import { useMemo } from 'react';
 import { googleMapsUrl } from '../data/location';
 import { openExternal } from '../lib/telegram';
@@ -113,16 +114,16 @@ export function AccountScreen({
             </div>
           </div>
           <div style={{ marginTop: 16 }}>
-            <div className="eyebrow" style={{ marginBottom: 8 }}>как зарабатывать</div>
+            <div className="eyebrow mb-sm">как зарабатывать</div>
             <ul className="info-list">
               <li>{tier.cashback}% от чека возвращается баллами — по твоему тиру</li>
-              <li>Отзыв → −10% на следующую процедуру</li>
+              <li>Отзыв → −{PER_TASK}% на следующую процедуру</li>
               <li>Отзыв с фото через месяц → бонус на следующий визит</li>
               <li>Приведи подругу → +1000 баллов обоим</li>
             </ul>
           </div>
           <div style={{ marginTop: 16 }}>
-            <div className="eyebrow" style={{ marginBottom: 8 }}>тиры и привилегии</div>
+            <div className="eyebrow mb-sm">тиры и привилегии</div>
             <div className="tier-list">
               {TIERS.map((x) => (
                 <div key={x.key} className={`tier-row ${x.key === tier.key ? 'now' : ''} ${points >= x.min ? 'reached' : ''}`}>
@@ -173,7 +174,7 @@ export function AccountScreen({
             </div>
           )}
 
-          <ul className="info-list" style={{ marginTop: 14 }}>
+          <ul className="info-list mt">
             <li>{svc?.short}</li>
             <li>Длительность {svc?.duration} мин</li>
             <li>{studioAddress(lang)}</li>
@@ -181,7 +182,7 @@ export function AccountScreen({
           </ul>
           {a.comment && <p className="muted" style={{ fontSize: 13, marginTop: 10 }}>Твой комментарий: «{a.comment}»</p>}
 
-          <div className="eyebrow" style={{ margin: '16px 0 8px' }}>что я пришлю</div>
+          <div className="eyebrow sub-head">что я пришлю</div>
           <ul className="notif-timeline">
             {timelineFor(svc ? sTitle(svc, lang) : 'процедуру')
               .filter((n) => n.to === 'client')
@@ -201,9 +202,9 @@ export function AccountScreen({
               Подходит · подтвердить
             </button>
           )}
-          <button className="btn btn-ghost btn-block" onClick={onReschedule}>Перенести</button>
+          <button className="btn btn-secondary btn-block" onClick={onReschedule}>Перенести</button>
           <button
-            className="btn btn-ghost btn-block"
+            className="btn btn-secondary btn-block"
             onClick={() => {
               openExternal(googleMapsUrl());
               toast('Открываю маршрут', 'success');
@@ -212,7 +213,7 @@ export function AccountScreen({
             Маршрут в Maps
           </button>
           <button
-            className="btn btn-ghost btn-block"
+            className="btn btn-secondary btn-block"
             onClick={() => {
               if (confirm('Отменить запись?')) { cancelAppointment(a.id); toast('Запись отменена'); }
             }}
@@ -239,7 +240,7 @@ export function AccountScreen({
               style={{ width: '100%', height: 200, objectFit: 'cover', borderRadius: 14, display: 'block' }}
             />
           )}
-          <ul className="info-list" style={{ marginTop: 14 }}>
+          <ul className="info-list mt">
             <li>{svc?.short}</li>
             <li>Сумма: ${a.amount ?? svc?.priceUsd}</li>
             <li>{lang === 'ru' ? 'Начислено баллов' : 'Points earned'}: +{pointsForVisit(a.amount ?? svc?.priceUsd ?? 0, points)}</li>
@@ -252,8 +253,8 @@ export function AccountScreen({
           <button className="btn btn-primary btn-block" onClick={() => { toast('Открываю запись на эту процедуру'); setTimeout(onBook, 500); }}>
             Записаться повторно
           </button>
-          <button className="btn btn-ghost btn-block" onClick={() => openReview(a.serviceId)}>
-            Оставить отзыв · −10%
+          <button className="btn btn-secondary btn-block" onClick={() => openReview(a.serviceId)}>
+            Оставить отзыв · −{PER_TASK}%
           </button>
         </>
       ),
@@ -307,8 +308,8 @@ export function AccountScreen({
       {/* Ответ мастера на отклонённую заявку. Без этого блока отказ
           просто исчезал: человек ждал ответа, которого не будет. */}
       {declined.length > 0 && (
-        <section className="section" style={{ paddingBottom: 0 }}>
-          <div className="eyebrow" style={{ marginBottom: 8 }}>
+        <section className="section section-flush">
+          <div className="eyebrow mb-sm">
             {lang === 'ru' ? 'ответ на заявку' : 'reply to your request'}
           </div>
           <div className="col" style={{ gap: 10 }}>
@@ -327,8 +328,7 @@ export function AccountScreen({
                     <p className="declined-why">«{a.declineReason}»</p>
                   )}
                   <button
-                    className="btn btn-primary btn-block"
-                    style={{ marginTop: 12 }}
+                    className="btn btn-primary btn-block mt"
                     onClick={() => onBookAgain(a.serviceId)}
                   >
                     {lang === 'ru' ? 'Выбрать другое время' : 'Pick another time'}
@@ -341,8 +341,8 @@ export function AccountScreen({
       )}
 
       {upcoming.length > 0 ? (
-        <section className="section" style={{ paddingBottom: 0 }}>
-          <div className="eyebrow" style={{ marginBottom: 8 }}>
+        <section className="section section-flush">
+          <div className="eyebrow mb-sm">
             {upcoming.length > 1 ? `записи · ${upcoming.length}` : t('account.next', lang)}
           </div>
           <div className="col" style={{ gap: 10 }}>
@@ -368,10 +368,10 @@ export function AccountScreen({
           </div>
         </section>
       ) : (
-        <section className="section" style={{ paddingBottom: 0 }}>
+        <section className="section section-flush">
           <div className="card" style={{ padding: 20, textAlign: 'center' }}>
             <div className="muted">Записей пока нет</div>
-            <button className="btn btn-primary btn-sm" style={{ marginTop: 12 }} onClick={onBook}>
+            <button className="btn btn-primary btn-sm mt" onClick={onBook}>
               Выбрать время
             </button>
           </div>
@@ -379,8 +379,8 @@ export function AccountScreen({
       )}
 
       {activeBonuses.length > 0 && (
-        <section className="section" style={{ paddingBottom: 0 }}>
-          <div className="eyebrow" style={{ marginBottom: 8 }}>{lang === 'ru' ? 'мои бонусы' : 'my bonuses'} · {activeBonuses.length}</div>
+        <section className="section section-flush">
+          <div className="eyebrow mb-sm">{lang === 'ru' ? 'мои бонусы' : 'my bonuses'} · {activeBonuses.length}</div>
           <div className="col" style={{ gap: 8 }}>
             {activeBonuses.map((b, i) => (
               <div key={b.id} className="bonus-card reveal" style={{ animationDelay: `${i * 50}ms` }}>
@@ -421,7 +421,7 @@ export function AccountScreen({
       </section>
 
       {history.length === 0 && (
-        <section className="section" style={{ paddingTop: 0 }}>
+        <section className="section section-tight">
           <div className="card empty-state">
             <div className="empty-icon"><Icon name="clock" size={26} strokeWidth={1.7} /></div>
             <div className="empty-title">История пока пустая</div>
@@ -434,7 +434,7 @@ export function AccountScreen({
       )}
 
       {history.length > 0 && (
-        <section className="section" style={{ paddingTop: 0 }}>
+        <section className="section section-tight">
           <div className="section-head">
             <div>
               <div className="eyebrow">{t('account.history', lang)}</div>
@@ -461,7 +461,7 @@ export function AccountScreen({
       )}
 
       {quizResults.length > 0 && (
-        <section className="section" style={{ paddingTop: 0 }}>
+        <section className="section section-tight">
           <div className="section-head">
             <div>
               <div className="eyebrow">{lang === 'ru' ? 'разборы кожи' : 'skin analyses'}</div>
@@ -510,7 +510,7 @@ export function AccountScreen({
         </section>
       )}
 
-      <section className="section" style={{ paddingTop: 0 }}>
+      <section className="section section-tight">
         <div className="section-head">
           <div>
             <div className="eyebrow">{t('account.passport', lang)}</div>
@@ -558,8 +558,8 @@ export function AccountScreen({
         </button>
       </div>
       <div style={{ padding: '0 20px 20px' }}>
-        <button className="btn btn-ghost btn-block" onClick={() => openReview()}>
-          {lang === 'ru' ? 'Оставить отзыв · −10%' : 'Leave a review · −10%'}
+        <button className="btn btn-secondary btn-block" onClick={() => openReview()}>
+          {lang === 'ru' ? `Оставить отзыв · −${PER_TASK}%` : `Leave a review · −${PER_TASK}%`}
         </button>
       </div>
 

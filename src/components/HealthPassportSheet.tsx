@@ -121,7 +121,7 @@ export function HealthPassportSheet({ onBook }: { onBook?: (id: string) => void 
             }}
           />
           <button
-            className="btn btn-ghost btn-sm"
+            className="btn btn-secondary btn-sm"
             disabled={!custom.trim()}
             onClick={() => { patch({ allergies: [...p.allergies, custom.trim()] }); setCustom(''); }}
           >
@@ -136,7 +136,7 @@ export function HealthPassportSheet({ onBook }: { onBook?: (id: string) => void 
         <Toggle on={p.couperose} label="Купероз" onClick={() => patch({ couperose: !p.couperose })} />
       </Row>
 
-      <label className="onb-field" style={{ marginTop: 14 }}>
+      <label className="onb-field mt">
         <span className="onb-label">хронические заболевания</span>
         <input
           className="onb-input"
@@ -146,7 +146,7 @@ export function HealthPassportSheet({ onBook }: { onBook?: (id: string) => void 
         />
       </label>
 
-      <label className="onb-field" style={{ marginTop: 12 }}>
+      <label className="onb-field mt">
         <span className="onb-label">препараты постоянно</span>
         <input
           className="onb-input"
@@ -180,7 +180,7 @@ export function HealthPassportSheet({ onBook }: { onBook?: (id: string) => void 
         ))}
       </Row>
 
-      <label className="onb-field" style={{ marginTop: 14 }}>
+      <label className="onb-field mt">
         <span className="onb-label">что ещё важно знать</span>
         <textarea
           className="review-textarea"
@@ -197,7 +197,7 @@ export function HealthPassportSheet({ onBook }: { onBook?: (id: string) => void 
         <span>Видит только Анжелика. Перед каждой записью я сверяю анкету с противопоказаниями процедуры.</span>
       </div>
 
-      <div className="review-submit-row" style={{ marginTop: 16 }}>
+      <div className="review-submit-row mt-md">
         <button className="btn btn-primary btn-block" onClick={save}>Сохранить анкету</button>
         <button className="btn btn-quiet btn-block" onClick={closeSheet}>Отмена</button>
       </div>
@@ -208,7 +208,7 @@ export function HealthPassportSheet({ onBook }: { onBook?: (id: string) => void 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{ marginTop: 16 }}>
-      <div className="eyebrow" style={{ marginBottom: 8 }}>{label}</div>
+      <div className="eyebrow mb-sm">{label}</div>
       <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>{children}</div>
     </div>
   );

@@ -16,7 +16,6 @@ import { useQuests, completeQuest, rejectQuest, pendingQuests, PER_TASK, type Qu
 
 const TITLES: Record<QuestId, { title: string; what: string }> = {
   review: { title: 'Отзыв', what: 'засчитывается приложением' },
-  invite: { title: 'Приглашение подруги', what: 'ждём, когда она откроет приложение' },
   story: { title: 'Сторис с отметкой', what: 'проверь, что отметка стоит' },
 };
 
@@ -30,7 +29,9 @@ function ago(ts: number): string {
 
 export function QuestQueue() {
   const quests = useQuests();
-  const queue = pendingQuests(quests).filter((q) => q.id !== 'invite');
+  /* Раньше отсюда отсеивалось приглашение подруги: его подтверждает
+     сервер, а не глаза. Самого задания больше нет — фильтр не нужен. */
+  const queue = pendingQuests(quests);
 
   // Приглашение проверяет сервер по переходу, а не человек глазами —
   // показывать его мастеру значит просить подтвердить то, чего он не видит
@@ -38,7 +39,7 @@ export function QuestQueue() {
 
   return (
     <div className="qq">
-      <div className="eyebrow" style={{ marginBottom: 8 }}>
+      <div className="eyebrow mb-sm">
         задания на проверку · {queue.length}
       </div>
       {queue.map((q) => (

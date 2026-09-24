@@ -125,14 +125,16 @@ async function bindReferral(referredId: number, refCode: string | null): Promise
       where telegram_id = ${referredId} and referred_by is null
     `;
 
-    // Правило 3: скидка начисляется один раз за одну приглашённую. Ключ —
-    // та же строка в referrals, уникальность держит (kind, basis_id).
-    await tx`
-      insert into anzh.quest_completions
-        (telegram_id, kind, percent, basis_table, basis_id, confirmed_at)
-      values (${referrerId}, 'invite', 10, 'referrals', ${referralId}, now())
-      on conflict (kind, basis_id) do nothing
-    `;
+    /* ⚠️ Начисление процентов за приглашение УБРАНО.
+
+       Контракт §4.7 предписывал засчитывать приглашение как задание со
+       скидкой. Владелица правило изменила (24.09.2026): скидку дают
+       только отзыв и отметка в сторис, по 5%, вместе 10%.
+
+       Сама привязка выше пишется по-прежнему — реферальная программа
+       (§4.1–4.6) работает полностью, формат кода и ссылки не тронуты.
+       Открытый вопрос к владелице: чем награждать приглашение теперь.
+       Пока — ничем, и это записано здесь, а не додумано за неё. */
   });
 }
 

@@ -180,11 +180,11 @@ export function AiChatBubble({ screen, onBookingNav, onOpenService, onOpenCatalo
           </div>
           {q && (
             <div className="handoff-quote">
-              <div className="eyebrow" style={{ marginBottom: 6 }}>перешлю твой вопрос</div>
+              <div className="eyebrow mb-xs">перешлю твой вопрос</div>
               «{q}»
             </div>
           )}
-          <ul className="info-list" style={{ marginTop: 14 }}>
+          <ul className="info-list mt">
             <li>Работает вт–сб, 09:00–20:00</li>
             <li>Каждую заявку подтверждает лично</li>
           </ul>

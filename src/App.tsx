@@ -4,6 +4,7 @@ import { AiChatBubble } from './components/AiChatBubble';
 import { SheetHost, ToastHost, LightboxHost } from './components/UIHost';
 import { OfflineBar } from './components/OfflineBar';
 import { LangHud } from './components/LangHud';
+import { useFabYield } from './lib/fabYield';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { CatalogScreen } from './screens/CatalogScreen';
 import { ServiceScreen } from './screens/ServiceScreen';
@@ -102,6 +103,7 @@ function navigate(setter: () => void) {
 
 export function App() {
   useHeaderHeight();
+  useFabYield();
   const chrome = useChrome();
   const [screen, setScreenRaw] = useState<Screen>(initialScreen);
   const [serviceId, setServiceId] = useState<string | undefined>();

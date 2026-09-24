@@ -111,7 +111,7 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
               иначе выручка за день будет неполной.
             </p>
           )}
-          <div className="eyebrow" style={{ margin: '16px 0 8px' }}>завтра · {sum.nextDay.length}</div>
+          <div className="eyebrow sub-head">завтра · {sum.nextDay.length}</div>
           {sum.nextDay.length === 0 ? (
             <p className="faint" style={{ fontSize: 13 }}>Завтра записей нет — можно выдохнуть.</p>
           ) : (
@@ -144,7 +144,7 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
       body: (
         <>
           <ClientStrip card={buildClientCard(a, mine, passport, quizResults)} />
-          <ul className="info-list" style={{ marginTop: 12 }}>
+          <ul className="info-list mt">
             <li>Сумма по прайсу: ${apptPrice(a)}{a.extras?.length ? ` · ${apptServiceIds(a).length} процедуры` : ''}</li>
             <li>Визит попадёт в карточку клиента и в выручку</li>
             <li>Через 14 дней клиенту уйдёт запрос отзыва</li>
@@ -156,7 +156,7 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
           <button className="btn btn-primary btn-block" onClick={() => { markCompleted(a.id, apptPrice(a)); closeSheet(); toast('Визит закрыт ✓', 'success'); }}>
             Закрыть визит · ${apptPrice(a)}
           </button>
-          <button className="btn btn-ghost btn-block" onClick={() => { markNoShow(a.id); closeSheet(); toast('Отмечено: не пришла'); }}>
+          <button className="btn btn-secondary btn-block" onClick={() => { markNoShow(a.id); closeSheet(); toast('Отмечено: не пришла'); }}>
             Не пришла
           </button>
         </>
@@ -178,7 +178,7 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
             <div className="scs"><span className="scs-v">${row.spent}</span><span className="scs-k">потрачено</span></div>
             <div className="scs"><span className="scs-v">{row.noShows}</span><span className="scs-k">неявок</span></div>
           </div>
-          <div className="eyebrow" style={{ margin: '16px 0 8px' }}>история процедур</div>
+          <div className="eyebrow sub-head">история процедур</div>
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             {visits.map((v) => {
               const svc = findService(v.serviceId);
@@ -196,7 +196,7 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
           </div>
           {quizResults.length > 0 && (
             <>
-              <div className="eyebrow" style={{ margin: '16px 0 8px' }}>разборы кожи · до визита</div>
+              <div className="eyebrow sub-head">разборы кожи · до визита</div>
               <div className="col" style={{ gap: 6 }}>
                 {quizResults.map((r) => (
                   <div key={r.quizId} className="studio-result">
@@ -215,7 +215,7 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
             </>
           )}
 
-          <div className="eyebrow" style={{ margin: '16px 0 8px' }}>анкета здоровья</div>
+          <div className="eyebrow sub-head">анкета здоровья</div>
           <div className="patient-flags">
             {passportFlags(passport, true).slice(0, 4).map((f) => (
               <span key={f.text} className={`flag ${f.kind}`}>
@@ -224,7 +224,7 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
             ))}
           </div>
 
-          <div className="eyebrow" style={{ margin: '16px 0 8px' }}>заметка · видишь только ты</div>
+          <div className="eyebrow sub-head">заметка · видишь только ты</div>
           <ClientNote clientKey={key} />
           <p className="faint" style={{ fontSize: 12, marginTop: 12 }}>
             Остальное собирается само из записей — вести карточку руками не нужно.
@@ -232,7 +232,7 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
         </>
       ),
       actions: row.instagram ? (
-        <button className="btn btn-ghost btn-block" onClick={() => openExternal(instagramUrl(row.instagram))}>
+        <button className="btn btn-secondary btn-block" onClick={() => openExternal(instagramUrl(row.instagram))}>
           Открыть @{row.instagram} в инстаграме
         </button>
       ) : undefined,
@@ -282,7 +282,7 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
           {pending.length === 0 && (
             <div className="card" style={{ padding: 24, textAlign: 'center' }}>
               <Icon name="check" size={28} strokeWidth={2} style={{ color: 'var(--brand-primary)' }} />
-              <div className="muted" style={{ marginTop: 8 }}>Новых заявок нет</div>
+              <div className="muted mt-sm">Новых заявок нет</div>
             </div>
           )}
           {pending.map((a) => {
@@ -322,10 +322,10 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
                   <button className="btn btn-primary btn-sm" onClick={() => { confirmAppointment(a.id); toast(`${a.clientName} — принято ✓`, 'success'); }}>
                     Принять
                   </button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => offerSheet(a)}>
+                  <button className="btn btn-secondary btn-sm" onClick={() => offerSheet(a)}>
                     Другое время
                   </button>
-                  <button className="btn btn-ghost btn-sm studio-decline" onClick={() => { declineAppointment(a.id); toast('Заявка отклонена'); }}>
+                  <button className="btn btn-secondary btn-sm studio-decline" onClick={() => { declineAppointment(a.id); toast('Заявка отклонена'); }}>
                     Отклонить
                   </button>
                 </div>
@@ -337,7 +337,7 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
 
       {tab === 'day' && (
         <section className="section" style={{ paddingTop: 10 }}>
-          <div className="eyebrow" style={{ marginBottom: 8 }}>сегодня · {today.length} записей</div>
+          <div className="eyebrow mb-sm">сегодня · {today.length} записей</div>
           {today.length === 0 && (
             <div className="card" style={{ padding: 24, textAlign: 'center' }}>
               <div className="muted">Сегодня пусто</div>
@@ -378,7 +378,7 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
 
       {tab === 'clients' && (
         <section className="section" style={{ paddingTop: 10 }}>
-          <div className="eyebrow" style={{ marginBottom: 8 }}>база · {clients.length} человек</div>
+          <div className="eyebrow mb-sm">база · {clients.length} человек</div>
           {clients.length === 0 && (
             <div className="card empty-state">
               <div className="empty-icon"><Icon name="user" size={26} strokeWidth={1.7} /></div>
@@ -410,7 +410,7 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
       {tab === 'money' && (
         <section className="section" style={{ paddingTop: 10 }}>
           {revenue30 === 0 && insight.total === 0 && (
-            <div className="card empty-state" style={{ marginBottom: 12 }}>
+            <div className="card empty-state mb">
               <div className="empty-icon"><Icon name="sparkles" size={26} strokeWidth={1.7} /></div>
               <div className="empty-title">Пока не с чего считать</div>
               <div className="empty-sub">
@@ -423,7 +423,7 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
               с периодом и сезоном отвечает на тот, который у мастера
               на самом деле: «стало лучше или хуже, с поправкой на сезон». */}
           <MoneyBoard list={past} showStaff={can.seeAllMoney} />
-          <div className="studio-money" style={{ marginTop: 14 }}>
+          <div className="studio-money mt">
             <div className="studio-money-row">
               <span className="k">Неявки за всё время</span>
               <span className="v">{noShows.length}</span>
@@ -462,7 +462,7 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
                 <Icon name="warning" size={16} strokeWidth={2} />
                 <span>Неявки: {insight.total} · потеряно ${insight.lostUsd}</span>
               </div>
-              <ul className="info-list contra" style={{ marginTop: 10 }}>
+              <ul className="info-list contra mt-sm">
                 {insight.worstWeekday && <li>Чаще всего не приходят в {insight.worstWeekday}</li>}
                 {insight.repeatOffenders.map((c) => (
                   <li key={c.name}>
@@ -474,7 +474,7 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
             </div>
           )}
 
-          <button className="btn btn-quiet btn-block" style={{ marginTop: 18 }} onClick={showShift}>
+          <button className="btn btn-quiet btn-block mt-md" onClick={showShift}>
             Закрыть смену
           </button>
 
@@ -485,7 +485,7 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
       )}
       {tab === 'promo' && (
         <section className="section" style={{ paddingTop: 10 }}>
-          <div className="eyebrow" style={{ marginBottom: 10 }}>сторис из своих данных</div>
+          <div className="eyebrow mb-sm">сторис из своих данных</div>
           <PromoStudio upcoming={mine} />
         </section>
       )}
@@ -737,7 +737,7 @@ function OfferForm({ appt }: { appt: Appointment }) {
       <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
         Клиенту придёт сообщение, что это время занято другой записью, и предложение выбрать новое.
       </p>
-      <div className="eyebrow" style={{ marginBottom: 6 }}>день</div>
+      <div className="eyebrow mb-xs">день</div>
       <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
         {dates.map((d, i) => (
           <button key={i} className={`chip ${dateIdx === i ? 'active' : ''}`} onClick={() => setDateIdx(i)}>
@@ -745,7 +745,7 @@ function OfferForm({ appt }: { appt: Appointment }) {
           </button>
         ))}
       </div>
-      <div className="eyebrow" style={{ marginBottom: 6 }}>время</div>
+      <div className="eyebrow mb-xs">время</div>
       <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
         {SLOTS.map((s) => (
           <button key={s} className={`chip ${slot === s ? 'active' : ''}`} onClick={() => setSlot(s)}>
@@ -791,7 +791,7 @@ function RevenueChart({ list }: { list: Appointment[] }) {
 
   return (
     <div className="studio-chart">
-      <div className="eyebrow" style={{ marginBottom: 10 }}>выручка по неделям</div>
+      <div className="eyebrow mb-sm">выручка по неделям</div>
       <div className="studio-bars">
         {weeks.map((w, i) => (
           <div key={i} className="studio-bar-col">

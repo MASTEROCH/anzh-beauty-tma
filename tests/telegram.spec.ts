@@ -58,7 +58,7 @@ test('внутри Telegram: вставки доезжают до CSS и низ 
   expect(vars.top).toBe(`${INSET_TOP}px`);
 
   // Последний элемент списка обязан быть выше панели, а не под ней
-  for (const re of [/ПРОФИЛЬ|PROFILE/i, /УСЛУГИ|SERVICES/i, /ПАСПОРТ|PASSPORT/i]) {
+  for (const re of [/О НАС|ABOUT/i, /УСЛУГИ|SERVICES/i, /ПАСПОРТ|PASSPORT/i]) {
     await page.locator('.nav-item').filter({ hasText: re }).first().click();
     await page.waitForTimeout(450);
     await noHorizontalScroll(page);

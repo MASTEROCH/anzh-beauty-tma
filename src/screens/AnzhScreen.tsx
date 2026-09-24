@@ -11,6 +11,7 @@ import { useQuests, discountActive } from '../lib/quests';
 import { QuestBadge, openQuests } from '../components/Quests';
 import { ReviewSheet } from '../components/ReviewSheet';
 import { useQuizResults } from '../lib/quizResults';
+import { PER_TASK } from '../lib/quests';
 
 // ANZH Skin Intelligence внутри Telegram: вся методология с anzh.store —
 // бесплатный Skin Profile и шесть платных разборов — проходится здесь, без
@@ -36,7 +37,7 @@ export function AnzhScreen({ onBook }: { onBook: (id: string) => void }) {
   const openReviewSheet = () =>
     openSheet({
       title: ru ? 'Отзыв о процедуре' : 'Review a treatment',
-      subtitle: ru ? 'Засчитается сразу — и даст −20% на разборы' : 'Counts instantly — and gives −20% on analyses',
+      subtitle: ru ? `Засчитается сразу — и даст −${PER_TASK}% на разборы` : `Counts instantly — and gives −${PER_TASK}% on analyses`,
       body: <ReviewSheet onAwardPoints={() => {}} />,
     });
 
@@ -105,7 +106,7 @@ export function AnzhScreen({ onBook }: { onBook: (id: string) => void }) {
       body: <QuizRunner quiz={quiz} onBook={onBook} saved={stored.answers} />,
       actions: (
         <>
-          <button className="btn btn-ghost btn-block" onClick={() => runQuiz(quiz)}>
+          <button className="btn btn-secondary btn-block" onClick={() => runQuiz(quiz)}>
             {ru ? 'Пройти заново' : 'Retake'}
           </button>
           <button className="btn btn-quiet btn-block" onClick={closeSheet}>
@@ -136,7 +137,7 @@ export function AnzhScreen({ onBook }: { onBook: (id: string) => void }) {
             уход, стратегию старения и морфотип — в том порядке, в котором их и стоит проходить.
             По отдельности — {BUNDLE.fullStars}★, вместе — {bundlePrice}★.
           </p>
-          <div className="eyebrow" style={{ margin: '16px 0 8px' }}>что входит</div>
+          <div className="eyebrow sub-head">что входит</div>
           <div className="col" style={{ gap: 6 }}>
             {PAID_QUIZZES.map((q) => (
               <div key={q.id} className="bundle-row">

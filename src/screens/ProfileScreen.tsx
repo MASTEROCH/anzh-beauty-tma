@@ -1,8 +1,11 @@
 import { profile, gallery, reviews, story } from '../data/profile';
+import { PER_TASK, MAX_PERCENT } from '../lib/quests';
 import { openSheet, closeSheet, openLightbox, toast } from '../lib/ui';
 import { ReviewSheet } from '../components/ReviewSheet';
 import { StoryCarousel } from '../components/StoryCarousel';
 import { StudioMap } from '../components/StudioMap';
+import { LegalFooter } from '../components/LegalFooter';
+import { AboutDoctor } from '../components/AboutDoctor';
 import { instagramUrl } from '../data/location';
 import { openExternal } from '../lib/telegram';
 import { Gallery } from '../components/Gallery';
@@ -38,7 +41,7 @@ export function ProfileScreen({
 
   const showStoriesShare = () =>
     openSheet({
-      title: ru ? '−15% на первое посещение' : '−15% off your first visit',
+      title: ru ? `−${MAX_PERCENT}% на первое посещение` : `−${MAX_PERCENT}% off your first visit`,
       subtitle: ru ? 'За сторис с отметкой @dr.domnich' : 'For a Story tagging @dr.domnich',
       body: (
         <>
@@ -49,7 +52,7 @@ export function ProfileScreen({
               <circle cx="12" cy="12" r="4.2" />
               <circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" stroke="none" />
             </svg>
-            <div className="stories-discount">−15%</div>
+            <div className="stories-discount">−{MAX_PERCENT}%</div>
           </div>
           <ol className="stories-steps">
             <li><span>1</span>{ru ? 'Сними сторис в кабинете или с результатом' : 'Post a Story at the studio or of your result'}</li>
@@ -112,7 +115,7 @@ export function ProfileScreen({
         <>
           <button className="btn btn-primary btn-block" onClick={openReview}>
             <Icon name="gift" size={16} strokeWidth={2} />
-            {ru ? 'Написать свой · −10%' : 'Write yours · −10%'}
+            {ru ? `Написать свой · −${PER_TASK}%` : `Write yours · −${PER_TASK}%`}
           </button>
           <button className="btn btn-quiet btn-block" onClick={closeSheet}>
             {ru ? 'Закрыть' : 'Close'}
@@ -225,7 +228,7 @@ export function ProfileScreen({
         <button className="btn btn-primary" onClick={() => onBook()}>
           <Icon name="calendar" size={17} strokeWidth={2} /> {t('common.book', lang)}
         </button>
-        <button className="btn btn-ghost" onClick={onCatalog}>
+        <button className="btn btn-secondary" onClick={onCatalog}>
           <Icon name="sparkles" size={17} strokeWidth={2} /> {t('common.catalog', lang)}
         </button>
       </div>
@@ -255,23 +258,25 @@ export function ProfileScreen({
         <p className="about-text">
           {ru ? (
             <>
-              В кабинете есть администратор и мастера по своим направлениям, но
-              <strong> протокол Анжелика собирает сама</strong>: смотрит кожу, подтверждает
-              заявку лично и назначает курс. История процедур живёт в приложении,
-              а не в переписке в директе.
+              В кабинете есть администратор и мастера по своим направлениям.
+              Заявку принимает Анжелика или администратор, но
+              <strong> протокол собирает она сама</strong>: смотрит кожу и назначает
+              курс. История процедур живёт в приложении, а не в переписке в директе.
             </>
           ) : (
             <>
-              There is a receptionist and masters for their own treatments, but
-              <strong> Anjelika builds the protocol herself</strong>: she sees your skin,
-              confirms the request personally and sets the course. Your history lives in
-              the app, not in a DM thread.
+              There is a receptionist and masters for their own treatments. Your
+              request is taken by Anjelika or the receptionist, but
+              <strong> the protocol is hers</strong>: she sees your skin and sets the
+              course. Your history lives in the app, not in a DM thread.
             </>
           )}
         </p>
       </section>
 
-      <section className="section" style={{ paddingTop: 0 }}>
+      <AboutDoctor lang={lang} />
+
+      <section className="section section-tight">
         <div className="section-head">
           <div>
             <div className="eyebrow">{t('profile.gallery.eyebrow', lang)}</div>
@@ -281,7 +286,7 @@ export function ProfileScreen({
         <Gallery onBook={onBook} onOpenService={onOpenService} />
       </section>
 
-      <section className="section" style={{ paddingTop: 0 }}>
+      <section className="section section-tight">
         <div className="section-head">
           <div>
             <div className="eyebrow">{t('profile.reviews.eyebrow', lang)}</div>
@@ -291,27 +296,29 @@ export function ProfileScreen({
             312 →
           </button>
         </div>
-        <div className="reviews-row marquee marquee--slow" aria-label="Отзывы">
-          <div className="marquee-track">
-            {[0, 1].map((dup) => (
-              <div className="marquee-group reviews-group" key={dup} aria-hidden={dup === 1 ? true : undefined}>
-                {reviews.map((r, i) => (
-                  <article key={`${dup}-${i}`} className="card review-card" onClick={showAllReviews}>
-                    <div className="review-stars">{'★'.repeat(r.stars)}</div>
-                    <p className="review-text">{r.text}</p>
-                    <div className="review-author">{r.author} · {r.role[lang]}</div>
-                  </article>
-                ))}
-              </div>
-            ))}
-          </div>
+        {/* Лента листается ПАЛЬЦЕМ, а не едет сама.
+
+            Была бегущая строка с продублированным набором карточек: она
+            обрезала отзывы с обоих краёв, уезжала из-под пальца и не
+            давала дочитать длинный текст — его увозило на середине
+            предложения. Для отзыва это прямой вред: его читают, а не
+            разглядывают. Обычная горизонтальная прокрутка со снапом
+            оставляет управление человеку. */}
+        <div className="reviews-row" aria-label="Отзывы">
+          {reviews.map((r, i) => (
+            <article key={i} className="card review-card" onClick={showAllReviews}>
+              <div className="review-stars">{'★'.repeat(r.stars)}</div>
+              <p className="review-text">{r.text}</p>
+              <div className="review-author">{r.author} · {r.role[lang]}</div>
+            </article>
+          ))}
         </div>
 
         <button className="review-cta" onClick={openReview}>
           <div className="review-cta-icon"><Icon name="gift" size={22} strokeWidth={1.8} /></div>
           <div className="review-cta-text">
             <div className="review-cta-title">{lang === 'ru' ? 'Поделись впечатлением' : 'Share your experience'}</div>
-            <div className="review-cta-sub">{lang === 'ru' ? '−10% на следующую процедуру за отзыв · −15% с фото' : '−10% off your next treatment for a review · −15% with a photo'}</div>
+            <div className="review-cta-sub">{lang === 'ru' ? `−${PER_TASK}% на следующую процедуру · вместе со сторис −${MAX_PERCENT}%` : `−${PER_TASK}% off your next treatment · −${MAX_PERCENT}% together with a Story`}</div>
           </div>
           <Icon name="chevron-right" size={20} strokeWidth={2} className="review-cta-arrow" />
         </button>
@@ -326,13 +333,13 @@ export function ProfileScreen({
           </div>
           <div className="review-cta-text">
             <div className="review-cta-title">{lang === 'ru' ? 'Отметь в сторис' : 'Tag us in Stories'}</div>
-            <div className="review-cta-sub">{lang === 'ru' ? '−15% на первое посещение за сторис с @dr.domnich' : '−15% off your first visit for a Story with @dr.domnich'}</div>
+            <div className="review-cta-sub">{lang === 'ru' ? `−${PER_TASK}% за сторис с @dr.domnich · вместе с отзывом −${MAX_PERCENT}%` : `−${PER_TASK}% for a Story with @dr.domnich · −${MAX_PERCENT}% together with a review`}</div>
           </div>
           <Icon name="chevron-right" size={20} strokeWidth={2} className="review-cta-arrow" />
         </button>
       </section>
 
-      <section className="section" style={{ paddingTop: 0 }}>
+      <section className="section section-tight">
         <div className="section-head">
           <div>
             <div className="eyebrow">{t('profile.addr.eyebrow', lang)}</div>
@@ -341,6 +348,8 @@ export function ProfileScreen({
         </div>
         <StudioMap />
       </section>
+
+      <LegalFooter lang={lang} />
     </div>
   );
 }

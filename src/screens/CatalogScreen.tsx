@@ -56,7 +56,7 @@ export function CatalogScreen({
         </button>
       </header>
 
-      <div className="catalog-search" style={{ marginTop: 14 }}>
+      <div className="catalog-search mt">
         <input
           type="text"
           value={q}
@@ -165,7 +165,7 @@ export function CatalogScreen({
               <Icon name="lotus" size={32} strokeWidth={1.6} />
             </div>
             <div className="muted">{t('catalog.emptyTitle', lang)}</div>
-            <button className="btn btn-ghost btn-sm" style={{ marginTop: 14 }} onClick={() => { setQ(''); setCat('all'); }}>
+            <button className="btn btn-secondary btn-sm mt" onClick={() => { setQ(''); setCat('all'); }}>
               {t('catalog.reset', lang)}
             </button>
           </div>

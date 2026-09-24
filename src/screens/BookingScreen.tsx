@@ -185,7 +185,7 @@ export function BookingScreen({
         </div>
 
         <section style={{ padding: '14px 20px 0' }}>
-          <div className="eyebrow" style={{ marginBottom: 8 }}>{t('booking.chosen', lang)}</div>
+          <div className="eyebrow mb-sm">{t('booking.chosen', lang)}</div>
           <button
             onClick={onChooseService}
             className="card service-card"
@@ -241,7 +241,7 @@ export function BookingScreen({
               раньше, чем человек дочитал название. Здесь он принимает
               решение, а не любуется движением. Карточки с объяснением,
               почему это сочетается, и предупреждением, если нет. */}
-          <div className="eyebrow" style={{ margin: '18px 0 8px' }}>
+          <div className="eyebrow sub-head">
             {ru ? 'добавить к этому визиту' : 'add to this visit'}
           </div>
           <div className="bk-suggest">
@@ -344,7 +344,7 @@ export function BookingScreen({
         </section>
 
         <section style={{ padding: '18px 20px 0' }}>
-          <div className="eyebrow" style={{ marginBottom: 8 }}>{ru ? 'как с тобой связаться' : 'how to reach you'}</div>
+          <div className="eyebrow mb-sm">{ru ? 'как с тобой связаться' : 'how to reach you'}</div>
           <div className="onb-form">
             <label className="onb-field">
               <span className="onb-label">{ru ? 'имя' : 'name'}</span>
@@ -383,7 +383,7 @@ export function BookingScreen({
         </section>
 
         <section className="booking-summary">
-          <div className="eyebrow" style={{ marginBottom: 10 }}>{t('booking.details', lang)}</div>
+          <div className="eyebrow mb-sm">{t('booking.details', lang)}</div>
           <div className="summary-row">
             <span className="k">{t('booking.sum.service', lang)}</span>
             <span className="v">{sTitle(service, lang)}</span>

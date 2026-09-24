@@ -20,9 +20,11 @@
 // На бою это сервер (реферал через start_param) и кабинет мастера.
 
 import { useEffect, useState } from 'react';
-import { IG_OFFER } from '../data/quizzes';
 
-export type QuestId = 'review' | 'invite' | 'story';
+/* Два условия, и оба подтверждаются человеком или сервером:
+   отзыв и отметка в сторис. Приглашение подруги скидки БОЛЬШЕ НЕ ДАЁТ —
+   оно живёт в реферальной программе со своей механикой. */
+export type QuestId = 'review' | 'story';
 
 /** idle — не начато · pending — ждёт подтверждения · done — скидка активна */
 export type QuestState = 'idle' | 'pending' | 'done';
@@ -43,7 +45,6 @@ const listeners = new Set<(q: Quests) => void>();
 
 const EMPTY: Quests = {
   review: { state: 'idle' },
-  invite: { state: 'idle' },
   story: { state: 'idle' },
 };
 
@@ -93,13 +94,22 @@ export function rejectQuest(id: QuestId) {
   persist();
 }
 
-/* Скидка НАКАПЛИВАЕТСЯ: 10% за каждое выполненное задание, максимум 30%.
+export const TASK_COUNT = 2;
+
+/* Скидка НАКАПЛИВАЕТСЯ: 5% за отзыв, 5% за отметку в сторис.
+   За оба условия — 10%.
    Так лучше, чем «всё или ничего»: после первого задания человек видит не
-   финиш, а две трети пути — и второе задание стоит ему уже понятных усилий
-   за понятную прибавку. Одно большое «−20% за любое действие» этот стимул
-   гасит: выполнил одно — дальше смысла нет. */
-export const PER_TASK = 10;
-export const MAX_PERCENT = IG_OFFER.percent; // 30
+   финиш, а часть пути — и второе задание стоит ему понятных усилий за
+   понятную прибавку. Одно большое «−15% за любое действие» этот стимул
+   гасит: выполнил одно — дальше смысла нет.
+
+   🚨 Потолок ВЫВОДИТСЯ из числа заданий, а не задаётся отдельно. Раньше
+   он брался из IG_OFFER.percent — это другая акция, промокод в
+   инстаграме. Пока совпадало 10 × 3 = 30, подмена не была видна; на 5%
+   за задание бейдж начал бы обещать 30%, из которых заработать можно
+   15. Обещание, которое нельзя выполнить, хуже меньшего числа. */
+export const PER_TASK = 5;
+export const MAX_PERCENT = TASK_COUNT * PER_TASK;
 
 export const doneCount = (q: Quests) =>
   (Object.keys(q) as QuestId[]).filter((k) => q[k].state === 'done').length;
@@ -112,7 +122,6 @@ export const remainingPercent = (q: Quests) => MAX_PERCENT - discountPercent(q);
 
 export const discountActive = (q: Quests) => discountPercent(q) > 0;
 
-export const TASK_COUNT = 3;
 
 /** Что ждёт подтверждения мастера — очередь в кабинете */
 export function pendingQuests(q: Quests): Array<{ id: QuestId; sentAt: number; proof?: string }> {

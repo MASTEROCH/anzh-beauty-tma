@@ -943,8 +943,11 @@ components:
         subtotal_minor: { type: integer, format: int64 }
         discount_percent:
           type: integer
-          maximum: 30
-          description: 10% за задание, не больше 30. Считается из подтверждённых оснований.
+          maximum: 10
+          description: |
+            5% за отзыв, 5% за отметку в сторис, вместе 10%. Считается из
+            подтверждённых оснований, а не хранится числом. Приглашение
+            подруги скидки не даёт — это отдельная реферальная программа.
         discount_minor: { type: integer, format: int64 }
         total_minor: { type: integer, format: int64 }
         currency: { type: string }

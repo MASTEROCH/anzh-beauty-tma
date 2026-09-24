@@ -73,7 +73,7 @@ for (const s of SIZES) {
     await page.goto('/');
     await page.waitForSelector('.bottom-nav', { timeout: 10_000 });
 
-    for (const re of [/ПРОФИЛЬ|PROFILE/i, /УСЛУГИ|SERVICES/i, /ЗАПИСЬ|BOOKING/i, /ПАСПОРТ|PASSPORT/i, /ANZH/i]) {
+    for (const re of [/О НАС|ABOUT/i, /УСЛУГИ|SERVICES/i, /ЗАПИСЬ|BOOKING/i, /ПАСПОРТ|PASSPORT/i, /ANZH/i]) {
       await page.locator('.nav-item').filter({ hasText: re }).first().click();
       await page.waitForTimeout(450);
       await noHorizontalScroll(page);

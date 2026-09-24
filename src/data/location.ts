@@ -62,3 +62,25 @@ export const osmEmbedUrl = (zoom: number = DEFAULT_ZOOM) => {
   const bbox = [STUDIO.lon - d, STUDIO.lat - d / 2, STUDIO.lon + d, STUDIO.lat + d / 2];
   return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox.join('%2C')}&layer=mapnik&marker=${STUDIO.lat}%2C${STUDIO.lon}`;
 };
+
+/* ПРАВОВЫЕ ДОКУМЕНТЫ.
+
+   Адреса проверены запросом, все три отвечают 200 и открываются на
+   языке интерфейса через `?lang=`. Выдумывать их было нельзя: мёртвая
+   ссылка в правовом блоке хуже её отсутствия — человек решает, что
+   согласие где-то есть, а открыть его не может. Тот же урок, что с
+   несуществующим номером WhatsApp выше.
+
+   🔴 Это ЧАСТЬ ответа на вопрос №9 из §1 контракта бэкенда: тексты
+   обязаны существовать и быть доступны из приложения до первого
+   реального клиента. Теперь они доступны. Открытым остаётся, покрывают
+   ли эти тексты мини-приложение и обработку анкеты здоровья, — на сайте
+   они написаны для сайта. Вопрос к юристу, не к коду. */
+export const LEGAL = [
+  { id: 'privacy', ru: 'Политика конфиденциальности', en: 'Privacy Policy', path: 'privacy.html' },
+  { id: 'terms',   ru: 'Условия использования',       en: 'Terms of Use',   path: 'terms.html' },
+  { id: 'refund',  ru: 'Политика возврата',           en: 'Refund Policy',  path: 'refund-policy.html' },
+] as const;
+
+export const legalUrl = (path: string, lang: 'ru' | 'en') =>
+  `https://anzh.store/${path}?lang=${lang}`;

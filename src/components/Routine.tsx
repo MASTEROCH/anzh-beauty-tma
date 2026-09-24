@@ -27,7 +27,7 @@ export function Routine({ quizId, resultKey }: { quizId: string; resultKey: stri
 
   return (
     <div className="routine">
-      <div className="eyebrow" style={{ margin: '18px 0 8px' }}>
+      <div className="eyebrow sub-head">
         {ru ? 'домашний уход · протокол' : 'home care · protocol'}
       </div>
 

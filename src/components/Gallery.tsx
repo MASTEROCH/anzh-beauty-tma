@@ -73,7 +73,7 @@ export function Gallery({ onBook, onOpenService }: { onBook: (id: string) => voi
             </div>
           </div>
 
-          <div className="eyebrow" style={{ margin: '18px 0 8px' }}>{t('service.includes', lang)}</div>
+          <div className="eyebrow sub-head">{t('service.includes', lang)}</div>
           <ul className="info-list">
             {s.includes.map((i) => <li key={i}>{i}</li>)}
           </ul>

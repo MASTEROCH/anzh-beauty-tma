@@ -56,7 +56,7 @@ export function ConfirmScreen({ onDone, onAccount }: { onDone: () => void; onAcc
 
       <section style={{ padding: 20 }}>
         <div className="card" style={{ padding: 18 }}>
-          <div className="eyebrow" style={{ marginBottom: 10 }}>{ru ? 'что дальше' : 'what happens next'}</div>
+          <div className="eyebrow mb-sm">{ru ? 'что дальше' : 'what happens next'}</div>
           <ol className="confirm-flow">
             <li className="done">
               <span className="cf-dot"><Icon name="check" size={11} strokeWidth={2.8} /></span>
@@ -93,15 +93,13 @@ export function ConfirmScreen({ onDone, onAccount }: { onDone: () => void; onAcc
       <section style={{ padding: '0 20px 20px' }}>
         <div className="row" style={{ gap: 10, marginBottom: 10 }}>
           <button
-            className="btn btn-ghost"
-            style={{ flex: 1 }}
+            className="btn btn-secondary row-fill"
             onClick={() => toast(ru ? 'Добавлю в календарь, как только Анжелика подтвердит' : 'I’ll add it to your calendar once Anjelika confirms')}
           >
             <Icon name="calendar" size={16} strokeWidth={1.9} /> {ru ? 'В календарь' : 'Calendar'}
           </button>
           <button
-            className="btn btn-ghost"
-            style={{ flex: 1 }}
+            className="btn btn-secondary row-fill"
             onClick={() => {
               openTelegram(telegramUrl());
               toast(ru ? 'Открываю чат с Анжеликой' : 'Opening the chat with Anjelika', 'success');
@@ -113,8 +111,7 @@ export function ConfirmScreen({ onDone, onAccount }: { onDone: () => void; onAcc
         {/* Календарь с напоминанием за два часа: до этого «мы напомним»
             было обещанием, которое приложение не могло сдержать — пушей нет */}
         <button
-          className="btn btn-secondary btn-block"
-          style={{ marginBottom: 10 }}
+          className="btn btn-secondary btn-block mb-sm"
           onClick={() => {
             const ok = downloadIcs(appt, lang);
             toast(
@@ -129,8 +126,8 @@ export function ConfirmScreen({ onDone, onAccount }: { onDone: () => void; onAcc
         </button>
 
         <div className="row" style={{ gap: 10 }}>
-          <button className="btn btn-quiet" style={{ flex: 1 }} onClick={onDone}>{ru ? 'На главную' : 'Home'}</button>
-          <button className="btn btn-primary" style={{ flex: 1 }} onClick={onAccount}>{ru ? 'В кабинет →' : 'My account →'}</button>
+          <button className="btn btn-quiet row-fill" onClick={onDone}>{ru ? 'На главную' : 'Home'}</button>
+          <button className="btn btn-primary row-fill" onClick={onAccount}>{ru ? 'В кабинет →' : 'My account →'}</button>
         </div>
       </section>
 

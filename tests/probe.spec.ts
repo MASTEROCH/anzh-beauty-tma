@@ -6,7 +6,7 @@ import { fresh, tab } from './helpers';
 test('@probe мелкие мишени по классам', async ({ page }) => {
   await fresh(page);
   for (const [name, re] of [
-    ['ПРОФИЛЬ', /ПРОФИЛЬ|PROFILE/i], ['УСЛУГИ', /УСЛУГИ|SERVICES/i],
+    ['ПРОФИЛЬ', /О НАС|ABOUT/i], ['УСЛУГИ', /УСЛУГИ|SERVICES/i],
     ['ЗАПИСЬ', /ЗАПИСЬ|BOOKING/i], ['ПАСПОРТ', /ПАСПОРТ|PASSPORT/i], ['ANZH', /ANZH/i],
   ] as const) {
     await tab(page, re);

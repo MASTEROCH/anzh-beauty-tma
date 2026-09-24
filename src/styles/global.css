@@ -36,9 +36,27 @@ button, input, textarea, select {
 button { -webkit-tap-highlight-color: transparent; }
 
 /* ─── Root container — fixed-height phone frame ──────────── */
+/*
+   🚨 ВЫСОТА ОБОЛОЧКИ — САМОЕ ХРУПКОЕ МЕСТО НА ANDROID.
+
+   `100vh` — «большой» вьюпорт: он включает полосу под системной панелью
+   навигации. Оболочка получалась выше видимой области, и всё, что стоит
+   у её низа, физически уезжало под панель — нажать нельзя.
+
+   Три значения подряд, каждое перекрывает предыдущее там, где умеет:
+     1. 100vh   — старые браузеры, знают только его;
+     2. 100dvh  — динамический вьюпорт: сам вычитает системную панель и
+                  адресную строку. Это чинит обычный Android-браузер;
+     3. --tg-viewport — viewportStableHeight от Telegram. Внутри Telegram
+                  он авторитетнее всего: клиент знает про свою шапку,
+                  клавиатуру и режим на весь экран то, чего CSS не знает.
+                  «Stable» — значит без учёта клавиатуры, и это верно:
+                  оболочка не должна прыгать, когда её открывают. */
 #root {
   width: 100%;
   height: 100vh;
+  height: 100dvh;
+  height: var(--tg-viewport, 100dvh);
   max-width: var(--max-w);
   margin: 0 auto;
   display: flex;
@@ -56,7 +74,7 @@ button { -webkit-tap-highlight-color: transparent; }
       #030a0c;
   }
   #root {
-    height: min(calc(100vh - 48px), 932px);
+    height: min(calc(100dvh - 48px), 932px);
     margin: 24px auto;
     border-radius: 28px;
     box-shadow: 0 24px 80px -20px rgba(0,0,0,0.75), 0 0 0 0.5px rgba(255,255,255,0.06);
@@ -148,16 +166,67 @@ button { -webkit-tap-highlight-color: transparent; }
   .app::before, .app::after { animation: none; }
 }
 
-/* ─── Screen — the only scrolling element ────────────────── */
-/* Сколько места снизу занято плавающими элементами. Таббар стоит на
-   `nav-gap + safe-area`, а нижний отступ экрана эту safe-area не учитывал —
-   на телефоне с жестовой полосой последняя строка уезжала под панель ровно
-   на её высоту. Считаем ОДИН раз здесь и пользуемся везде: три разных
-   формулы в трёх местах и разошлись. */
+/* ─── БЕЗОПАСНЫЕ ЗОНЫ — ЕДИНСТВЕННЫЙ ИСТОЧНИК ПРАВДЫ ──────
+
+   🚨 НИ ОДНОГО ГОЛОГО `env(safe-area-inset-*)` В ОСТАЛЬНОМ ФАЙЛЕ.
+   Только эти четыре переменные. Правило не про красоту: на Android
+   `env(safe-area-inset-bottom)` равен НУЛЮ, хотя системная панель
+   навигации физически занимает низ экрана. Каждое место, считавшее
+   отступ само, теряло эту панель — и кнопка уезжала под неё.
+
+   Откуда берётся правда, по убыванию надёжности:
+
+   1. `--tg-inset-*` — числа от самого Telegram (`safeAreaInset`,
+      `contentSafeAreaInset`, Bot API 8.0+). Клиент знает про вырез,
+      системную панель и режим на весь экран. Внутри Telegram это
+      единственный источник, который на Android не врёт.
+   2. `env(safe-area-inset-*)` — знает про вырез и домашнюю полосу iOS.
+      На Android про системную панель молчит.
+   3. `--safe-floor` — пол. Если не сработало ничто (старый клиент без
+      Bot API 8.0 на Android), кнопка всё равно не встанет вплотную к
+      краю экрана. Восемь пикселей — не «на всякий случай», а
+      минимальный зазор, ниже которого палец промахивается мимо края.
+
+   `max()` берёт наибольшее: лишнего отступа он не создаст — на iPhone
+   env() даёт 34px и перекрывает пол, на Android его перекрывает
+   Telegram. */
 :root {
-  --bottom-safe: max(env(safe-area-inset-bottom, 0px), var(--tg-inset-bottom, 0px));
-  --bottom-clear: calc(var(--nav-h) + var(--nav-gap) * 2 + var(--bottom-safe));
+  --safe-floor: 8px;
+
+  --top-safe: max(
+    env(safe-area-inset-top, 0px),
+    var(--tg-inset-top, 0px)
+  );
+  --bottom-safe: max(
+    env(safe-area-inset-bottom, 0px),
+    var(--tg-inset-bottom, 0px),
+    var(--safe-floor)
+  );
+
+  /* Верхний край плавающего таббара, считая от низа экрана. От него
+     отсчитывается ВСЁ, что стоит над таббаром: липкая кнопка экрана,
+     шар ассистента, тосты. Раньше каждый считал сам как
+     `nav-h + nav-gap` — и терял безопасную зону, из-за чего на
+     телефоне с жестовой полосой наезжал на таббар, а на Android
+     уходил под системную панель. */
+  --nav-top: calc(var(--nav-h) + var(--nav-gap) + var(--bottom-safe));
+
+  /* Сколько места снизу занято таббаром целиком, с зазором над ним. */
+  --bottom-clear: calc(var(--nav-top) + var(--nav-gap));
+
+  /* ШАР АССИСТЕНТА — плавающий, в правом нижнем углу над таббаром.
+
+     Резерв места под него в конце экрана СНЯТ. Он был первой попыткой
+     развести шар и кнопки, но давал девяносто пикселей пустоты в конце
+     каждого экрана — под правовым подвалом это читалось как обрыв
+     вёрстки. Столкновения теперь решает lib/fabYield.ts: шар смотрит,
+     что под ним, и уходит сам. Место резервировать незачем. */
+  --fab-size: 56px;
+  --fab-lift: 18px;                 /* насколько шар поднят над таббаром */
+  --fab-lift-cta: 82px;             /* и то же, когда снизу липкая кнопка */
 }
+
+/* ─── Screen — the only scrolling element ────────────────── */
 
 .screen {
   flex: 1;
@@ -182,7 +251,7 @@ button { -webkit-tap-highlight-color: transparent; }
   z-index: var(--z-sticky);
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 16px;
-  padding-top: max(14px, env(safe-area-inset-top, 0px), var(--tg-inset-top, 0px));
+  padding-top: max(14px, var(--top-safe));
   background: var(--bg-header);
   backdrop-filter: var(--lg-frost);
   -webkit-backdrop-filter: var(--lg-frost);
@@ -238,7 +307,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .bottom-nav {
   position: absolute;
   left: var(--nav-gap); right: var(--nav-gap);
-  bottom: calc(var(--nav-gap) + max(env(safe-area-inset-bottom, 0px), var(--tg-inset-bottom, 0px)));
+  bottom: calc(var(--nav-gap) + var(--bottom-safe));
   height: var(--nav-h);
   display: flex; align-items: stretch;
   padding: 6px;
@@ -301,7 +370,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .nav-veil {
   position: absolute;
   left: 0; right: 0; bottom: 0;
-  height: calc(var(--nav-h) + var(--nav-gap) * 2 + max(env(safe-area-inset-bottom, 0px), var(--tg-inset-bottom, 0px)) + 16px);
+  height: calc(var(--bottom-clear) + 16px);
   z-index: calc(var(--z-bottom-nav) - 1);
   pointer-events: none;
   background: linear-gradient(180deg, transparent, var(--bg-app) 62%);
@@ -388,13 +457,20 @@ button { -webkit-tap-highlight-color: transparent; }
 }
 .patient-vitals .pv {
   display: flex; flex-direction: column; gap: 3px;
+  /* 🚨 У элемента сетки min-width по умолчанию `auto`, а не 0: длинное
+     значение раздвигает колонку ШИРЕ, чем 1fr, и вся сетка вылезает за
+     экран. На 320px паспорт уезжал за правый край на 25px. Колонка
+     обязана уметь сжиматься. */
+  min-width: 0;
   padding: 10px;
   border-radius: 12px;
   background: rgba(255,255,255,0.04);
   border: 0.5px solid var(--border);
 }
 .pv-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-hint); }
-.pv-val { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+/* Значение переносится, а не растягивает колонку. Без этого min-width: 0
+   выше лишь обрезал бы текст вместо того, чтобы его показать. */
+.pv-val { font-size: 13px; font-weight: 600; color: var(--text-primary); overflow-wrap: anywhere; }
 .patient-flags { display: flex; flex-wrap: wrap; gap: 6px; }
 .patient-flags .flag {
   display: inline-flex; align-items: center; gap: 5px;
@@ -641,10 +717,12 @@ button { -webkit-tap-highlight-color: transparent; }
      .btn-quiet     — третья степень: стекло без цвета (Закрыть, Отмена,
                       Позже) — присутствует, но не соперничает
 
-   `.btn-ghost` оставлен псевдонимом второстепенной: он стоит в 30+ местах,
-   и одномоментное переименование дало бы диффы там, где ничего не менялось. */
-.btn-secondary,
-.btn-ghost {
+   Псевдоним `.btn-secondary` УБРАН. Он жил здесь как отложенная миграция —
+   «переименуем потом, чтобы не плодить диффы». Два имени для одной роли
+   стоят дороже одного диффа: человек, дописывающий экран, выбирает
+   наугад, и через полгода уже не видно, значит ли `ghost` что-то своё.
+   Все места переведены на `.btn-secondary`. */
+.btn-secondary {
   background: linear-gradient(180deg, #406B62, #2A5C52 50%, #1A453F);
   color: rgba(255,255,255,0.96);
   border: 0;
@@ -653,8 +731,7 @@ button { -webkit-tap-highlight-color: transparent; }
     inset 0 -1px 0 rgba(0,0,0,0.20),
     0 8px 24px -10px rgba(0,0,0,0.45);
 }
-.btn-secondary:hover:not(:disabled),
-.btn-ghost:hover:not(:disabled) {
+.btn-secondary:hover:not(:disabled) {
   background: linear-gradient(180deg, #4B7C72, #336A60 50%, #234F47);
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.25),
@@ -727,7 +804,7 @@ button.card:active { transform: scale(0.985); }
   background: var(--bg-card);
   border: 0.5px solid var(--border);
   border-radius: var(--pill);
-  padding: 6px 12px;
+  padding: var(--sp-tight) var(--sp);
   font-size: 12px; font-weight: 600;
   color: var(--text-secondary);
   cursor: pointer;
@@ -786,11 +863,87 @@ button.card:active { transform: scale(0.985); }
 .muted { color: var(--text-secondary); }
 .faint { color: var(--text-hint); }
 
-.section { padding: 20px; }
+/* ─── LAYOUT-ПРИМИТИВЫ ────────────────────────────────────
+
+   Ритм задаёт КОНТЕЙНЕР через gap, а не каждый ребёнок своим
+   margin-top. Разница не косметическая:
+
+   · margin у детей схлопывается и переносится между соседями —
+     поэтому «добавь 8px» в одном месте меняло расстояние в другом;
+   · первый и последний ребёнок всегда требовали исключения
+     (`:first-child { margin-top: 0 }`), и про них забывали;
+   · порядок детей менялся — ритм ехал, потому что отступ принадлежал
+     не промежутку, а элементу.
+
+   С gap промежуток принадлежит родителю. Переставили детей — ритм на
+   месте; убрали ребёнка — лишнего отступа не осталось. */
+
+.stack       { display: flex; flex-direction: column; gap: var(--sp); }
+.stack-tight { display: flex; flex-direction: column; gap: var(--sp-sm); }
+.stack-xs    { display: flex; flex-direction: column; gap: var(--sp-xs); }
+.stack-loose { display: flex; flex-direction: column; gap: var(--sp-md); }
+.stack-wide  { display: flex; flex-direction: column; gap: var(--sp-xl); }
+
+/* Горизонтальный ряд. min-width:0 сразу: без него длинный текст
+   раздувает колонку и ломает контейнер — та же ловушка, что уже
+   ловилась в сетке паспорта. */
+.row {
+  display: flex; align-items: center; gap: var(--sp-sm);
+  min-width: 0;
+}
+.row > * { min-width: 0; }
+.row-between { justify-content: space-between; }
+.row-top     { align-items: flex-start; }
+.row-fill    { flex: 1 1 auto; }
+
+.section { padding: var(--sp-lg); }
+
+/* Варианты секции вместо inline paddingTop/paddingBottom: 0.
+   Их было 12 штук вразнобой — теперь два имени с понятным смыслом. */
+.section-tight { padding-top: 0; }   /* секция примыкает к предыдущей */
+.section-flush { padding-bottom: 0; } /* следующая секция вплотную */
+
+/* ПОДЗАГОЛОВОК ВНУТРИ СЕКЦИИ.
+
+   Четырнадцать мест задавали его инлайном — семь как `16px 0 8px`,
+   семь как `18px 0 8px`. Разница в два пикселя, невидимая по
+   отдельности, и есть та самая «несобранность»: одинаковые по смыслу
+   куски стоят по-разному, и глаз это считывает, даже когда не может
+   назвать причину. */
+.sub-head {
+  /* ТОЛЬКО отступ. Типографику даёт `.eyebrow`, с которым этот класс
+     всегда стоит в паре — все четырнадцать мест оказались именно им.
+     Дублировать здесь font-size и color значило бы переопределять
+     соседний класс тем же значением: пока совпадает — незаметно, при
+     первой правке `.eyebrow` разъедется. */
+  margin: var(--sp-md) 0 var(--sp-sm);
+}
+
+/* Вертикальные интервалы — по шкале и по именам, а не числами в
+   разметке. Набор намеренно короткий: чем больше утилит, тем быстрее
+   они превращаются в тот же произвол, только с префиксом. */
+.mt-0  { margin-top: 0; }
+.mt-sm { margin-top: var(--sp-sm); }
+.mt    { margin-top: var(--sp); }
+.mt-md { margin-top: var(--sp-md); }
+.mt-lg { margin-top: var(--sp-lg); }
+.mb-0  { margin-bottom: 0; }
+.mb-xs { margin-bottom: var(--sp-xs); }
+.mb-sm { margin-bottom: var(--sp-sm); }
+.mb    { margin-bottom: var(--sp); }
+.mb-md { margin-bottom: var(--sp-md); }
+
+/* Кнопка без собственного вида: нажимается, но выглядит как текст.
+   Заменяет inline `background: none; border: 0`. */
+.btn-bare {
+  background: none; border: 0; padding: 0;
+  font: inherit; color: inherit;
+  cursor: pointer;
+}
 .section-head {
   display: flex; align-items: baseline; justify-content: space-between;
-  margin-bottom: 14px;
-  gap: 12px;
+  margin-bottom: var(--sp-md);
+  gap: var(--sp);
 }
 
 /* ─── PROFILE / WELCOME ──────────────────────────────────── */
@@ -1030,7 +1183,7 @@ button.card:active { transform: scale(0.985); }
   display: flex; gap: 8px;
   overflow-x: auto; overflow-y: hidden;
   padding: 0 20px 4px;
-  margin-bottom: 18px;
+  margin-bottom: var(--sp-md);
   scrollbar-width: none;
 }
 .trust-row::-webkit-scrollbar { display: none; }
@@ -1062,20 +1215,14 @@ button.card:active { transform: scale(0.985); }
 .marquee--slow .marquee-track { animation-duration: 46s; }
 .chip-marquee .marquee-track { animation-duration: 30s; }
 
-/* Reviews marquee — wider cards, keep them tappable */
-.reviews-row.marquee {
-  overflow: hidden;
-  margin: 0;
-  padding: 4px 0 6px;
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
-          mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
-}
-.reviews-group { gap: 12px; padding-right: 12px; align-items: stretch; }
-.reviews-group .review-card { flex: 0 0 74vw; max-width: 320px; }
+/* Отзывы бегущей строкой БОЛЬШЕ НЕ ЕДУТ — их листают пальцем.
+   Правила `.reviews-row.marquee` и `.reviews-group` удалены вместе с
+   дублированием карточек в разметке: текст отзыва увозило из-под глаз
+   на середине предложения. */
 
 @media (prefers-reduced-motion: reduce) {
   .marquee-track { animation: none; }
-  .trust-row.marquee, .reviews-row.marquee { overflow-x: auto; }
+  .trust-row.marquee { overflow-x: auto; }
 }
 
 .profile-cta-row {
@@ -1088,10 +1235,18 @@ button.card:active { transform: scale(0.985); }
 .reviews-row {
   display: flex; gap: 12px;
   overflow-x: auto; overflow-y: hidden;
-  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  /* proximity, а не mandatory: mandatory не даёт остановиться между
+     карточками и дёргает ленту обратно, стоит отпустить палец чуть
+     раньше. Длинный отзыв при этом читают по частям. */
+  scroll-snap-type: x proximity;
+  /* Лента идёт от края до края, но снап встаёт по контентной сетке —
+     без этого первая карточка прилипает к самому краю экрана. */
+  scroll-padding-left: 20px;
   padding: 0 20px 4px;
   margin: 0 -20px 0;
   scrollbar-width: none;
+  overscroll-behavior-x: contain;
 }
 .reviews-row::-webkit-scrollbar { display: none; }
 .review-card {
@@ -1403,7 +1558,7 @@ button.card:active { transform: scale(0.985); }
 /* ─── Bottom CTA — absolute, floats above navbar ─────────── */
 .bottom-cta {
   position: absolute;
-  bottom: calc(var(--nav-h) + var(--nav-gap)); left: 0; right: 0;
+  bottom: var(--nav-top); left: 0; right: 0;
   padding: 14px 20px 18px;
   /* Градиент из прозрачного в фон закрывал содержимое только на 65%
      высоты полосы — сквозь кнопку читался текст под ней, и она выглядела
@@ -1538,7 +1693,7 @@ button.card:active { transform: scale(0.985); }
 }
 
 .booking-summary {
-  margin: 22px 20px 0;
+  margin: var(--sp-md) var(--sp-lg) 0;
   padding: 18px;
   border-radius: var(--radius-lg);
   background:
@@ -1582,7 +1737,7 @@ button.card:active { transform: scale(0.985); }
 }
 
 .loyalty-card {
-  margin: 14px 20px;
+  margin: var(--sp-md) var(--sp-lg);
   padding: 22px;
   border-radius: var(--radius-lg);
   background:
@@ -1866,7 +2021,7 @@ button.card:active { transform: scale(0.985); }
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-  margin-top: 20px;
+  margin-top: var(--sp-md);
 }
 .anzh-grid .card {
   padding: 16px;
@@ -2028,7 +2183,7 @@ button.card:active { transform: scale(0.985); }
 /* ── AI bubble (FAB) — floats above navbar, no glass backdrop ── */
 .ai-bubble {
   position: absolute;
-  bottom: calc(var(--nav-h) + var(--nav-gap) + 18px);
+  bottom: calc(var(--nav-top) + var(--fab-lift));
   right: 10px;
   width: 56px; height: 56px;
   border: 0; background: transparent;
@@ -2062,7 +2217,9 @@ button.card:active { transform: scale(0.985); }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 .ai-chat-panel {
   position: fixed;
-  top: 0; bottom: 0; left: 0; right: 0;
+  /* Низ поднимается над клавиатурой: `bottom: 0` на Android оставляет
+     поле ввода и кнопку отправки ЗА ней. См. --kb-inset в telegram.ts. */
+  top: 0; bottom: var(--kb-inset, 0px); left: 0; right: 0;
   margin: 0 auto;
   max-width: var(--max-w);
   background: linear-gradient(180deg, rgba(9,28,30,0.98), rgba(6,16,18,0.99));
@@ -2082,7 +2239,7 @@ button.card:active { transform: scale(0.985); }
   justify-content: space-between;
   gap: 12px;
   padding: 16px 18px;
-  padding-top: max(16px, env(safe-area-inset-top, 0px));
+  padding-top: max(16px, var(--top-safe));
   border-bottom: 0.5px solid var(--border);
   background: rgba(6,20,23,0.55);
   flex: 0 0 auto;
@@ -2200,7 +2357,7 @@ button.card:active { transform: scale(0.985); }
   gap: 8px;
   width: 100%;
   box-sizing: border-box;
-  padding: 12px 14px calc(14px + env(safe-area-inset-bottom, 0px));
+  padding: 12px 14px calc(14px + var(--bottom-safe));
   border-top: 0.5px solid var(--border);
   background: rgba(6,16,18,0.7);
   backdrop-filter: blur(12px);
@@ -2267,7 +2424,7 @@ button.card:active { transform: scale(0.985); }
 body[data-sheet-open] .ai-bubble { display: none; }
 
 /* When a sticky bottom-cta is on screen — lift mascot above the CTA */
-.app:has(.bottom-cta) .ai-bubble       { bottom: calc(var(--nav-h) + var(--nav-gap) + 82px); }
+.app:has(.bottom-cta) .ai-bubble       { bottom: calc(var(--nav-top) + var(--fab-lift-cta)); }
 
 
 /* Hide mascot when the user has scrolled close to the bottom of content —
@@ -2278,6 +2435,12 @@ body[data-sheet-open] .ai-bubble { display: none; }
     opacity 0.22s var(--ease-out);
 }
 
+/* Шар уходит в двух случаях, и оба — «он сейчас мешает»:
+   · data-near-bottom — доскроллили донизу, под шаром итог визита;
+   · data-fab-away    — на экране видна пара первичных кнопок, и шар
+     физически накрывает правую. См. lib/fabYield.ts, там же разобрано,
+     почему не подошли «поднять выше» и «освободить полосу справа». */
+body[data-fab-away] .ai-bubble,
 body[data-near-bottom] .ai-bubble {
   opacity: 0;
   transform: translateY(24px) scale(0.78);
@@ -2297,13 +2460,15 @@ body[data-near-bottom] .ai-bubble {
 @keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
 .sheet {
   position: absolute;
-  bottom: 0; left: 0; right: 0;
+  /* Шторка тоже поднимается над клавиатурой: в ней есть поля ввода и
+     кнопка подтверждения — то самое, что человек не мог нажать. */
+  bottom: var(--kb-inset, 0px); left: 0; right: 0;
   background: linear-gradient(180deg, rgba(20,58,54,0.72), rgba(6,20,23,0.86));
   backdrop-filter: var(--lg-frost);
   -webkit-backdrop-filter: var(--lg-frost);
   border-top: 0.5px solid var(--border-strong);
   border-radius: 28px 28px 0 0;
-  padding: 16px 20px calc(24px + env(safe-area-inset-bottom, 0));
+  padding: 16px 20px calc(24px + var(--bottom-safe));
   z-index: var(--z-sheet);
   animation: sheetIn .35s var(--ease-spring);
   max-height: 85%;
@@ -2410,7 +2575,7 @@ body[data-near-bottom] .ai-bubble {
 .toast-host {
   position: absolute;
   left: 50%;
-  bottom: calc(var(--nav-h) + var(--nav-gap) + 20px);
+  bottom: calc(var(--nav-top) + 20px);
   transform: translateX(-50%);
   z-index: var(--z-modal);
   display: flex; flex-direction: column-reverse;
@@ -2811,7 +2976,7 @@ body[data-near-bottom] .ai-bubble {
 .onb-cta {
   position: absolute;
   bottom: 0; left: 0; right: 0;
-  padding: 18px 20px calc(20px + env(safe-area-inset-bottom, 0));
+  padding: 18px 20px calc(20px + var(--bottom-safe));
   background: linear-gradient(180deg, transparent, var(--bg-app) 35%);
   z-index: 3;
 }
@@ -4204,7 +4369,13 @@ input, textarea, select { font-size: max(16px, 1em); }
   margin: -4px -4px 0 0;
   border-radius: 50%;
   border: 0.5px solid var(--border);
+  /* Крестик липкий, и под ним проезжает текст шторки. Фон карточки
+     полупрозрачен — строки читались НАСКВОЗЬ, и не читались ни они, ни
+     сам крестик. Размытие под ним снимает это: тот же приём, что у
+     шапки и таббара, а не третий материал в проекте. */
   background: var(--bg-card-2);
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
   color: var(--text-secondary);
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
@@ -4366,7 +4537,7 @@ input, textarea, select { font-size: max(16px, 1em); }
 .ig-offer-text strong { font-size: 14px; font-weight: 700; }
 .ig-offer-text span { font-size: 12px; color: var(--text-secondary); }
 
-.anzh-section { margin-top: 26px; text-align: left; }
+.anzh-section { margin-top: var(--sp-xl); text-align: left; }
 
 .stars-anchor {
   margin-right: 6px;
@@ -4408,7 +4579,7 @@ input, textarea, select { font-size: max(16px, 1em); }
   position: relative;
   display: flex; align-items: center; justify-content: space-between; gap: 14px;
   width: 100%;
-  margin-top: 18px;
+  margin-top: var(--sp-md);
   padding: 18px;
   border-radius: var(--radius-lg);
   background:
@@ -4527,7 +4698,7 @@ input, textarea, select { font-size: max(16px, 1em); }
 .offline-bar {
   position: absolute;
   left: 12px; right: 12px;
-  top: calc(8px + env(safe-area-inset-top, 0px));
+  top: calc(8px + var(--top-safe));
   z-index: var(--z-modal);
   display: flex; align-items: center; gap: 9px;
   padding: 10px 14px;
@@ -5293,7 +5464,7 @@ body[data-sheet-open] .lang-hud { display: none; }
 .gallery-chip {
   flex: 0 0 auto;
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 8px 13px;
+  padding: var(--sp-tight) var(--sp);
   border-radius: var(--pill);
   font-size: 12px; font-weight: 650;
   color: var(--text-secondary);
@@ -5473,6 +5644,7 @@ body[data-sheet-open] .lang-hud { display: none; }
 .gallery-chip,
 .section-link,
 .fav-btn,
+.ig-link,
 .story-dot,
 .lang-hud button,
 .studio-map-zoom button,
@@ -5484,6 +5656,7 @@ body[data-sheet-open] .lang-hud { display: none; }
 .gallery-chip::after,
 .section-link::after,
 .fav-btn::after,
+.ig-link::after,
 .story-dot::after,
 .lang-hud button::after,
 .studio-map-zoom button::after,
@@ -6240,4 +6413,230 @@ body[data-sheet-open] .lang-hud { display: none; }
   .app.chrome-away { --chrome-shift: 0px; }
   .chrome-away .bottom-nav { transform: none; }
   .chrome-away .bottom-cta { transform: none; }
+}
+
+/* ─── Правовой подвал ─────────────────────────────────────
+   Мелкий шрифт и приглушённый цвет — это иерархия, а не пренебрежение:
+   блок нужен редко, но обязан быть. Размер взят из лестницы кеглей
+   проекта (11px — та же ступень, что у подписей под карточками), цвет —
+   `--text-hint`, роль которого ровно эта. */
+.legal-footer {
+  padding: 4px 20px 0;
+  text-align: center;
+}
+.legal-links {
+  display: flex; flex-wrap: wrap;
+  align-items: center; justify-content: center;
+  gap: 2px 6px;
+  margin-bottom: 10px;
+}
+.legal-link {
+  border: 0; background: none;
+  font-family: inherit;
+  font-size: 11px; line-height: 1.5;
+  color: var(--text-secondary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--border-strong);
+  cursor: pointer;
+  padding: 0;
+  position: relative;
+}
+.legal-link:active { color: var(--text-primary); }
+/* Зона нажатия до 44px, как у остальных мелких мишеней в проекте */
+.legal-link::after {
+  content: '';
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+}
+.legal-sep { color: var(--text-hint); font-size: 11px; margin: 0 2px; }
+
+.legal-note {
+  font-size: 11px; line-height: 1.5;
+  color: var(--text-hint);
+  margin: 0 auto 8px;
+  max-width: 34ch;
+  text-wrap: balance;
+}
+.legal-copy {
+  font-size: 10px; line-height: 1.5;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+/* ─── О ВРАЧЕ — содержимое шторки ─────────────────────────
+   Ритм держит одна лестница отступов: фото → кредо → текст → факты →
+   подпись. На экране профиля стоит только карточка `.doc-card`,
+   которая эту шторку открывает. */
+
+.about-doc-figure {
+  margin: 0 0 var(--sp-md);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--bg-card-2);
+  border: 0.5px solid var(--border);
+}
+.about-doc-photo {
+  display: block;
+  width: 100%;
+  /* 4:5 — портретный кадр. Фиксируем пропорцию, чтобы блок не прыгал,
+     пока грузится фото: сдвиг вёрстки после загрузки заметнее, чем
+     секунда пустого места. */
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  /* Кадр держит лицо в верхней трети: при 4:5 центрирование по
+     умолчанию срезает подбородок и оставляет пустой низ. */
+  object-position: center 18%;
+}
+
+/* Кредо — то, что запомнят. Крупнее текста, но легче заголовка:
+   это её голос, а не название раздела. */
+.about-doc-credo {
+  margin: 0 0 var(--sp-md);
+  /* 20, а не 19: лестница кеглей проекта не знает промежуточных
+     значений, и DRIFTGUARD это поймал. Один кегль мимо шкалы —
+     ровно то, из-за чего интерфейс читается как несобранный. */
+  font-size: 20px;
+  line-height: 1.35;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  text-wrap: pretty;
+}
+
+.about-doc-body p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+
+/* Факты: ключ слева узкой колонкой, значение тянется. Сетка, а не
+   flex с процентами — ключи разной длины должны стоять по одной линии,
+   иначе три строки читаются как три разных списка. */
+.about-doc-facts {
+  display: grid;
+  grid-template-columns: minmax(72px, auto) 1fr;
+  gap: var(--sp-sm) var(--sp);
+  margin: var(--sp-md) 0 0;
+  padding-top: var(--sp-md);
+  border-top: 0.5px solid var(--border);
+}
+/* display:contents — чтобы dt и dd стали ячейками общей сетки и ключи
+   встали по одной линии. Обёртка нужна для смысловой группировки, но
+   собственной коробки у неё быть не должно. */
+.about-doc-fact { display: contents; }
+.about-doc-fact dt {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-hint);
+  padding-top: 2px;
+}
+.about-doc-fact dd {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text-primary);
+  min-width: 0;
+}
+
+.about-doc-sign {
+  margin: var(--sp-md) 0 0;
+  padding: var(--sp) var(--sp-md);
+  border-radius: var(--radius);
+  background: rgba(53,228,166,0.08);
+  border: 0.5px solid rgba(53,228,166,0.22);
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.45;
+  align-items: flex-start;
+}
+.about-doc-sign svg { color: var(--brand-primary-bright); flex: 0 0 auto; margin-top: 1px; }
+
+/* ─── Карточка врача на профиле ───────────────────────────
+   Обещание прочитать, а не чтение: портрет, имя, одна фраза, стрелка.
+   Весь текст — в шторке, которую она открывает. Развёрнутый вариант
+   стоял прямо на экране и топил профиль: там уже герой, статистика,
+   регалии, сторис, галерея, отзывы, два оффера, карта и подвал. */
+.doc-card {
+  display: flex;
+  align-items: stretch;
+  gap: var(--sp-14);
+  width: calc(100% - var(--sp-lg) * 2);
+  margin: 0 var(--sp-lg) var(--sp-md);
+  padding: var(--sp-14);
+  text-align: left;
+  border-radius: var(--radius-lg);
+  background: var(--bg-card-2);
+  border: 0.5px solid var(--border);
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+  transition: transform var(--duration-fast) var(--ease-spring),
+              background var(--duration) var(--ease-out);
+}
+.doc-card:active { transform: scale(0.985); background: var(--bg-card-3); }
+
+.doc-card-ph {
+  flex: 0 0 84px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--bg-card-3);
+}
+.doc-card-ph img {
+  display: block; width: 100%; height: 100%;
+  /* Портрет в карточке — кадр по лицу, иначе в 84px попадает халат */
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  object-position: center 14%;
+}
+
+.doc-card-b {
+  display: flex; flex-direction: column;
+  gap: var(--sp-xs);
+  min-width: 0;
+  justify-content: center;
+}
+.doc-card-n {
+  font-size: 17px; font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+.doc-card-q {
+  font-size: 13px; line-height: 1.45;
+  color: var(--text-secondary);
+  /* Две строки: карточка обещает, а не пересказывает. Обрезаем честно
+     многоточием, а не обрывом на полуслове. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.doc-card-more {
+  display: inline-flex; align-items: center; gap: var(--sp-xs);
+  margin-top: var(--sp-hair);
+  font-size: 13px; font-weight: 600;
+  color: var(--brand-primary-bright);
+}
+
+/* В шторке портрет ниже, чем 4:5 у карточки: при полной ширине
+   вертикальный кадр занимал почти весь первый экран и уводил кредо под
+   сгиб. Шторка — поверхность для чтения, фото здесь поддерживает текст,
+   а не спорит с ним за место. */
+.sheet .about-doc-figure { margin-bottom: var(--sp-md); }
+.sheet .about-doc-photo { aspect-ratio: 4 / 3; object-position: center 12%; }
+
+/* Знак ANZH во вкладке. Маска, а не <img>: так он окрашивается
+   currentColor и загорается вместе с активной вкладкой, как штриховые
+   соседи. Картинкой он остался бы белым и выпадал из ряда. */
+.nav-mark {
+  display: block;
+  width: 22px; height: 22px;
+  background: currentColor;
+  -webkit-mask: url('/brand/anzh-logo.svg') center / contain no-repeat;
+          mask: url('/brand/anzh-logo.svg') center / contain no-repeat;
 }

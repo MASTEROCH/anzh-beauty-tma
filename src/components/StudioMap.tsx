@@ -72,11 +72,11 @@ export function StudioMap() {
       </ul>
 
       <div className="studio-map-actions">
-        <button className="btn btn-ghost" onClick={() => open(yandexMapsUrl())}>
+        <button className="btn btn-secondary" onClick={() => open(yandexMapsUrl())}>
           <Icon name="pin" size={15} strokeWidth={2} />
           {ru ? 'Яндекс.Карты' : 'Yandex Maps'}
         </button>
-        <button className="btn btn-ghost" onClick={() => open(googleMapsUrl())}>
+        <button className="btn btn-secondary" onClick={() => open(googleMapsUrl())}>
           <Icon name="globe" size={15} strokeWidth={2} />
           Google Maps
         </button>

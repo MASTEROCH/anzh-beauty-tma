@@ -116,8 +116,40 @@ function applyInsets() {
   }
 }
 
+/* КЛАВИАТУРА НА ANDROID.
+
+   `position: fixed; bottom: 0` прижимает элемент к низу СЛОЯ ВЁРСТКИ, а
+   не к низу видимой области. На iOS слой сжимается вместе с клавиатурой
+   и всё сходится само; на Android — нет: клавиатура просто ложится
+   сверху, и поле ввода вместе с кнопкой отправки оказывается за ней.
+   Нажать нельзя, и со стороны это выглядит как «кнопка пропала».
+
+   `visualViewport` — единственное место, где браузер честно говорит,
+   сколько у него отняли. Считаем разницу и отдаём вёрстке числом.
+   `offsetTop` нужен потому, что Android при открытии клавиатуры ещё и
+   сдвигает видимую область вверх. */
+function applyKeyboardInset() {
+  const vv = window.visualViewport;
+  if (!vv) return;
+  const hidden = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+  // Порог: мелкие расхождения дают адресная строка и округление
+  // масштаба. Меньше 120px клавиатурой не бывает — а дёрганье панели на
+  // каждый пиксель заметно сильнее, чем польза от точности.
+  document.documentElement.style.setProperty(
+    '--kb-inset',
+    hidden > 120 ? `${Math.round(hidden)}px` : '0px',
+  );
+}
+
 /** Вызывать один раз при монтировании. Повторный вызов безвреден. */
 export function initTelegram() {
+  // Клавиатуру меряем ВСЕГДА, даже вне Telegram: это свойство браузера,
+  // а не клиента. Подписка идёт до раннего выхода ниже — иначе обычный
+  // Android-браузер остался бы без неё.
+  applyKeyboardInset();
+  window.visualViewport?.addEventListener('resize', applyKeyboardInset);
+  window.visualViewport?.addEventListener('scroll', applyKeyboardInset);
+
   const app = webApp();
   if (!app) return;
   try {

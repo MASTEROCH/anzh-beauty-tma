@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { fresh, watchConsole } from './helpers';
+import { PER_TASK } from '../src/lib/quests';
 
 // Кабинет мастера: сверка анкеты с противопоказаниями процедуры.
 // Это не «отрисовалось ли», а «поймает ли система то, что человек
@@ -179,7 +180,12 @@ test('сторис на проверке: мастер засчитывает �
   await page.waitForSelector('.bottom-nav');
   await page.locator('.nav-item').filter({ hasText: /ANZH/i }).first().click();
   await page.waitForTimeout(500);
-  await expect(page.locator('.quest-badge')).toContainText(/−10% уже твои/);
+  /* Процент берётся из ПРАВИЛА, а не пишется числом: правило уже
+     менялось (10% → 5% за действие), и зашитое число делает вид, что
+     тест прошёл, ровно до следующей такой правки. */
+  await expect(page.locator('.quest-badge')).toContainText(
+    new RegExp(`−${PER_TASK}% уже тво`),
+  );
 });
 
 test('отклонённое задание возвращается клиентке, а не блокируется', async ({ page }) => {

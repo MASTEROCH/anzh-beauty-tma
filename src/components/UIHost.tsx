@@ -131,7 +131,7 @@ function DraggableSheet({ content: s }: { content: NonNullable<SheetContent> }) 
         {s.subtitle && <div className="faint" style={{ fontSize: 12, marginBottom: 6 }}>{s.subtitle}</div>}
         <div style={{ marginTop: 12 }}>{s.body}</div>
         {s.actions ? (
-          <div className="sheet-actions" style={{ marginTop: 16 }}>{s.actions}</div>
+          <div className="sheet-actions mt-md">{s.actions}</div>
         ) : (
           <div style={{ marginTop: 16 }}>
             <button className="btn btn-quiet btn-block" onClick={closeSheet}>Закрыть</button>

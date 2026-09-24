@@ -75,7 +75,7 @@ export function ServiceScreen({
             Записаться к Анжелике
           </button>
           <button
-            className="btn btn-ghost btn-block"
+            className="btn btn-secondary btn-block"
             onClick={() => {
               toast('Открываю чат в Telegram', 'success');
             }}

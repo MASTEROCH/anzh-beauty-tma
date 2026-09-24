@@ -120,7 +120,7 @@ export function QuizRunner({
           ))}
         </div>
         <div className="quiz-step" key={step}>
-          <div className="eyebrow" style={{ marginBottom: 8 }}>
+          <div className="eyebrow mb-sm">
             {ru ? 'вопрос' : 'question'} {step + 1} {ru ? 'из' : 'of'} {quiz.questions.length}
             {isMulti && ` · ${ru ? 'можно несколько' : 'multiple choice'}`}
           </div>
@@ -148,8 +148,7 @@ export function QuizRunner({
           </div>
           {isMulti && (
             <button
-              className="btn btn-primary btn-block"
-              style={{ marginTop: 14 }}
+              className="btn btn-primary btn-block mt"
               disabled={multi.length === 0}
               onClick={() => commit([...multi].sort((a, b) => a - b))}
             >
@@ -158,7 +157,7 @@ export function QuizRunner({
           )}
         </div>
         {step > 0 && (
-          <button className="btn btn-ghost btn-block" style={{ marginTop: 10 }} onClick={() => setStep((s) => s - 1)}>
+          <button className="btn btn-secondary btn-block mt-sm" onClick={() => setStep((s) => s - 1)}>
             {ru ? 'Назад' : 'Back'}
           </button>
         )}
@@ -212,7 +211,7 @@ export function QuizRunner({
 
       {result.secondary && result.secondary.length > 0 && (
         <>
-          <div className="eyebrow" style={{ margin: '18px 0 8px' }}>{ru ? 'дополнительно' : 'also noted'}</div>
+          <div className="eyebrow sub-head">{ru ? 'дополнительно' : 'also noted'}</div>
           <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
             {result.secondary.map((s) => (
               <span key={s} className="hp-chip warn">{SECONDARY_LABEL[s]?.[lang] ?? s}</span>
@@ -223,7 +222,7 @@ export function QuizRunner({
 
       {procedures.length > 0 && (
         <>
-          <div className="eyebrow" style={{ margin: '18px 0 8px' }}>{ru ? 'что делать у косметолога' : 'what to do at the clinic'}</div>
+          <div className="eyebrow sub-head">{ru ? 'что делать у косметолога' : 'what to do at the clinic'}</div>
           <ul className="info-list">
             {procedures.slice(0, 5).map((p) => <li key={p}>{p}</li>)}
           </ul>
@@ -237,7 +236,7 @@ export function QuizRunner({
       ) : (
         result.prods && result.prods.length > 0 && (
           <>
-            <div className="eyebrow" style={{ margin: '18px 0 8px' }}>{ru ? 'домашний уход' : 'home care'}</div>
+            <div className="eyebrow sub-head">{ru ? 'домашний уход' : 'home care'}</div>
             <ul className="info-list">
               {result.prods.map((p) => <li key={p.n}><b>{p.n}</b> — {p.d}</li>)}
             </ul>
@@ -245,7 +244,7 @@ export function QuizRunner({
         )
       )}
 
-      <div className="eyebrow" style={{ margin: '18px 0 8px' }}>{ru ? 'процедуры анжелики' : 'anjelika’s treatments'}</div>
+      <div className="eyebrow sub-head">{ru ? 'процедуры анжелики' : 'anjelika’s treatments'}</div>
       <div className={`quiz-picks ${locked ? 'locked' : ''}`}>
         {picks.map((s) => (
           <button key={s.id} className="quiz-pick" onClick={() => { if (!locked) { closeSheet(); onBook(s.id); } }}>
@@ -269,7 +268,7 @@ export function QuizRunner({
         )}
       </div>
 
-      <div className="review-submit-row" style={{ marginTop: 16 }}>
+      <div className="review-submit-row mt-md">
         {locked ? (
           <>
             <button
@@ -289,7 +288,7 @@ export function QuizRunner({
             >
               <Icon name="share" size={16} strokeWidth={2} /> {ru ? 'Поделиться и открыть' : 'Share and unlock'}
             </button>
-            <button className="btn btn-ghost btn-block" onClick={() => setShared(true)}>
+            <button className="btn btn-secondary btn-block" onClick={() => setShared(true)}>
               {ru ? 'Я записываюсь — открыть сразу' : 'I’m booking — open now'}
             </button>
           </>

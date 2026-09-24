@@ -47,7 +47,7 @@ export function PlanScreen({
                 ? 'Отмечай сердечком процедуры, которые хочешь — я выстрою их в правильном порядке, с интервалами и курсами, и посчитаю сроки и сумму.'
                 : 'Heart the treatments you want — I’ll put them in the right order with intervals and courses, and work out the timeline and total.'}
             </p>
-            <button className="btn btn-primary btn-block" style={{ marginTop: 18 }} onClick={onCatalog}>
+            <button className="btn btn-primary btn-block mt-md" onClick={onCatalog}>
               {ru ? 'Открыть каталог' : 'Open the catalog'}
             </button>
           </div>
@@ -89,7 +89,7 @@ export function PlanScreen({
       </section>
 
       <section className="section" style={{ paddingTop: 14 }}>
-        <div className="eyebrow" style={{ marginBottom: 10 }}>{ru ? 'порядок и даты' : 'order and dates'}</div>
+        <div className="eyebrow mb-sm">{ru ? 'порядок и даты' : 'order and dates'}</div>
         <ol className="plan-steps">
           {plan.steps.map((s, i) => {
             // Шаги разных зон могут совпасть по дате — это один визит, а не
@@ -134,8 +134,8 @@ export function PlanScreen({
         </ol>
       </section>
 
-      <section className="section" style={{ paddingTop: 0 }}>
-        <div className="eyebrow" style={{ marginBottom: 8 }}>{ru ? 'что важно знать' : 'worth knowing'}</div>
+      <section className="section section-tight">
+        <div className="eyebrow mb-sm">{ru ? 'что важно знать' : 'worth knowing'}</div>
         <ul className="info-list">
           {plan.warnings.map((w) => <li key={w}>{w}</li>)}
         </ul>
@@ -152,7 +152,7 @@ export function PlanScreen({
           </button>
         )}
         {status === 'sent' && (
-          <button className="btn btn-ghost btn-block" data-bottom-cta disabled>
+          <button className="btn btn-secondary btn-block" data-bottom-cta disabled>
             {ru ? 'Анжелика смотрит план…' : 'Anjelika is reviewing…'}
           </button>
         )}

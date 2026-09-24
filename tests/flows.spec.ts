@@ -7,7 +7,7 @@ import { fresh, watchConsole, tab, noHorizontalScroll } from './helpers';
 test('галерея → карточка процедуры → запись', async ({ page }) => {
   const errors = watchConsole(page);
   await fresh(page);
-  await tab(page, /ПРОФИЛЬ|PROFILE/i);
+  await tab(page, /О НАС|ABOUT/i);
 
   await page.locator('.gallery-tile').first().scrollIntoViewIfNeeded();
   await page.locator('.gallery-tile').first().click();
@@ -22,7 +22,7 @@ test('галерея → карточка процедуры → запись', 
 
 test('фильтр направлений сужает галерею и не даёт пустых фильтров', async ({ page }) => {
   await fresh(page);
-  await tab(page, /ПРОФИЛЬ|PROFILE/i);
+  await tab(page, /О НАС|ABOUT/i);
   await page.locator('.gallery-chip').first().scrollIntoViewIfNeeded();
 
   const total = await page.locator('.gallery-tile').count();
@@ -101,16 +101,16 @@ test('запись: шаги проходятся и заявка создаёт
 
 test('язык переключается на любом экране и держится', async ({ page }) => {
   await fresh(page);
-  for (const re of [/ПРОФИЛЬ|PROFILE/i, /УСЛУГИ|SERVICES/i, /ПАСПОРТ|PASSPORT/i, /ANZH/i]) {
+  for (const re of [/О НАС|ABOUT/i, /УСЛУГИ|SERVICES/i, /ПАСПОРТ|PASSPORT/i, /ANZH/i]) {
     await tab(page, re);
     await expect(page.locator('.lang-hud')).toBeVisible();
   }
   await page.locator('.lang-hud button', { hasText: 'EN' }).click();
   await page.waitForTimeout(400);
-  await expect(page.locator('.nav-item').first()).toContainText(/PROFILE/i);
+  await expect(page.locator('.nav-item').first()).toContainText(/ABOUT/i);
   await page.reload();
   await page.waitForSelector('.bottom-nav');
-  await expect(page.locator('.nav-item').first()).toContainText(/PROFILE/i);
+  await expect(page.locator('.nav-item').first()).toContainText(/ABOUT/i);
 });
 
 test('несколько процедур в одну запись: время и сумма складываются', async ({ page }) => {

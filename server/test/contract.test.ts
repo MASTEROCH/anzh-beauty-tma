@@ -134,7 +134,7 @@ describe('вход', () => {
 // ─── Рефералы ──────────────────────────────────────────────────────
 
 describe('рефералы', () => {
-  test('привязка по ссылке и засчитанное задание пригласившей', async () => {
+  test('привязка по ссылке пишется, а процентов за неё нет', async () => {
     const inviter = await call('POST', '/auth/telegram', {
       payload: { init_data: h.initData(920001) },
     });
@@ -150,12 +150,15 @@ describe('рефералы', () => {
     assert.equal(rows.length, 1);
     assert.equal(rows[0]!.referrer_id, 920001);
 
+    /* Скидки за приглашение БОЛЬШЕ НЕТ — решение владелицы 24.09.2026.
+       Привязка при этом обязана писаться по-прежнему: реферальная
+       программа работает, награда за неё — открытый вопрос. Проверяем
+       именно это разделение, иначе «убрали скидку» незаметно
+       превратится в «сломали рефералов». */
     const quests = await h.sql`
       select kind, percent from anzh.quest_completions where telegram_id = 920001
     `;
-    assert.equal(quests.length, 1);
-    assert.equal(quests[0]!.kind, 'invite');
-    assert.equal(quests[0]!.percent, 10);
+    assert.equal(quests.length, 0, 'приглашение не начисляет процентов');
   });
 
   test('повторный вход по ДРУГОЙ ссылке ничего не меняет', async () => {
@@ -482,13 +485,12 @@ describe('записи', () => {
 // ─── Скидка за задания ─────────────────────────────────────────────
 
 describe('скидка за задания', () => {
-  test('считается из подтверждённых оснований и упирается в 30%', async () => {
-    // Четыре задания по 10% — а потолок 30.
-    for (let i = 0; i < 4; i++) {
+  test('отзыв и сторис дают по 5%, вместе 10%', async () => {
+    for (const kind of ['review', 'story']) {
       await h.sql`
         insert into anzh.quest_completions
           (telegram_id, kind, percent, basis_table, basis_id, confirmed_at)
-        values (${OTHER_CLIENT_ID}, 'story', 10, 'manual', gen_random_uuid(), now())
+        values (${OTHER_CLIENT_ID}, ${kind}, 5, 'manual', gen_random_uuid(), now())
       `;
     }
     const res = await call('POST', '/services/quote', {
@@ -496,9 +498,25 @@ describe('скидка за задания', () => {
       payload: { slugs: ['lips'] },
     });
     const q = res.json().quote;
-    assert.equal(q.discount_percent, 30);
-    assert.equal(q.discount_minor, 13500);
-    assert.equal(q.total_minor, 31500);
+    assert.equal(q.discount_percent, 10);
+    assert.equal(q.discount_minor, 4500);
+    assert.equal(q.total_minor, 40500);
+  });
+
+  test('потолок держится: лишние основания процентов не добавляют', async () => {
+    // Ещё четыре подтверждённых задания сверх двух.
+    for (let i = 0; i < 4; i++) {
+      await h.sql`
+        insert into anzh.quest_completions
+          (telegram_id, kind, percent, basis_table, basis_id, confirmed_at)
+        values (${OTHER_CLIENT_ID}, 'story', 5, 'manual', gen_random_uuid(), now())
+      `;
+    }
+    const res = await call('POST', '/services/quote', {
+      token: otherToken,
+      payload: { slugs: ['lips'] },
+    });
+    assert.equal(res.json().quote.discount_percent, 10);
   });
 
   test('неподтверждённое задание процентов не даёт', async () => {
