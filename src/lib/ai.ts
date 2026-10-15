@@ -34,7 +34,7 @@ const L = (ru: string, enText: string) => (en() ? enText : ru);
    have none (the untouched ones keep theirs). Prices — lib/money.ts, each in its own
    currency (B1-B): no dollar default, no lari estimate. */
 
-export type AiActionKind = 'service' | 'book' | 'catalog' | 'plan' | 'handoff' | 'passport';
+export type AiActionKind = 'service' | 'book' | 'catalog' | 'plan' | 'handoff' | 'passport' | 'model';
 
 export interface AiAction {
   kind: AiActionKind;
@@ -316,6 +316,15 @@ export function respond(message: string): AiReply {
 
   // Только процедуры витрины: обучение — не визит (isBookable, по kind), скрытое — не предлагаем
   if (/(цен|стоим|сколько|прайс|деньг|price|cost|how much)/.test(q)) return pricesReply();
+
+  // Модели ANZH: процедуры по себестоимости в дни обучения (Роч 16.10)
+  if (/(модел|себестоим|model|cost price|дешевле|бесплатн|free treatment)/.test(q)) {
+    return {
+      text: L('Студии нужны модели в дни обучения: процедуру делает обучающийся врач под контролем Анжелики, а модель платит только себестоимость. Встаньте в лист ожидания — студия одобрит заявку, и вы сможете записаться на ближайший день обучения.',
+        'The studio needs models on training days: a doctor in training performs the treatment under Anjelika’s supervision, and the model pays only the cost price. Join the waitlist — once approved, you can book the next training day.'),
+      actions: [{ kind: 'model', label: L('Стать моделью', 'Become a model') }],
+    };
+  }
 
   // Training (T2 §3.6) — before the procedure rules ("обучение ботоксу" is not a booking)
   // and before "курс / план", which would answer "I can build a plan".

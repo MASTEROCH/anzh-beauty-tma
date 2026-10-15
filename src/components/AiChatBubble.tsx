@@ -1,3 +1,5 @@
+import { openModelProgram } from './ModelProgram';
+import { getLang } from '../lib/i18n';
 import { useEffect, useRef, useState } from 'react';
 import { telegramUrl, instagramUrl } from '../data/location';
 import { openTelegram, openExternal } from '../lib/telegram';
@@ -233,6 +235,7 @@ export function AiChatBubble({ screen, onBookingNav, onOpenService, onOpenCatalo
       case 'catalog': onOpenCatalog?.(); break;
       case 'plan': onOpenPlan?.(); break;
       case 'passport': onOpenPassport?.(); break;
+      case 'model': openModelProgram(getLang()); break;
       case 'handoff': setTimeout(handoff, 220); break;
     }
   }

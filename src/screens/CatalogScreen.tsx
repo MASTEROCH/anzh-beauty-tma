@@ -1,3 +1,4 @@
+import { ModelCard } from '../components/ModelProgram';
 import { usePriceMode } from '../lib/priceMode';
 import { useRate } from '../lib/rates';
 import { useMemo, useState } from 'react';
@@ -29,6 +30,8 @@ const tilePhase = (id: string) => {
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 997;
   return h % 14;
 };
+
+const MODEL_MARK = { modelCard: true } as const;
 
 export function CatalogScreen({
   onOpen,
@@ -183,7 +186,9 @@ export function CatalogScreen({
       )}
 
       <div className="services-grid">
-        {[...filtered.filter((s) => s.category !== 'training'), ...extraShown, ...filtered.filter((s) => s.category === 'training')].map((item) => {
+        {/* «Стать моделью» — перед обучением: модели нужны именно на курсах */}
+        {[...filtered.filter((s) => s.category !== 'training'), ...extraShown, ...((cat === 'all' || cat === 'training') && !q.trim() ? [MODEL_MARK] : []), ...filtered.filter((s) => s.category === 'training')].map((item) => {
+          if ('modelCard' in item) return <div key="model-card" className="services-grid-span"><ModelCard lang={lang} /></div>;
           if (!('priceMinor' in item)) return renderAsk(item);
           const s = item;
           const isFav = favorites.has(s.id);

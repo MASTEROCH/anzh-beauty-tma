@@ -81,10 +81,12 @@ export function shareStory(mediaUrl: string, text: string, link?: { url: string;
    процедуру и время. Ни личности, ни скидок, ни приглашений отсюда не
    берём — это решает сервер по подписанной initData (см. ниже). В браузере
    (демо) тот же параметр читается из ?startapp=. */
-export interface NavTarget { kind: 'book'; slug: string; dateISO?: string; time?: string }
+export type NavTarget = { kind: 'book'; slug: string; dateISO?: string; time?: string } | { kind: 'model'; dayId: string };
 export function navStartParam(): NavTarget | null {
   let raw = webApp()?.initDataUnsafe?.start_param ?? '';
   if (!raw && typeof location !== 'undefined') raw = new URLSearchParams(location.search).get('startapp') ?? '';
+  const mm = /^model_([a-z0-9-]{2,40})$/i.exec(raw);
+  if (mm) return { kind: 'model', dayId: mm[1] };
   const m = /^book_([a-z0-9-]{2,60})(?:_(\d{4})(\d{2})(\d{2})(?:(\d{2})(\d{2}))?)?$/.exec(raw);
   if (!m) return null;
   return { kind: 'book', slug: m[1], dateISO: m[2] ? `${m[2]}-${m[3]}-${m[4]}` : undefined, time: m[5] ? `${m[5]}:${m[6]}` : undefined };

@@ -1,3 +1,4 @@
+import { SheetSlot, SlotPortal } from './SheetSlot';
 import { useState } from 'react';
 import { Icon, type IconName } from './Icon';
 import { closeSheet, openSheet, toast } from '../lib/ui';
@@ -73,9 +74,11 @@ function StoryProof({ lang }: { lang: Lang }) {
       <label className="wr-label rw-proof-l" htmlFor="rw-proof">{ru ? 'Ссылка на сторис или ваш ник — чтобы её нашли' : 'Story link or your handle — so we can find it'}</label>
       <input id="rw-proof" className="input" value={proof} maxLength={200} onChange={(e) => setProof(e.target.value)} placeholder={ru ? '@ваш_ник или ссылка' : '@your_handle or link'} />
       {why && <p className="form-why" role="alert">{why}</p>}
-      <button className="btn btn-primary btn-block" onClick={send} disabled={busy} aria-busy={busy}>
-        {busy ? (ru ? 'Отправляем…' : 'Sending…') : (ru ? 'Готово, выложила' : 'Done, it’s posted')}
-      </button>
+      <SlotPortal name="story">
+        <button className="btn btn-primary btn-block" onClick={send} disabled={busy} aria-busy={busy}>
+          {busy ? (ru ? 'Отправляем…' : 'Sending…') : (ru ? 'Готово, выложила' : 'Done, it’s posted')}
+        </button>
+      </SlotPortal>
     </div>
   );
 }
@@ -101,7 +104,7 @@ export function RewardsCard({ lang, onProfile }: { lang: Lang; onProfile: () => 
     else if (id === 'invite') {
       if (link) inviteFriend(link, ru);
       else toast(ru ? 'Ссылка приглашения появится, когда приложение подключится к серверу' : 'The invite link appears once the app is connected');
-    } else if (id === 'story') openSheet({ title: ru ? 'Сторис про студию' : 'Story about the studio', subtitle: ru ? '−5 % на процедуру' : '−5% off a treatment', body: <StoryProof lang={lang} /> });
+    } else if (id === 'story') openSheet({ title: ru ? 'Сторис про студию' : 'Story about the studio', subtitle: ru ? '−5 % на процедуру' : '−5% off a treatment', body: <StoryProof lang={lang} />, actions: <SheetSlot name="story" /> });
     else openWriteReview(lang);
   };
 

@@ -1,3 +1,4 @@
+import { ModelCard } from '../components/ModelProgram';
 import { JourneyHero } from '../components/JourneyHero';
 import { nextStep } from '../lib/journey';
 import { useRewards } from '../lib/rewardsLive';
@@ -455,6 +456,9 @@ export function AccountScreen({
       </section>
 
       <Bookmarks favorites={favorites} lang={lang} onBook={onBookAgain} onToggle={onToggleFavorite} onPlan={onPlan} onCatalog={onCatalog} />
+
+      {/* Программа моделей: статус заявки и запись на дни обучения */}
+      <section className="section section-tight"><ModelCard lang={lang} /></section>
 
       <section className="section">
         <button className="plan-cta" onClick={onPlan}>

@@ -1,3 +1,4 @@
+import { openModelProgram } from './ModelProgram';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { tap, select } from '../lib/haptics';
@@ -125,6 +126,7 @@ export function ChatPanel({
       case 'catalog': onClose(); onOpenCatalog(); return;
       case 'plan': onClose(); onOpenPlan(); return;
       case 'passport': onClose(); onOpenPassport(); return;
+      case 'model': onClose(); window.setTimeout(() => openModelProgram(lang === 'en' ? 'en' : 'ru'), 260); return;
     }
   };
 

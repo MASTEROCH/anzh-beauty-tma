@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Icon } from './Icon';
-import { openSheet } from '../lib/ui';
+import { openSheet, closeSheet } from '../lib/ui';
+import { SheetSlot, SlotPortal } from './SheetSlot';
 import { notify, select, tap } from '../lib/haptics';
 import { postReview } from '../lib/api/reviews';
 import { setRewards } from '../lib/rewardsLive';
@@ -26,6 +27,7 @@ export function openWriteReview(lang: Lang, serviceSlug?: string) {
     title: lang === 'ru' ? 'Ваш отзыв' : 'Your review',
     subtitle: lang === 'ru' ? 'Его прочитает Анжелика и опубликует в приложении' : 'Anjelika will read and publish it in the app',
     body: <ReviewForm lang={lang} serviceSlug={serviceSlug} />,
+    actions: <SheetSlot name="review" />,
   });
 }
 
@@ -53,6 +55,7 @@ function ReviewForm({ lang, serviceSlug }: { lang: Lang; serviceSlug?: string })
     return (
       <div className="wr-done">
         <span className="wr-done-ic"><Icon name="heart-filled" size={26} strokeWidth={1.8} /></span>
+        <SlotPortal name="review"><button className="btn btn-quiet btn-block" onClick={closeSheet}>{ru ? 'Готово' : 'Done'}</button></SlotPortal>
         <b>{ru ? 'Спасибо!' : 'Thank you!'}</b>
         <p>{done.open
           ? (ru ? 'Отзыв появится в приложении после проверки студией.' : 'Your review will appear after the studio checks it.')
@@ -125,10 +128,12 @@ function ReviewForm({ lang, serviceSlug }: { lang: Lang; serviceSlug?: string })
 
       <p className="faint pe-hint">{ru ? 'За отзыв — −5% на следующую процедуру, один раз. Скидка не зависит от оценки.' : 'A review gets you −5% off your next treatment, once. The discount does not depend on the rating.'}</p>
       {why && <p className="form-why" role="alert">{why}</p>}
-      {!why && need && <p className="faint wr-need" aria-live="polite">{need}</p>}
-      <button className="btn btn-primary btn-block" disabled={!ready} onClick={() => { void send(); }}>
-        {busy ? (ru ? 'Отправляем…' : 'Sending…') : (ru ? 'Отправить отзыв' : 'Send review')}
-      </button>
+      <SlotPortal name="review">
+        {!why && need && <p className="pw-foot-meta" aria-live="polite">{need}</p>}
+        <button className="btn btn-primary btn-block" disabled={!ready} onClick={() => { void send(); }}>
+          {busy ? (ru ? 'Отправляем…' : 'Sending…') : (ru ? 'Отправить отзыв' : 'Send review')}
+        </button>
+      </SlotPortal>
     </div>
   );
 }

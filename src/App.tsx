@@ -1,3 +1,4 @@
+import { openModelProgram } from './components/ModelProgram';
 import { navStartParam, type NavTarget } from './lib/telegram';
 import { getFavorites, putFavorites } from './lib/api/favorites';
 import { maybeAskFavoriteNotify } from './components/FavoriteNotify';
@@ -360,10 +361,16 @@ export function App() {
 
   /* Ссылка из напоминания бота («есть окно на вашу процедуру») открывает
      запись сразу на этой процедуре и времени — один тап до заявки. */
-  const [bookPreset, setBookPreset] = useState<NavTarget | null>(null);
+  const [bookPreset, setBookPreset] = useState<Extract<NavTarget, { kind: 'book' }> | null>(null);
   useEffect(() => {
     const t = navStartParam();
     if (!t) return;
+    if (t.kind === 'model') {
+      // Приглашение бота «новый день обучения» — открыть программу на этом дне
+      setScreen('catalog');
+      window.setTimeout(() => openModelProgram(getLang(), t.dayId), 500);
+      return;
+    }
     setServiceId(t.slug);
     setBookPreset(t);
     setScreen('booking');

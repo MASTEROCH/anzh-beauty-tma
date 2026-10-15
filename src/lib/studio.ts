@@ -190,6 +190,8 @@ export interface Visit {
   itemPrices: number[];
   /** Комментарий клиентки. Может быть о здоровье: только на экран. */
   note: string | null;
+  /** Запись моделью на день обучения — цена для моделей */
+  isModel: boolean;
 }
 
 export function toVisit(b: StaffBooking): Visit {
@@ -213,6 +215,7 @@ export function toVisit(b: StaffBooking): Visit {
     titles: items.map((i) => i.title_ru || i.slug || '').filter(Boolean),
     itemPrices: items.map((i) => i.price_minor ?? 0),
     note: b.client_note ?? null,
+    isModel: b.kind === 'model',
   };
 }
 

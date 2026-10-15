@@ -205,6 +205,37 @@ Rewards = {actions: {profile, invite, story, review: 'idle'|'pending'|'done'}, p
 ### Демо-оплата (только прототип)
 `POST /dev/purchase {product_slug, covers}` — стенд записывает покупку без счёта Telegram, чтобы в прототипе пройти разбор целиком. Боевая сборка её не вызывает (флаг `VITE_DEMO`/dev). `GET /me/purchases` — как в контракте.
 
+### P1 · Программа «Модели ANZH» — лист ожидания и дни обучения
+Модели нужны **только в дни обучения**: процедуру делает обучающийся врач под контролем Анжелики. Цена для модели — прайс
+Анжелики **по себестоимости** (`services.model_price_minor`, правит владелица в карточке процедуры). Действует **только** на
+запись моделью в день обучения (`booking.kind = 'model'`): ничего не копится и не переносится на обычные визиты.
+Скидки за действия на модельную цену не накладываются.
+
+| Метод | Путь | Кто | Тело → ответ |
+|---|---|---|---|
+| GET | `/models/program` | публичная | `{agreement: {ru, en, version}, prices: [{slug, title, price_minor, model_price_minor, currency, duration_min}], days: [TrainingDay]}` — только будущие дни |
+| GET | `/me/model` | клиентка | `{model: {status: none\|pending\|approved\|declined, slugs, availability, reason, applied_at, bookings}}` |
+| POST | `/me/model/apply` | клиентка | `{slugs[], availability: weekdays\|weekends\|any, agreement_version, photo_consent: true, adult: true}` → `{model}`; `409 already_applied`, `409 agreement_changed`, `422 consent_required`, `422 no_slugs` |
+| POST | `/models/days/{id}/book` | клиентка `approved` | `{slug}` → `{booking (kind:'model', training_day_id, total_minor = model_price_minor), day}`; `403 not_a_model`, `409 no_spots`, `409 already_booked` (одна процедура на день) |
+| PATCH | `/bookings/{id}` | клиентка — своя | `{status:'cancelled'}` — место возвращается |
+| GET | `/staff/models?status=` | owner, admin + PIN | `{models: [{telegram_id, name, status, slugs, availability, applied_at, times_model, health_flags}]}` |
+| PATCH | `/staff/models/{telegram_id}` | owner, admin + PIN | `{status: approved\|declined\|none, reason?}` (none — убрать из моделей) |
+| GET | `/staff/training-days` | owner, admin + PIN | `{days: [TrainingDay + bookings: [{id, name, slug, status, telegram_id}]]}` |
+| POST / PATCH | `/staff/training-days[/{id}]` | owner, admin + PIN | `{date, from, to, course_slug, slots: [{slug, spots 1..20}]}`; `422 bad_day` |
+| DELETE | `/staff/training-days/{id}` | owner, admin + PIN | `409 has_models`, если на день есть активные записи моделей |
+| PUT | `/staff/model-agreement` | owner + PIN | `{ru, en}` → новая `version` (`model-N`); заявки принимаются только на текущую |
+| PATCH | `/services/{slug}` | owner + PIN | `model_price_minor: int ≥ 0 \| null` |
+
+```
+TrainingDay = {id, date, starts_at, ends_at, course_slug|null, slots: [{slug, spots, taken}]}
+```
+- `taken` считает сервер по записям `kind='model'` в статусах pending/confirmed/done.
+- Время внутри дня назначает администратор: запись создаётся на начало дня, точное время — сообщением.
+- Анкета здоровья обязательна до процедуры (проверяют противопоказания); в заявке её нет — `health_flags` показываются в кабинете.
+- **Бот:** «Вы модель ANZH» (одобрение), «Новый день обучения: {дата}, нужна {процедура}» одобренным моделям с подходящими
+  `slugs` — кнопка `startapp=model_<dayId>` (фронт открывает программу на этом дне), напоминание о контрольном фото через 14 дней
+  после визита `kind='model'`.
+
 ### P1 · Профиль студии `GET/PATCH /studio`
 `Studio = {name, tagline{ru,en}, city, street, floor, hint, landmarks{ru[],en[]}, lat, lon, telegram, instagram|null,
 phone|null (+…), whatsapp|null (цифры), hours{ru,en}, off_days[]}`. GET публичный; PATCH — owner+PIN, только присланные

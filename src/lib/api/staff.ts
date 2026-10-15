@@ -156,6 +156,9 @@ export interface StaffBooking {
   decline_reason?: string | null;
   created_at?: string;
   items: BookingItem[];
+  /** [ПРЕДЛОЖЕНИЕ] 'model' — запись моделью на день обучения (цена для моделей) */
+  kind?: 'regular' | 'model';
+  training_day_id?: string | null;
 }
 
 export interface StaffBookingsQuery {
@@ -309,6 +312,8 @@ export interface WireService {
   sort?: number;
   /** [ПРЕДЛОЖЕНИЕ] через сколько дней после визита бот напомнит о повторе; null — не напоминать */
   repeat_after_days?: number | null;
+  /** [ПРЕДЛОЖЕНИЕ] цена для моделей в день обучения (себестоимость), минорные; null — моделям не предлагается */
+  model_price_minor?: number | null;
 }
 
 /** Схема `ServicePatch`: только присланные поля, `null` стирает. */
@@ -329,6 +334,7 @@ export interface ServicePatch {
   photo_url?: string | null;
   sort?: number;
   repeat_after_days?: number | null;
+  model_price_minor?: number | null;
 }
 
 /** Схема `ServiceCreate`. */

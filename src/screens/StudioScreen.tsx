@@ -1,3 +1,4 @@
+import { StudioModels } from '../components/StudioModels';
 import { StudioExport } from '../components/StudioExport';
 import { openAddToCalendar } from '../components/AddToCalendar';
 import { eventOfVisit } from '../lib/calendarStaff';
@@ -55,7 +56,7 @@ import { addDaysISO } from '../lib/appointments';
    не откроет. */
 type Tab = 'requests' | 'day' | 'clients' | 'money' | 'studio';
 type StudioTab = 'price' | 'team' | 'about' | 'promo' | 'reviews' | 'stories' | 'export';
-type ClientsTab = 'base' | 'money' | 'chats';
+type ClientsTab = 'base' | 'money' | 'chats' | 'models';
 
 /* ВТОРОЙ РЯД (решение ночи 24.09): чаты, акции, сторис, отзывы и задания
    скрыты — сервер их сегодня не ведёт, а экран не обещает того, чего сервер
@@ -301,7 +302,7 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
             <article key={v.id} className="studio-req" data-booking={v.id}>
               <div className="studio-req-head">
                 <div className="studio-req-who">
-                  <div className="studio-req-name">{v.clientName}</div>
+                  <div className="studio-req-name">{v.clientName}{v.isModel && <span className="sm-model-tag">модель · день обучения</span>}</div>
                   {can.seeAllAppointments && v.staffName && (
                     <div className="studio-req-ig">к мастеру: {v.staffName}</div>
                   )}
@@ -361,7 +362,7 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
                 <div className="studio-day-time">{v.slot}</div>
                 <div className="studio-day-body">
                   <div className="studio-day-name">
-                    {v.clientName}
+                    {v.clientName}{v.isModel && <span className="sm-model-tag">модель</span>}
                     {can.seeAllAppointments && v.staffName && <span className="faint"> · {v.staffName}</span>}
                   </div>
                   <div className="studio-day-svc">
@@ -388,6 +389,7 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
               ['base', 'База'],
               ...(can.money ? [['money', 'По выручке']] : []),
               ...(can.chats ? [['chats', 'Переписка']] : []),
+              ...(can.manageTeam || can.chats ? [['models', 'Модели']] : []),
             ] as Array<[ClientsTab, string]>)
               .map(([id, label]) => (
                 <button
@@ -402,6 +404,8 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
           </div>
 
           {clientsTab === 'chats' && <StudioChats />}
+          {/* Модели — тоже клиентки: лист ожидания, одобренные, дни обучения */}
+          {clientsTab === 'models' && <StudioModels isOwner={can.editPrices} />}
 
           {clientsTab === 'money' && (
             <>

@@ -1,3 +1,4 @@
+import { ModelCard } from '../components/ModelProgram';
 import { usePriceMode } from '../lib/priceMode';
 import { useRate } from '../lib/rates';
 import { findService, sTitle, servicePhoto } from '../data/services';
@@ -224,6 +225,8 @@ export function ServiceScreen({
         {priceNote !== null && (
           <p className="faint" data-testid="price-ref-note" style={{ fontSize: 13, margin: '6px 0 12px' }}>{priceNote}</p>
         )}
+        {/* Курсу нужны модели: вход в программу прямо со страницы обучения */}
+        {s.category === 'training' && <ModelCard lang={lang} variant="course" />}
         <p className="service-detail-text">{description}</p>
 
         {/* An empty "what's included" is not shown: a heading over nothing promises a list. */}

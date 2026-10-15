@@ -87,7 +87,10 @@ const db = {
   reviews: [],                 // [ПРЕДЛОЖЕНИЕ] отзывы: {id, telegram_id, name, rating, text, service_slug, state, created_at, reply, verified}
   rewards: new Map(),          // telegram_id → {profile, invite, story, review: 'idle'|'pending'|'done', story_proof, used}
   referrals: new Map(),        // telegram_id пригласившей → [telegram_id подруг]
-  purchases: new Map(),        // telegram_id → [{product_slug, product_kind, status, paid_at, covers}]
+  purchases: new Map(),
+  models: new Map(),           // [ПРЕДЛОЖЕНИЕ] telegram_id → {status, slugs, availability, reason, applied_at, agreement_version, name}
+  trainingDays: [],            // [ПРЕДЛОЖЕНИЕ] {id, date, starts_at, ends_at, course_slug, slots: [{slug, spots}]}
+  modelAgreement: null,        // {ru, en, version}        // telegram_id → [{product_slug, product_kind, status, paid_at, covers}]
   favorites: new Map(),        // [ПРЕДЛОЖЕНИЕ] telegram_id → {slugs: [], added: {slug: iso}, updated_at}
   prefs: new Map(),            // telegram_id → {reminders, review, marketing, favorites, repeat}
   reminded: new Map(),         // telegram_id → iso последнего напоминания (не чаще раза в неделю)
@@ -324,6 +327,13 @@ route('GET', '/staff/bookings', (ctx) => {
   send(ctx.res, 200, { bookings: list.map((b) => ({ ...b, staff_name: db.team.find((t) => t.telegram_id === b.staff_id)?.name ?? null })), timezone: 'Asia/Tbilisi' });
 });
 route('PATCH', '/bookings/:id', async (ctx) => {
+  // Клиентка отменяет СВОЮ заявку или запись без PIN кабинета (как в контракте)
+  const own = ctx.person && db.bookings.find((x) => x.id === ctx.params[0] && x.telegram_id === ctx.person.telegram_id);
+  if (own && ctx.body.status === 'cancelled' && !isStaff(ctx.person)) {
+    if (!['pending', 'confirmed'].includes(own.status)) return err(ctx.res, 409, 'bad_transition');
+    own.status = 'cancelled';
+    return send(ctx.res, 200, { booking: own });
+  }
   if (!needPin(ctx)) return;
   const b = db.bookings.find((x) => x.id === ctx.params[0]);
   if (!b) return err(ctx.res, 404, 'not_found');
@@ -553,7 +563,8 @@ route('PATCH', '/services/:slug', (ctx) => {
     }
   }
   if ('repeat_after_days' in p && p.repeat_after_days !== null && !(Number.isInteger(p.repeat_after_days) && p.repeat_after_days >= 7 && p.repeat_after_days <= 730)) return err(ctx.res, 422, 'bad_repeat', 'Повтор — от 7 до 730 дней');
-  for (const f of ['price_minor', 'currency', 'price_from', 'duration_min', 'days', 'includes', 'contraindications', 'photo_url', 'sort', 'repeat_after_days']) {
+  if ('model_price_minor' in p && p.model_price_minor !== null && !(Number.isInteger(p.model_price_minor) && p.model_price_minor >= 0)) return err(ctx.res, 422, 'bad_model_price', 'Цена для моделей — целое число в минорных единицах или пусто');
+  for (const f of ['price_minor', 'currency', 'price_from', 'duration_min', 'days', 'includes', 'contraindications', 'photo_url', 'sort', 'repeat_after_days', 'model_price_minor']) {
     if (f in p) s[f] = p[f];
   }
   send(ctx.res, 200, { service: s });
@@ -1100,6 +1111,137 @@ route('POST', '/dev/purchase', ({ res, person, body }) => {
   send(res, 200, { purchases: list });
 });
 
+
+/* ─── [ПРЕДЛОЖЕНИЕ] Программа «Модели ANZH» ────────────────────────────────
+   Модели нужны только в дни обучения: процедуру делает обучающийся врач
+   под контролем Анжелики. Цена для модели — прайс Анжелики по себестоимости
+   (services.model_price_minor, правит владелица); действует ТОЛЬКО на запись
+   моделью в день обучения (booking.kind = 'model'), ничего не копится.
+   Скидки за действия на модельную цену не накладываются. */
+const DEFAULT_AGREEMENT = {
+  ru: 'Процедуру выполняет врач — участник обучения, под контролем Анжелики на каждом шаге.\nМодель приходит к назначенному времени дня обучения и заранее заполняет анкету здоровья — противопоказания проверяют до процедуры.\nМодель соглашается на фото и видео до и после для учебных целей; лицо в публичных материалах — только с отдельного согласия.\nЧерез 14 дней — контрольное фото в чат студии.\nОплата — по цене для моделей (себестоимость), в день процедуры.',
+  en: 'The treatment is performed by a doctor in training, supervised by Anjelika at every step.\nThe model arrives at the assigned time on the training day and fills in the health form in advance — contraindications are checked before the treatment.\nThe model agrees to before/after photos and videos for training; the face appears in public materials only with separate consent.\nA follow-up photo to the studio chat after 14 days.\nPayment is at the model price (cost price), on the day of the treatment.',
+  version: 'model-1',
+};
+const agreement = () => db.modelAgreement ?? DEFAULT_AGREEMENT;
+const modelOf = (tid) => db.models.get(tid) ?? { status: 'none', slugs: [], availability: null, reason: null };
+const takenOf = (dayId, slug) => db.bookings.filter((b) => b.kind === 'model' && b.training_day_id === dayId && b.items[0]?.slug === slug && !['declined', 'cancelled'].includes(b.status)).length;
+const dayOut = (d) => ({ ...d, slots: d.slots.map((x) => ({ ...x, taken: takenOf(d.id, x.slug) })) });
+const modelPrices = () => db.services.filter((x) => x.model_price_minor != null && x.kind !== 'training')
+  .map((x) => ({ slug: x.slug, title: x.title, price_minor: x.price_minor, model_price_minor: x.model_price_minor, currency: x.currency, duration_min: x.duration_min }));
+const futureDays = () => db.trainingDays.filter((d) => Date.parse(d.ends_at) > Date.now()).sort((a, b) => a.starts_at.localeCompare(b.starts_at)).map(dayOut);
+
+route('GET', '/models/program', ({ res }) => send(res, 200, { agreement: agreement(), prices: modelPrices(), days: futureDays() }));
+route('GET', '/me/model', ({ res, person }) => {
+  if (!person) return err(res, 401, 'no_session');
+  const m = modelOf(person.telegram_id);
+  const bookings = db.bookings.filter((b) => b.kind === 'model' && b.telegram_id === person.telegram_id && !['declined', 'cancelled'].includes(b.status));
+  send(res, 200, { model: { status: m.status, slugs: m.slugs, availability: m.availability, reason: m.reason ?? null, applied_at: m.applied_at ?? null, bookings } });
+});
+route('POST', '/me/model/apply', ({ res, person, body }) => {
+  if (!person) return err(res, 401, 'no_session');
+  const cur = modelOf(person.telegram_id);
+  if (cur.status === 'pending' || cur.status === 'approved') return err(res, 409, 'already_applied', 'Заявка уже есть');
+  if (body.adult !== true || body.photo_consent !== true) return err(res, 422, 'consent_required', 'Нужны согласия: 18+ и фото для обучения');
+  if (body.agreement_version !== agreement().version) return err(res, 409, 'agreement_changed', 'Условия обновились — прочитайте новую редакцию');
+  const known = new Set(modelPrices().map((x) => x.slug));
+  const slugs = (Array.isArray(body.slugs) ? body.slugs : []).filter((x) => known.has(x)).slice(0, 10);
+  if (!slugs.length) return err(res, 422, 'no_slugs', 'Выберите хотя бы одну процедуру');
+  const m = { status: 'pending', slugs, availability: ['weekdays', 'weekends', 'any'].includes(body.availability) ? body.availability : 'any', reason: null, applied_at: new Date().toISOString(), agreement_version: agreement().version, name: person.first_name };
+  db.models.set(person.telegram_id, m);
+  send(res, 201, { model: { ...m, bookings: [] } });
+});
+route('POST', '/models/days/:id/book', ({ res, person, params, body }) => {
+  if (!person) return err(res, 401, 'no_session');
+  if (modelOf(person.telegram_id).status !== 'approved') return err(res, 403, 'not_a_model', 'Сначала заявка должна быть одобрена');
+  const d = db.trainingDays.find((x) => x.id === params[0]);
+  if (!d || Date.parse(d.ends_at) < Date.now()) return err(res, 404, 'not_found');
+  const slot = d.slots.find((x) => x.slug === body.slug);
+  const svc = db.services.find((x) => x.slug === body.slug);
+  if (!slot || !svc || svc.model_price_minor == null) return err(res, 422, 'bad_slug');
+  if (db.bookings.some((b) => b.kind === 'model' && b.training_day_id === d.id && b.telegram_id === person.telegram_id && !['declined', 'cancelled'].includes(b.status))) return err(res, 409, 'already_booked', 'Вы уже записаны на этот день');
+  if (takenOf(d.id, svc.slug) >= slot.spots) return err(res, 409, 'no_spots', 'Мест на эту процедуру больше нет');
+  const b = {
+    id: `b${db.bookings.length + 1}`, kind: 'model', training_day_id: d.id, telegram_id: person.telegram_id, client_name: person.first_name,
+    staff_id: PEOPLE.owner.telegram_id, staff_name: null, starts_at: d.starts_at, duration_min: svc.duration_min ?? 60, status: 'pending',
+    total_minor: svc.model_price_minor, paid_minor: null, currency: svc.currency ?? 'GEL', discount_percent: 0,
+    client_note: 'Модель · день обучения', decline_reason: null, created_at: new Date().toISOString(),
+    items: [{ slug: svc.slug, title_ru: svc.title.ru, title_en: svc.title.en, price_minor: svc.model_price_minor }],
+  };
+  db.bookings.push(b);
+  send(res, 201, { booking: b, day: dayOut(d) });
+});
+/* Кабинет: лист ожидания, модели, дни обучения, условия */
+const canModels = (ctx) => needPin(ctx) && (isOwner(ctx.person) || ctx.person.role === 'admin');
+route('GET', '/staff/models', (ctx) => {
+  if (!canModels(ctx)) return ctx.res.headersSent ? undefined : err(ctx.res, 403, 'forbidden');
+  const want = ctx.query.status;
+  const list = [...db.models.entries()].filter(([, m]) => !want || m.status === want).map(([tid, m]) => ({
+    telegram_id: tid, name: m.name ?? `Клиентка ${tid}`, ...m,
+    times_model: db.bookings.filter((b) => b.kind === 'model' && b.telegram_id === tid && b.status === 'done').length,
+    health_flags: Object.entries(db.health.get(tid) ?? {}).filter(([, v]) => v === true).map(([k]) => k).slice(0, 6),
+  }));
+  send(ctx.res, 200, { models: list.sort((a, b) => String(b.applied_at).localeCompare(String(a.applied_at))) });
+});
+route('PATCH', '/staff/models/:id', (ctx) => {
+  if (!canModels(ctx)) return ctx.res.headersSent ? undefined : err(ctx.res, 403, 'forbidden');
+  const tid = Number(ctx.params[0]);
+  const m = db.models.get(tid);
+  if (!m) return err(ctx.res, 404, 'not_found');
+  if (!['approved', 'declined', 'none'].includes(ctx.body.status)) return err(ctx.res, 422, 'bad_status');
+  m.status = ctx.body.status; m.reason = ctx.body.status === 'declined' ? String(ctx.body.reason ?? '').slice(0, 300) || null : null;
+  if (m.status === 'none') db.models.delete(tid);
+  send(ctx.res, 200, { model: { telegram_id: tid, ...m } });
+});
+route('GET', '/staff/training-days', (ctx) => {
+  if (!canModels(ctx)) return ctx.res.headersSent ? undefined : err(ctx.res, 403, 'forbidden');
+  const days = db.trainingDays.slice().sort((a, b) => a.starts_at.localeCompare(b.starts_at)).map((d) => ({
+    ...dayOut(d),
+    bookings: db.bookings.filter((b) => b.kind === 'model' && b.training_day_id === d.id && !['declined', 'cancelled'].includes(b.status))
+      .map((b) => ({ id: b.id, name: b.client_name, slug: b.items[0]?.slug, status: b.status, telegram_id: b.telegram_id })),
+  }));
+  send(ctx.res, 200, { days });
+});
+const dayFromBody = (b, id) => {
+  const date = String(b.date ?? '');
+  const from = String(b.from ?? '10:00'), to = String(b.to ?? '16:00');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(from) || !/^\d{2}:\d{2}$/.test(to) || from >= to) return null;
+  const slots = (Array.isArray(b.slots) ? b.slots : []).filter((x) => x && typeof x.slug === 'string' && Number.isInteger(x.spots) && x.spots > 0 && x.spots <= 20).slice(0, 12);
+  if (!slots.length) return null;
+  return { id, date, starts_at: new Date(`${date}T${from}:00+04:00`).toISOString(), ends_at: new Date(`${date}T${to}:00+04:00`).toISOString(), course_slug: b.course_slug ?? null, slots };
+};
+route('POST', '/staff/training-days', (ctx) => {
+  if (!canModels(ctx)) return ctx.res.headersSent ? undefined : err(ctx.res, 403, 'forbidden');
+  const d = dayFromBody(ctx.body, `td${Date.now().toString(36)}`);
+  if (!d) return err(ctx.res, 422, 'bad_day', 'Нужны дата, время «с» раньше «до» и хотя бы одна процедура с местами');
+  db.trainingDays.push(d);
+  send(ctx.res, 201, { day: dayOut(d) });
+});
+route('PATCH', '/staff/training-days/:id', (ctx) => {
+  if (!canModels(ctx)) return ctx.res.headersSent ? undefined : err(ctx.res, 403, 'forbidden');
+  const i = db.trainingDays.findIndex((x) => x.id === ctx.params[0]);
+  if (i < 0) return err(ctx.res, 404, 'not_found');
+  const d = dayFromBody(ctx.body, ctx.params[0]);
+  if (!d) return err(ctx.res, 422, 'bad_day', 'Нужны дата, время «с» раньше «до» и хотя бы одна процедура с местами');
+  db.trainingDays[i] = d;
+  send(ctx.res, 200, { day: dayOut(d) });
+});
+route('DELETE', '/staff/training-days/:id', (ctx) => {
+  if (!canModels(ctx)) return ctx.res.headersSent ? undefined : err(ctx.res, 403, 'forbidden');
+  const id = ctx.params[0];
+  if (db.bookings.some((b) => b.kind === 'model' && b.training_day_id === id && ['pending', 'confirmed'].includes(b.status))) return err(ctx.res, 409, 'has_models', 'На день уже записаны модели — сначала отмените их записи');
+  db.trainingDays = db.trainingDays.filter((x) => x.id !== id);
+  send(ctx.res, 200, { deleted: true });
+});
+route('PUT', '/staff/model-agreement', (ctx) => {
+  if (!needPin(ctx) || !isOwner(ctx.person)) return ctx.res.headersSent ? undefined : err(ctx.res, 403, 'forbidden');
+  const ru = String(ctx.body.ru ?? '').trim(), en = String(ctx.body.en ?? '').trim();
+  if (ru.length < 20) return err(ctx.res, 422, 'too_short', 'Условия — хотя бы пара предложений');
+  const n = Number(String(agreement().version).split('-')[1] || 1) + 1;
+  db.modelAgreement = { ru: ru.slice(0, 4000), en: (en || ru).slice(0, 4000), version: `model-${n}` };
+  send(ctx.res, 200, { agreement: db.modelAgreement });
+});
+
 export async function handle(req, res) {
   const url = new URL(req.url, 'http://x');
   const p = url.pathname.replace(/^\/api\/v1/, '') || '/';
@@ -1151,6 +1293,20 @@ db.team = (Array.isArray(SEED) ? [] : SEED.team).map((t) => {
   };
 }).filter(Boolean);
 seedBookings();
+/* Демо-сид программы моделей. Цены для моделей — ПРИМЕРНЫЕ, для показа:
+   настоящий прайс по себестоимости Анжелика вносит в карточках процедур. */
+const DEMO_MODEL_PRICE = { 'contour-plastic': 25000, 'lip-filler': 22000, biorevit: 18000, 'collagen-stimulators': 38000, mesotherapy: 14000, 'deep-cleansing': 9000 };
+for (const x of db.services) if (x.slug in DEMO_MODEL_PRICE) x.model_price_minor = DEMO_MODEL_PRICE[x.slug];
+{
+  const day = (plus, course, slots) => {
+    const d = new Date(Date.now() + plus * 86_400_000 + 4 * 3600_000).toISOString().slice(0, 10);
+    return { id: `td-demo-${plus}`, date: d, starts_at: new Date(`${d}T10:00:00+04:00`).toISOString(), ends_at: new Date(`${d}T16:00:00+04:00`).toISOString(), course_slug: course, slots };
+  };
+  db.trainingDays = [
+    day(9, 'course-collagen', [{ slug: 'collagen-stimulators', spots: 2 }, { slug: 'biorevit', spots: 3 }]),
+    day(23, 'training-injections', [{ slug: 'lip-filler', spots: 3 }, { slug: 'contour-plastic', spots: 2 }, { slug: 'mesotherapy', spots: 3 }]),
+  ];
+}
 
 // Запуск руками (node tools/dev-stand.mjs) — свой порт; импорт из функции Vercel — только handle
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

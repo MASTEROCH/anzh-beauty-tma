@@ -243,6 +243,10 @@ function ServiceForm({ existing }: { existing?: WireService }) {
   const [repeatText, setRepeatText] = useState<string>(existing?.repeat_after_days != null ? String(existing.repeat_after_days) : '');
   const repeatDays = repeatText.trim() === '' ? null : Math.round(Number(repeatText));
   const repeatBad = repeatDays !== null && !(repeatDays >= 7 && repeatDays <= 730);
+  // Цена для моделей (себестоимость) — только для дней обучения; пусто — моделям не предлагается
+  const [modelText, setModelText] = useState<string>(existing?.model_price_minor != null ? minorToInput(existing.model_price_minor) : '');
+  const modelMinor = modelText.trim() === '' ? null : parseMoneyInput(modelText);
+  const modelBad = modelText.trim() !== '' && (modelMinor === null || modelMinor < 0);
   // The row's currency; a new row — lari, shown on the chips. Another ISO code of an
   // existing row (set through the API) is kept as is: the chips are not shown for it.
   const [currency, setCurrency] = useState<string | null>(existing ? existing.currency || null : 'GEL');
@@ -320,6 +324,7 @@ function ServiceForm({ existing }: { existing?: WireService }) {
         if (!same(contra, existing.contraindications ?? [])) patch.contraindications = contra;
         if (photo !== (existing.photo_url ?? null)) patch.photo_url = photo;
         if (!repeatBad && repeatDays !== (existing.repeat_after_days ?? null)) patch.repeat_after_days = repeatDays;
+        if (!modelBad && modelMinor !== (existing.model_price_minor ?? null)) patch.model_price_minor = modelMinor;
         // Пустая правка — 422 `empty_patch`: не шлём, просто закрываем — и так и говорим (K13, F9).
         const changed = Object.keys(patch).length > 0;
         if (changed) {
@@ -350,6 +355,7 @@ function ServiceForm({ existing }: { existing?: WireService }) {
           ...(contra.length ? { contraindications: contra } : {}),
           ...(photo ? { photo_url: photo } : {}),
           ...(!repeatBad && repeatDays !== null ? { repeat_after_days: repeatDays } : {}),
+          ...(!modelBad && modelMinor !== null ? { model_price_minor: modelMinor } : {}),
         }, intent.current);
         refreshServices();
         applyOwnerEdit(created.slug, created);
@@ -498,6 +504,18 @@ function ServiceForm({ existing }: { existing?: WireService }) {
               {repeatBad
                 ? 'От 7 до 730 дней — или оставьте пустым'
                 : 'Бот напишет клиентке через столько дней после процедуры и предложит свободные окна. Например, ботокс — 120, чистка — 30.'}
+            </small>
+          </label>
+        )}
+
+        {!training && (
+          <label className="se-field se-repeat">
+            <span>{sign ? `Цена для моделей, ${sign}` : 'Цена для моделей'}</span>
+            <input inputMode="decimal" value={modelText} placeholder="моделям не предлагается" onChange={(e) => setModelText(e.target.value)} aria-invalid={modelBad || undefined} />
+            <small className={modelBad ? 'form-why' : 'faint'}>
+              {modelBad
+                ? 'Число — или оставьте пустым'
+                : 'Ваш прайс по себестоимости: действует только для моделей в день обучения. Клиентки видят его в программе «Модели ANZH».'}
             </small>
           </label>
         )}
