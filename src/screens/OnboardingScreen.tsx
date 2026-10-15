@@ -192,7 +192,7 @@ export function OnboardingScreen({ onComplete, onSkip, onLang }: Props) {
     true;
 
   return (
-    <div className="onb-screen">
+    <div className={`onb-screen${step === 0 ? ' onb-screen--lang' : ''}`}>
       <div className="onb-orbs" aria-hidden />
       <header className="onb-header">
         {step > 0 ? (
@@ -215,7 +215,7 @@ export function OnboardingScreen({ onComplete, onSkip, onLang }: Props) {
       </header>
 
       <div className="onb-body" ref={bodyRef}>
-        {step === 0 && <WelcomeSlide firstName={tg?.firstName} lang={lang} onLang={onLang} />}
+        {step === 0 && <WelcomeSlide firstName={tg?.firstName} lang={lang} />}
         {step === 1 && (
           <IdentitySlide
             name={name}
@@ -246,6 +246,28 @@ export function OnboardingScreen({ onComplete, onSkip, onLang }: Props) {
       </div>
 
       <div className="onb-cta">
+        {/* Язык — первым же выбором (Роч 15.10): у Анжелики много англоязычных
+            пациентов — турки, грузины, арабы, израильтяне, американцы; кто не
+            читает по-русски, обычно читает по-английски. По умолчанию — язык
+            Telegram (lib/i18n.ts). Стоит в закреплённой панели над кнопкой:
+            в теле слайда на iPhone в браузере он уходил ПОД кнопку «Знакомимся»
+            (кадр Роча 15.10) — выбор, который не видно, не выбор. */}
+        {step === 0 && (
+          <div className="onb-lang" role="radiogroup" aria-label="Язык · Language">
+            {([['ru', 'Русский'], ['en', 'English']] as Array<[Lang, string]>).map(([l, label]) => (
+              <button
+                key={l}
+                role="radio"
+                aria-checked={lang === l}
+                className={`onb-lang-btn${lang === l ? ' on' : ''}`}
+                onClick={() => { if (lang !== l) onLang(l); }}
+                lang={l}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         <button
           className="btn btn-primary btn-block"
           onClick={step === STEP_COUNT - 1 ? () => { void submit(); } : next}
@@ -276,7 +298,7 @@ export function OnboardingScreen({ onComplete, onSkip, onLang }: Props) {
 }
 
 /* ─── Шаг 0 · Приветствие ──────────────────────────────────── */
-function WelcomeSlide({ firstName, lang, onLang }: { firstName?: string; lang: Lang; onLang: (l: Lang) => void }) {
+function WelcomeSlide({ firstName, lang }: { firstName?: string; lang: Lang }) {
   const ru = lang === 'ru';
   return (
     <div className="onb-slide">
@@ -312,28 +334,6 @@ function WelcomeSlide({ firstName, lang, onLang }: { firstName?: string; lang: L
           </span>
         </div>
 
-        {/* Язык — первым же выбором (Роч 15.10): у Анжелики много англоязычных
-            пациентов — турки, грузины, арабы, израильтяне, американцы; кто не
-            читает по-русски, обычно читает по-английски. По умолчанию — язык
-            Telegram (lib/i18n.ts). Остальные языки добавим позже. */}
-        <div className="onb-lang" role="radiogroup" aria-label="Язык · Language">
-          <span className="onb-lang-label">Язык · Language</span>
-          <div className="seg">
-            {([['ru', 'Русский'], ['en', 'English']] as Array<[Lang, string]>).map(([l, label]) => (
-              <button
-                key={l}
-                role="radio"
-                aria-checked={lang === l}
-                className={`seg-btn ${lang === l ? 'active' : ''}`}
-                onClick={() => { if (lang !== l) onLang(l); }}
-                lang={l}
-              >
-                <span>{label}</span>
-                {lang === l && <Icon name="check" size={14} strokeWidth={2.6} className="seg-check" />}
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );

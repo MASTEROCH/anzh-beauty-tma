@@ -8526,10 +8526,50 @@ body[data-sheet-open] .lang-hud { display: none; }
 .cc-quiz-dl dd { margin: 0; color: var(--text-primary); }
 
 /* Онбординг: выбор языка на первом шаге */
-.onb-lang { width: 100%; max-width: 340px; margin: 22px auto 0; display: grid; gap: 8px; }
-.onb-lang-label { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-hint); text-align: center; }
-.onb-lang .seg-btn { min-height: 44px; }
+/* Компактный переключатель в закреплённой панели, над кнопкой «Знакомимся» */
+.onb-lang {
+  display: flex; gap: 4px; padding: 4px; margin: 0 auto 12px;
+  width: fit-content; border-radius: 24px;
+  background: rgba(255,255,255,0.06); border: 0.5px solid var(--border-strong);
+}
+.onb-lang-btn {
+  min-height: 40px; min-width: 108px; padding: 0 16px; border-radius: 20px; border: 0;
+  font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+  color: var(--text-secondary); background: transparent;
+  transition: background 200ms var(--ease-out), color 200ms var(--ease-out);
+}
+.onb-lang-btn.on { color: #06140f; background: linear-gradient(180deg, var(--brand-primary-bright), var(--brand-primary-deep)); }
+/* Первый шаг: панель с языком и кнопкой стоит В ПОТОКЕ, а не поверх
+   контента. Поверх (absolute) адрес наезжал на выбор языка на любом экране,
+   где слайд не помещался (кадры Роча 15.10) — подбор высот это не лечит.
+   В потоке тело слайда заканчивается над панелью и, если надо, скроллится. */
+.onb-screen--lang .onb-body { padding-bottom: 12px; }
+.onb-screen--lang .onb-cta { position: relative; background: none; padding-top: 4px; }
 
 /* Живое фото в онбординге: Safari иногда рисует <video> поверх border-radius
    квадратом — круг держим ещё и clip-path. Фон на время до первого кадра. */
-video.live-avatar { display: block; clip-path: circle(50% at 50% 50%); background: #9b9497; }
+.live-avatar {
+  display: block; position: relative; overflow: hidden;
+  border-radius: 50%;
+  clip-path: circle(50% at 50% 50%);   /* Safari: <video> иначе рисуется квадратом */
+  background: #9b9497;
+}
+.live-avatar > img, .live-avatar > video {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; display: block; border-radius: inherit;
+}
+.live-avatar-video { opacity: 0; transition: opacity 240ms var(--ease-out); pointer-events: none; }
+.live-avatar-video.on { opacity: 1; }
+/* Страховка: системные кнопки видео не показываем нигде */
+.live-avatar-video::-webkit-media-controls,
+.live-avatar-video::-webkit-media-controls-start-playback-button,
+.live-avatar-video::-webkit-media-controls-overlay-play-button { display: none !important; -webkit-appearance: none; }
+/* Низкие экраны (iPhone SE, Telegram в браузере с панелями): первый шаг
+   целиком над закреплённой панелью с языком и кнопкой */
+@media (max-height: 720px) {
+  .onb-welcome { padding-top: 6px; }
+  .onb-welcome .onb-avatar-wrap { width: 120px; height: 120px; margin-bottom: 14px; }
+  .onb-welcome .onb-title { font-size: 28px; }
+  .onb-welcome .onb-text { margin-bottom: 0; }
+  .onb-welcome .onb-meta-row { margin-top: 10px; }
+}
