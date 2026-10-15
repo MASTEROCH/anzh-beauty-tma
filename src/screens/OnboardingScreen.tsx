@@ -320,7 +320,7 @@ function WelcomeSlide({ firstName, lang }: { firstName?: string; lang: Lang }) {
             цифры-заготовки, не подтверждённые Анжеликой. Решение
             владельца: выдуманное убирать, а не прятать. */}
         <p className="onb-lead">
-          {ru ? 'Косметолог в Батуми' : 'Cosmetologist in Batumi'}
+          {ru ? 'Врач-косметолог в Батуми' : 'Medical cosmetologist in Batumi'}
         </p>
         <p className="onb-text">
           {ru

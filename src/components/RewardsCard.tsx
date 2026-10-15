@@ -59,7 +59,7 @@ function StoryProof({ lang }: { lang: Lang }) {
           <button className="btn btn-secondary" onClick={() => {
             tap();
             shareStory(absoluteAsset('photos/anjelika-live.mp4'),
-              ru ? 'Мой косметолог в Батуми — Анжелика, ANZH Cosmetology' : 'My cosmetologist in Batumi — Anjelika, ANZH Cosmetology');
+              ru ? 'Мой врач-косметолог в Батуми — Анжелика, ANZH Cosmetology' : 'My medical cosmetologist in Batumi — Anjelika, ANZH Cosmetology');
           }}>
             <Icon name="send" size={15} strokeWidth={2} /> {ru ? 'Сторис в Telegram' : 'Telegram story'}
           </button>

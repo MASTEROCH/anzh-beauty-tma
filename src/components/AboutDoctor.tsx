@@ -27,7 +27,7 @@ function AboutSheet({ lang }: { lang: Lang }) {
         <img
           className="about-doc-photo"
           src={asset(about.photo)}
-          alt={ru ? `${profile.name} — косметолог` : `${profile.name} — cosmetologist`}
+          alt={ru ? `${profile.name} — врач-косметолог` : `${profile.name} — medical cosmetologist`}
           loading="lazy"
           decoding="async"
         />

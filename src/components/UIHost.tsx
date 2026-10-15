@@ -246,7 +246,7 @@ function DraggableSheet({ content: s }: { content: NonNullable<SheetContent> }) 
 
   return (
     <div
-      className={`sheet sheet-host${dragging ? ' dragging' : ''}`}
+      className={`sheet sheet-frame${dragging ? ' dragging' : ''}`}
       role="dialog"
       aria-modal="true"
       aria-label={s.title}
@@ -267,18 +267,18 @@ function DraggableSheet({ content: s }: { content: NonNullable<SheetContent> }) 
             <path d="M6 6l12 12M6 18L18 6" />
           </svg>
         </button>
-      {/* Каскад: шторка приезжает, содержимое догоняет волной */}
-      <div className="sheet-cascade" ref={bodyRef}>
-        <h3>{s.title}</h3>
-        {s.subtitle && <div className="faint" style={{ fontSize: 12, marginBottom: 6 }}>{s.subtitle}</div>}
-        <div style={{ marginTop: 12 }}>{s.body}</div>
-        {s.actions ? (
-          <div className="sheet-actions mt-md">{s.actions}</div>
-        ) : (
-          <div style={{ marginTop: 16 }}>
-            <button className="btn btn-quiet btn-block" onClick={closeSheet}>{closeWord()}</button>
-          </div>
-        )}
+      {/* Прокручивается только содержимое; кнопки — подвал, всегда на виду
+          (Роч 16.10: на iPhone кнопка уезжала вниз прокрутки, под ней — «дыра»).
+          Каскад: шторка приезжает, содержимое догоняет волной. */}
+      <div className="sheet-scroll">
+        <div className="sheet-cascade" ref={bodyRef}>
+          <h3>{s.title}</h3>
+          {s.subtitle && <div className="faint" style={{ fontSize: 12, marginBottom: 6 }}>{s.subtitle}</div>}
+          <div style={{ marginTop: 12 }}>{s.body}</div>
+        </div>
+      </div>
+      <div className="sheet-actions">
+        {s.actions ?? <button className="btn btn-quiet btn-block" onClick={closeSheet}>{closeWord()}</button>}
       </div>
     </div>
   );

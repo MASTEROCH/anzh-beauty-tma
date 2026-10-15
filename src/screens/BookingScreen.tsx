@@ -385,7 +385,7 @@ export function BookingScreen({
   const showMaster = () =>
     openSheet({
       title: 'Анжелика',
-      subtitle: ru ? 'Косметолог · Батуми' : 'Cosmetologist · Batumi',
+      subtitle: ru ? 'Врач-косметолог · Батуми' : 'Medical cosmetologist · Batumi',
       body: (
         <>
           <LiveAnjelika
@@ -588,7 +588,7 @@ export function BookingScreen({
             <img src={asset('photos/anjelika.webp')} alt="" className="bk-master-ph" />
             <span className="bk-master-body">
               <span className="bk-master-k">{ru ? 'Ведёт приём' : 'Your specialist'}</span>
-              <b>{ru ? 'Анжелика · косметолог' : 'Anjelika · cosmetologist'}</b>
+              <b>{ru ? 'Анжелика · врач-косметолог' : 'Anjelika · medical cosmetologist'}</b>
             </span>
             <Icon name="chevron-right" size={16} strokeWidth={2.2} className="bk-master-go" />
           </button>

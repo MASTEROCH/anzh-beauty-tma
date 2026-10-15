@@ -3116,14 +3116,25 @@ body[data-near-bottom] .ai-bubble {
 }
 
 /* Generic SheetHost — scroll inside */
-.sheet-host {
+.sheet-frame { overflow: hidden; }
+/* Прокручивается только тело. Во флекс-колонке без min-height:0 оно не
+   сжимается и выталкивает подвал за край — «дыра» на iPhone (кадр Роча 16.10) */
+.sheet-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  margin: 0 -20px;
+  padding: 0 20px 6px;
+  scrollbar-width: none;
 }
-.sheet-host::-webkit-scrollbar { display: none; }
+.sheet-scroll::-webkit-scrollbar { display: none; }
 .sheet-actions {
   display: grid; gap: 8px;
-  margin-top: 16px;
+  flex-shrink: 0;
+  margin-top: 4px; padding-top: 12px;
+  border-top: 0.5px solid var(--border);
   flex-shrink: 0;
 }
 .sheet-actions .btn { width: 100%; }
@@ -5479,16 +5490,16 @@ input, textarea, select { font-size: max(16px, 1em); }
 }
 
 /* ─── Шторка: перетаскивание и каскад содержимого ────────── */
-.sheet-host { transition: transform 320ms var(--ease-out); touch-action: pan-y; }
-.sheet-host.dragging { transition: none; }
+.sheet-frame { transition: transform 320ms var(--ease-out); touch-action: pan-y; }
+.sheet-frame.dragging { transition: none; }
 .sheet-grab {
   margin: -18px -20px 0;
   padding: 14px 20px 6px;
   cursor: grab;
   touch-action: none;
 }
-.sheet-host.dragging .sheet-grab { cursor: grabbing; }
-.sheet-host.dragging .sheet-handle { width: 46px; }
+.sheet-frame.dragging .sheet-grab { cursor: grabbing; }
+.sheet-frame.dragging .sheet-handle { width: 46px; }
 .sheet-handle { transition: width var(--duration-fast) var(--ease-spring); }
 
 /* Содержимое догоняет шторку волной — дёшево, а воспринимается дорого */
@@ -9207,3 +9218,28 @@ body[data-sheet-open] .lang-hud { display: none; }
   .bottom-cta .btn, .btn-block { font-size: 15px; letter-spacing: -0.01em; }
   .profile-cta-row .btn { padding-left: 10px; padding-right: 10px; gap: 6px; }
 }
+
+/* ─── Подвал оплаты в шторке (Paywall footer) — три строки, не прокручивается ─── */
+.pw-foot { display: flex; flex-direction: column; gap: 8px; }
+.pw-foot-terms { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; }
+.pw-foot-terms a { flex: 0 0 auto; font-size: 13px; color: var(--text-secondary); text-decoration: underline; text-underline-offset: 3px; padding: 10px 0 10px 6px; }
+.pw-tick {
+  display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0; min-width: 0;
+  border: 0; background: none; color: var(--text-primary); font: inherit; font-size: 14px; text-align: left; cursor: pointer;
+}
+.pw-tick-box {
+  width: 22px; height: 22px; border-radius: 7px; flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1.5px solid var(--border-strong); background: rgba(255,255,255,0.04);
+  transition: background .2s var(--ease-out), border-color .2s var(--ease-out), transform .3s var(--ease-spring);
+}
+.pw-tick.on .pw-tick-box { background: var(--brand-primary); border-color: transparent; color: #04231b; transform: scale(1.06); }
+.pw-tick.nudge .pw-tick-box { border-color: var(--brand-gold-bright); animation: pwNudge .4s var(--ease-out); }
+@keyframes pwNudge { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+.pw-tick-text { line-height: 1.3; }
+.pw-foot-meta { margin: 0; text-align: center; font-size: 13px; color: var(--text-hint); min-height: 18px; }
+.pw-foot-meta.warn { color: var(--brand-gold-bright); }
+.pw-foot-link { border: 0; background: none; padding: 4px 2px; font: inherit; color: var(--brand-gold-bright); cursor: pointer; }
+/* Шторка оплаты выше: описанию нужен экран, а не щель над подвалом */
+.sheet { max-height: 92%; }
+@media (prefers-reduced-motion: reduce) { .pw-tick.nudge .pw-tick-box { animation: none; } }

@@ -178,7 +178,7 @@ export const TEAM_BIO: Readonly<Record<TeamMember['id'], TeamBio>> = {
 
 /* Order and roles — Sanya's K15 §3, the lawyer's table (roles «как есть»). */
 export const TEAM: readonly TeamMember[] = [
-  { id: 'anzhelika', name: MASTERS.anzhelika.name, role: { ru: 'Косметолог, владелица', en: 'Cosmetologist, owner' }, short: { ru: 'Косметолог', en: 'Cosmetologist' }, master: 'anzhelika' },
+  { id: 'anzhelika', name: MASTERS.anzhelika.name, role: { ru: 'Врач-косметолог, владелица', en: 'Medical cosmetologist, owner' }, short: { ru: 'Врач-косметолог', en: 'Medical cosmetologist' }, master: 'anzhelika' },
   { id: 'ekaterina', name: MASTERS.ekaterina.name, role: { ru: 'Бровист', en: 'Brow artist' }, surname: { ru: 'Попова', en: 'Popova' }, master: 'ekaterina' },
   { id: 'roman', name: MASTERS.roman.name, role: { ru: 'Лазерное удаление', en: 'Laser removal' }, short: { ru: 'Лазер', en: 'Laser' }, surname: { ru: 'Быцкевич', en: 'Bytskevich' }, master: 'roman' },
   { id: 'mariya', name: { ru: 'Мария', en: 'Maria' }, surname: { ru: 'Ефименко', en: 'Yefimenko' }, role: { ru: 'Дерматолог', en: 'Dermatologist' }, photo: { src: '/photos/team/mariya.webp', w: 480, h: 480, published: true } },

@@ -139,12 +139,16 @@ interface PaywallProps {
   ownsBundle?: boolean;
   /** Открыть главой в подарок (за процедуры и подруг) — блок над ценой */
   chapter?: React.ReactNode;
+  /** Кнопка оплаты — в подвале шторки (PaywallBuy в actions), здесь только юр. строка */
+  buyInFooter?: boolean;
 }
 
 export function Paywall({
-  quiz, price, bundlePrice, onBought, onOpenBundle, ownsBundle = false, chapter,
+  quiz, price, bundlePrice, onBought, onOpenBundle, ownsBundle = false, chapter, buyInFooter = false,
 }: PaywallProps) {
-  const ru = useLang() === 'ru';
+  const lang = useLang();
+  const ru = lang === 'ru';
+  const { me } = useMe();
   const avail = usePayAvailability();
   const singleTotal = PAID_QUIZZES.reduce((s, q) => s + q.stars, 0);
   const save = Math.max(0, singleTotal - bundlePrice);
@@ -205,18 +209,32 @@ export function Paywall({
         </div>
       )}
 
-      <BuyButton
-        id={quiz.id}
-        title={ru ? quiz.title : quiz.titleEn ?? quiz.title}
-        stars={price}
-        unlocks={ru ? quiz.title : quiz.titleEn ?? quiz.title}
-        onOpen={onBought}
-        cta={{ ru: 'Начать разбор', en: 'Start the analysis' }}
-        meta={ru ? `${quiz.questions.length} вопросов · около ${quiz.minutes} мин · результат сразу` : `${quiz.questions.length} questions · about ${quiz.minutes} min · instant result`}
-      />
+      {buyInFooter
+        ? <PurchaseTerms lang={lang} termsVersion={legalVersion(me, 'terms')} />
+        : <PaywallBuy quiz={quiz} price={price} onBought={onBought} />}
     </>
   );
 }
+
+/** Запуск разбора = оплата: «Начать разбор · цена». В подвал шторки — `footer`. */
+export function PaywallBuy({ quiz, price, onBought, footer = false }: { quiz: Quiz; price: number; onBought: () => void; footer?: boolean }) {
+  const ru = useLang() === 'ru';
+  return (
+    <BuyButton
+      id={quiz.id}
+      title={ru ? quiz.title : quiz.titleEn ?? quiz.title}
+      stars={price}
+      unlocks={ru ? quiz.title : quiz.titleEn ?? quiz.title}
+      onOpen={onBought}
+      cta={{ ru: 'Начать разбор', en: 'Start the analysis' }}
+      meta={ru ? `${quiz.questions.length} вопросов · ~${quiz.minutes} мин` : `${quiz.questions.length} questions · ~${quiz.minutes} min`}
+      footer={footer}
+    />
+  );
+}
+
+/** Юр. строка покупки — у кнопки или, когда кнопка в подвале, в конце описания */
+export { PurchaseTerms };
 
 /* ── 2. Кнопка оплаты + чек ─────────────────────────────── */
 
@@ -231,6 +249,9 @@ interface BuyButtonProps {
   cta?: { ru: string; en: string };
   /** Строка под кнопкой: сколько вопросов и минут */
   meta?: string;
+  /** В подвале шторки (actions): компактно — строка галочки, кнопка, одна
+      строка под ней. Юр. строка тогда стоит в теле шторки (PurchaseTerms). */
+  footer?: boolean;
 }
 
 /**
@@ -251,7 +272,7 @@ type Phase = 'idle' | 'invoice' | 'confirming';
    стоит в двух местах (разбор и набор), и строка «не диагноз» обязана
    доехать до каждого пути, где берут деньги. Галочка условий — там же и по
    той же причине (Законник п.5: «внутри BuyButton»). */
-export function BuyButton({ id, stars, unlocks, onOpen, cta, meta }: BuyButtonProps) {
+export function BuyButton({ id, stars, unlocks, onOpen, cta, meta, footer = false }: BuyButtonProps) {
   const lang = useLang();
   const ru = lang === 'ru';
   const avail = usePayAvailability();
@@ -398,6 +419,7 @@ export function BuyButton({ id, stars, unlocks, onOpen, cta, meta }: BuyButtonPr
           onTicked={onTicked}
           cta={cta}
           meta={meta}
+          footer={footer}
         />
       ) : (
         <PayUnavailable avail={avail} lang={lang} />
@@ -415,7 +437,7 @@ export function BuyButton({ id, stars, unlocks, onOpen, cta, meta }: BuyButtonPr
           <span>{shown.text}</span>
         </p>
       )}
-      <PurchaseTerms lang={lang} termsVersion={termsVersion} />
+      {!footer && <PurchaseTerms lang={lang} termsVersion={termsVersion} />}
     </>
   );
 }
@@ -427,7 +449,8 @@ export function BuyButton({ id, stars, unlocks, onOpen, cta, meta }: BuyButtonPr
  * прежней) — на этом держится «галочка снята при каждом открытии»; оплата в
  * полёте его не снимает (BuyButton держит его, пока phase ≠ 'idle').
  */
-function ReadyBuy({ id, stars, phase, termsVersion, lang, onBuy, onTicked, cta, meta }: {
+function ReadyBuy({ id, stars, phase, termsVersion, lang, onBuy, onTicked, cta, meta, footer = false }: {
+  footer?: boolean;
   cta?: { ru: string; en: string };
   meta?: string;
   id: string;
@@ -448,6 +471,8 @@ function ReadyBuy({ id, stars, phase, termsVersion, lang, onBuy, onTicked, cta, 
      как у сервера. */
   const [tick, setTick] = useState<{ version: string | null } | null>(null);
   const ticked = tick !== null && tick.version === termsVersion;
+  // Подсказка «отметьте галочку» — после нажатия без неё, а не постоянной строкой
+  const [nudged, setNudged] = useState(false);
   const busy = phase !== 'idle';
 
   const toggle = () => {
@@ -468,11 +493,77 @@ function ReadyBuy({ id, stars, phase, termsVersion, lang, onBuy, onTicked, cta, 
        гасит кнопку: без галочки счёт не запрашивается. */
     if (!ticked) {
       notify('warning');
+      setNudged(true);
       return;
     }
     // ticked ⇒ отметку ставили именно при этой редакции
     void onBuy(termsVersion, () => setTick(null));
   };
+
+  const label = busy ? (
+    <span className="pw-busy">
+      <span className="pw-spinner" aria-hidden />
+      {phase === 'invoice' ? PAY_COPY.opening[lang] : PAY_COPY.pending[lang]}
+    </span>
+  ) : (
+    <span className="pw-buy-label">
+      {cta
+        ? `${cta[lang]} · ${isDemoPay() ? (ru ? 'демо' : 'demo') : `$${starsToUsd(stars)}`}`
+        : isDemoPay()
+          ? (ru ? 'Открыть — демо без оплаты' : 'Open — demo, no charge')
+          : (ru ? `Оплатить $${starsToUsd(stars)}` : `Pay $${starsToUsd(stars)}`)}
+      <span className="pw-buy-usd">
+        <Icon name="star" size={12} strokeWidth={2} fill="current" />
+        {stars}
+      </span>
+    </span>
+  );
+
+  /* Подвал шторки (Роч 16.10: «синий блок занял пол-экрана, внизу дыра»):
+     три строки вместо семи — галочка со ссылкой справа, кнопка, одна строка.
+     Подвал не прокручивается вместе с описанием, поэтому под ним ничего
+     не вылезает. */
+  if (footer) {
+    return (
+      <div className="pw-foot">
+        <div className="pw-foot-terms" data-pay-terms>
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={ticked}
+            aria-disabled={busy || undefined}
+            aria-label={tickText(lang, gender)}
+            className={`pw-tick${ticked ? ' on' : ''}${nudged && !ticked ? ' nudge' : ''}`}
+            onClick={() => { setNudged(false); toggle(); }}
+            data-pay-tick
+          >
+            <span className="pw-tick-box" aria-hidden>{ticked && <Icon name="check" size={13} strokeWidth={2.8} />}</span>
+            <span className="pw-tick-text">{ru ? `${gg('Прочитала', 'Прочитал', gender)} условия, ${gg('согласна', 'согласен', gender)}, мне 18+` : 'I’ve read and agree to the terms, I’m 18+'}</span>
+          </button>
+          <LegalLink doc="terms" version={termsVersion}>{ru ? 'Условия' : 'Terms'}</LegalLink>
+        </div>
+        <button
+          className="btn btn-amber btn-block"
+          onClick={press}
+          disabled={busy}
+          aria-disabled={ticked ? undefined : true}
+          aria-describedby={ticked ? undefined : hintId}
+          data-pay={id}
+        >
+          {label}
+        </button>
+        <p className={`pw-foot-meta${nudged && !ticked ? ' warn' : ''}`} id={hintId} aria-live="polite">
+          {nudged && !ticked
+            ? PAY_COPY.tickFirst[lang]
+            : <>
+                {meta}{isDemoPay() ? (ru ? ' · демо' : ' · demo') : ''}
+                {' · '}
+                <button type="button" className="pw-foot-link" onClick={() => openStarsInfo(lang, stars)}>{ru ? 'что такое Stars' : 'what are Stars'}</button>
+              </>}
+        </p>
+      </div>
+    );
+  }
 
   return (
     /* Док внизу шторки (Роч 15.10: «где кнопка запуска разбора?»): кнопка

@@ -2,9 +2,11 @@ import { useEffect } from 'react';
 import { openSheet, closeSheet, toast } from '../lib/ui';
 import { Icon } from '../components/Icon';
 import { QuizRunner } from '../components/QuizRunner';
-import { Paywall, BuyButton, QuizIntro, BUNDLE_OWNED } from '../components/Paywall';
+import { Paywall, PaywallBuy, PurchaseTerms, BuyButton, QuizIntro, BUNDLE_OWNED } from '../components/Paywall';
 import { ChaptersCard, ChapterOffer } from '../components/PassportChapters';
 import { openStarsInfo } from '../components/StarsInfo';
+import { useMe } from '../lib/api';
+import { legalVersion } from '../lib/api/me';
 import { PriceDrop } from '../components/PriceDrop';
 import { RewardsCard } from '../components/RewardsCard';
 import { usePassport, chapterOpen } from '../lib/passportChapters';
@@ -24,6 +26,7 @@ import { NOT_A_DIAGNOSIS } from '../components/LegalFooter';
 export function AnzhScreen({ onBook }: { onBook: (id: string) => void }) {
   const lang = useLang();
   const ru = lang === 'ru';
+  const { me } = useMe();
   /* Купленное — ТОЛЬКО с сервера (GET /me/purchases): доступ к платному
      разбору не выдаёт ни колбэк окна оплаты, ни память устройства. */
   const purchases = usePurchases();
@@ -112,8 +115,11 @@ export function AnzhScreen({ onBook }: { onBook: (id: string) => void }) {
           onOpenBundle={() => { closeSheet(); setTimeout(showBundle, 220); }}
           ownsBundle={ownsBundle}
           chapter={<ChapterOffer pass={pass} quizId={quiz.id} ru={ru} onOpened={() => { closeSheet(); setTimeout(() => runQuiz(quiz), 220); }} />}
+          buyInFooter
         />
       ),
+      // Кнопка запуска — в неподвижном подвале: всегда видна и ничего не прячет
+      actions: <PaywallBuy quiz={quiz} price={quiz.stars} onBought={() => runQuiz(quiz)} footer />,
     });
 
   const showResult = (quiz: Quiz) => {
@@ -181,6 +187,7 @@ export function AnzhScreen({ onBook }: { onBook: (id: string) => void }) {
               </div>
             </>
           )}
+          {!hasBundle && !ownsBundle && <PurchaseTerms lang={lang} termsVersion={legalVersion(me, 'terms')} />}
         </>
       ),
       actions: hasBundle ? (
@@ -204,6 +211,7 @@ export function AnzhScreen({ onBook }: { onBook: (id: string) => void }) {
           onOpen={() => runQuiz(PAID_QUIZZES[0])}
           cta={{ ru: 'Открыть все 6 разборов', en: 'Unlock all 6 analyses' }}
           meta={ru ? 'Доступ навсегда · начнём с типа кожи' : 'Lifetime access · we start with skin type'}
+          footer
         />
       ),
     });

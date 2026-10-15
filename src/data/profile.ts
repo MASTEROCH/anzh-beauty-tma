@@ -18,8 +18,8 @@ export const PROFILE_TEXTS_SHOWN = true;
 
 export const profile = {
   name: 'Anjelika',
-  role: 'Cosmetologist · Батуми',
-  bio: 'Медицинское образование, косметолог. Студия в Батуми: инъекционные и аппаратные процедуры, обучение.',
+  role: 'Врач-косметолог · Батуми',
+  bio: 'Высшее медицинское образование, врач-косметолог. Студия в Батуми: инъекционные и аппаратные процедуры, обучение.',
 } as const;
 
 /* О ВРАЧЕ — блок на профиле.
@@ -69,7 +69,7 @@ export const about = {
      перечисление регалий. */
   facts: [
     { ru: 'Практика',    en: 'Practice',      v: { ru: 'Батуми, собственная студия', en: 'Batumi, own studio' } },
-    { ru: 'Образование', en: 'Education',     v: { ru: 'ХНМУ (Харьков), медицинское образование, 2020', en: 'Kharkiv National Medical University, medical degree, 2020' } },
+    { ru: 'Образование', en: 'Education',     v: { ru: 'ХНМУ (Харьков), высшее медицинское образование, 2020', en: 'Kharkiv National Medical University, higher medical education (MD), 2020' } },
     { ru: 'Косметология', en: 'Cosmetology',  v: { ru: 'Школа косметологов, 2018; дерматокосметология — курс по выбору в университете', en: 'Cosmetology school, 2018; dermatocosmetology elective at university' } },
     { ru: 'Учится',      en: 'Keeps learning', v: { ru: 'Больше 50 сертификатов, кадавер-курсы', en: '50+ certificates, cadaver courses' } },
     { ru: 'Ведёт',       en: 'Focus',         v: { ru: 'инъекционные и аппаратные процедуры, обучение специалистов', en: 'injectables, device treatments, training for practitioners' } },

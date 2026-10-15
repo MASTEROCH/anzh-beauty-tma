@@ -21,7 +21,7 @@ import { PROFILE_TEXTS_SHOWN } from '../data/profile';
 /* Regalia in the master sheet — T2 ed. 2 §2.5, the lawyer's wording "before documents";
    shown only under PROFILE_TEXTS_SHOWN (her "yes", data/profile.ts). No brands. */
 const MASTER_REGALIA: ReadonlyArray<{ ru: string; en: string }> = [
-  { ru: 'ХНМУ (Харьков), медицинское образование, 2020', en: 'Kharkiv National Medical University, medical degree, 2020' },
+  { ru: 'ХНМУ (Харьков), высшее медицинское образование, 2020', en: 'Kharkiv National Medical University, higher medical education (MD), 2020' },
   { ru: 'Школа косметологов, 2018', en: 'Cosmetology school, 2018' },
   { ru: 'Больше 50 сертификатов конгрессов и семинаров, кадавер-курсы', en: '50+ certificates from congresses and seminars, cadaver courses' },
 ];
@@ -114,7 +114,7 @@ export function ServiceScreen({
   const showMaster = () =>
     openSheet({
       title: 'Анжелика',
-      subtitle: ru ? 'Косметолог · Батуми' : 'Cosmetologist · Batumi',
+      subtitle: ru ? 'Врач-косметолог · Батуми' : 'Medical cosmetologist · Batumi',
       body: (
         <>
           <LiveAnjelika
@@ -336,8 +336,8 @@ export function ServiceScreen({
                 }}
               />
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600 }}>{tr('Анжелика · косметолог', 'Anjelika · cosmetologist')}</div>
-                <div className="faint" style={{ fontSize: 13 }}>{ru ? 'Косметолог · Батуми' : 'Cosmetologist · Batumi'}</div>
+                <div style={{ fontWeight: 600 }}>{tr('Анжелика · врач-косметолог', 'Anjelika · medical cosmetologist')}</div>
+                <div className="faint" style={{ fontSize: 13 }}>{ru ? 'Врач-косметолог · Батуми' : 'Medical cosmetologist · Batumi'}</div>
               </div>
               <span style={{ color: 'var(--tl)', fontSize: 18 }}>›</span>
             </div>

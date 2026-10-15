@@ -73,11 +73,11 @@ const DICT: Record<string, Entry> = {
   'common.map':         { ru: 'Маршрут в Maps', en: 'Directions in Maps' },
   'common.save':        { ru: 'Сохранить', en: 'Save' },
   // profile
-  'profile.role':       { ru: 'Косметолог · Батуми', en: 'Cosmetologist · Batumi' },
+  'profile.role':       { ru: 'Врач-косметолог · Батуми', en: 'Medical cosmetologist · Batumi' },
   // profile.bio, trust.* — T2 ed. 2 §2.6, §2.4; shown under PROFILE_TEXTS_SHOWN (data/profile.ts)
   'profile.bio':        {
-    ru: 'Медицинское образование, косметолог. Студия в Батуми: инъекционные и аппаратные процедуры, обучение.',
-    en: 'Medical degree, cosmetologist. A studio in Batumi: injectable and device treatments, and training.',
+    ru: 'Высшее медицинское образование, врач-косметолог. Студия в Батуми: инъекционные и аппаратные процедуры, обучение.',
+    en: 'Higher medical education (MD), medical cosmetologist. A studio in Batumi: injectable and device treatments, and training.',
   },
   // Work photos block (K11a): heading — decision John 06.10 (true even if part of the work is
   // from the specialists' earlier portfolio); the rest — Katya's K11 texts, checked by the lawyer.
@@ -137,7 +137,7 @@ const DICT: Record<string, Entry> = {
   'profile.addr.title':      { ru: 'Где найти', en: 'Find us' },
   'profile.publicNote':      { ru: 'Это публичный профиль Анжелики', en: "This is Anjelika's public profile" },
   // trust — the lawyer's wording "before documents" (T2 ed. 2 §2.4)
-  'trust.certified':   { ru: '✓ Высшее медицинское образование', en: '✓ Medical degree' },
+  'trust.certified':   { ru: '✓ Высшее медицинское образование', en: '✓ Higher medical education (MD)' },
   'trust.certs':       { ru: '✓ Больше 50 сертификатов конгрессов и семинаров', en: '✓ 50+ certificates from congresses and seminars' },
   'trust.cadaver':     { ru: '✓ Кадавер-курсы', en: '✓ Cadaver courses' },
   // catalog
