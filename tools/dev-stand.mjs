@@ -267,20 +267,34 @@ route('PATCH', '/me', async ({ res, person, body }) => {
 });
 
 /* ─── Сотрудник и PIN ─────────────────────────────────────────────────── */
-route('GET', '/staff/me', ({ res, person, tok }) => {
+/* Подтверждение PIN — подписанная cookie, а не только память процесса.
+   На Vercel демо-сервер — несколько копий функции, у каждой своя память:
+   PIN проверяла одна, следующий запрос попадал в другую и получал 403
+   pin_required — кабинет после PIN «не запускался» (Роч 16.10). Cookie
+   HttpOnly на /api, подпись привязана к токену: любая копия проверит сама. */
+const PIN_SECRET = process.env.STAND_SECRET || 'anzh-demo-stand-pin';
+const pinSig = (tok) => crypto.createHmac('sha256', PIN_SECRET).update(String(tok)).digest('base64url');
+const cookieOf = (req, name) => {
+  const m = new RegExp(`(?:^|;\\s*)${name}=([^;]+)`).exec(String(req.headers.cookie ?? ''));
+  return m ? decodeURIComponent(m[1]) : null;
+};
+const pinOk = (ctx) => !!ctx.tok && (db.confirmed.has(ctx.tok) || cookieOf(ctx.req, 'anzh_pin') === pinSig(ctx.tok));
+
+route('GET', '/staff/me', ({ req, res, person, tok }) => {
   if (!person) return err(res, 401, 'no_session');
   if (!isStaff(person)) return err(res, 403, 'forbidden');
   send(res, 200, { staff: {
     ...memberOut(db.team.find((t) => t.telegram_id === person.telegram_id) ?? { telegram_id: person.telegram_id, name: person.name, title: person.title, role: person.role }),
     pin_set: person.telegram_id in db.pins || true,
     must_change_pin: db.mustChange.has(person.telegram_id),
-    pin_confirmed: db.confirmed.has(tok),
+    pin_confirmed: pinOk({ req, tok }),
   } });
 });
 route('POST', '/staff/pin', ({ res, person, tok, body }) => {
   if (!isStaff(person)) return err(res, 403, 'forbidden');
   if (String(body.pin) !== (db.pins[person.telegram_id] ?? PIN)) return err(res, 403, 'bad_pin', 'Неверный код');
   db.confirmed.add(tok);
+  res.setHeader('Set-Cookie', `anzh_pin=${encodeURIComponent(pinSig(tok))}; Path=/api; HttpOnly; SameSite=Lax; Max-Age=28800${process.env.VERCEL ? '; Secure' : ''}`);
   send(res, 200, { confirmed: true });
 });
 route('POST', '/staff/pin/set', ({ res, person, body }) => {
@@ -294,7 +308,7 @@ route('POST', '/staff/pin/set', ({ res, person, body }) => {
 /* Всё ниже — только с подтверждённым PIN, как в настоящем API */
 const needPin = (ctx) => {
   if (!isStaff(ctx.person)) { err(ctx.res, 403, 'forbidden'); return false; }
-  if (!db.confirmed.has(ctx.tok)) { err(ctx.res, 403, 'pin_required'); return false; }
+  if (!pinOk(ctx)) { err(ctx.res, 403, 'pin_required'); return false; }
   return true;
 };
 
