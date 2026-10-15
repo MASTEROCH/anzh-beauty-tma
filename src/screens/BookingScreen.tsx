@@ -7,6 +7,7 @@ import { useRate } from '../lib/rates';
 import { isOnShowcase } from '../lib/showable';
 import { openSheet, toast } from '../lib/ui';
 import { Icon } from '../components/Icon';
+import { LiveAnzhelika } from '../components/LiveAvatar';
 import { PingPong } from '../components/PingPong';
 import { SwipeRow } from '../components/SwipeRow';
 import { useLang, t } from '../lib/i18n';
@@ -370,8 +371,7 @@ export function BookingScreen({
       subtitle: ru ? 'Косметолог · Батуми' : 'Cosmetologist · Batumi',
       body: (
         <>
-          <img
-            src="/photos/anjelika.webp"
+          <LiveAnzhelika
             alt=""
             style={{ width: 96, height: 96, borderRadius: '50%', objectFit: 'cover', margin: '0 auto 14px', display: 'block', border: '2px solid var(--border-strong)' }}
           />

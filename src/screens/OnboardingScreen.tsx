@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon, type IconName } from '../components/Icon';
+import { LiveAnzhelika } from '../components/LiveAvatar';
 import { getTgUser } from '../lib/telegram';
 import { setGender, useGender, type Gender, g as gg } from '../lib/gender';
 import { useLang, type Lang } from '../lib/i18n';
@@ -282,7 +283,7 @@ function WelcomeSlide({ firstName, lang, onLang }: { firstName?: string; lang: L
       <div className="onb-welcome">
         <div className="onb-avatar-wrap">
           <span className="onb-avatar-glow" aria-hidden />
-          <img src="/photos/anjelika.webp" alt="Anjelika" className="onb-avatar" />
+          <LiveAnzhelika className="onb-avatar" />
           <span className="onb-avatar-badge">
             <Icon name="check" size={14} strokeWidth={2.4} />
           </span>

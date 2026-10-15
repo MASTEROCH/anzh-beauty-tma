@@ -8529,3 +8529,7 @@ body[data-sheet-open] .lang-hud { display: none; }
 .onb-lang { width: 100%; max-width: 340px; margin: 22px auto 0; display: grid; gap: 8px; }
 .onb-lang-label { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-hint); text-align: center; }
 .onb-lang .seg-btn { min-height: 44px; }
+
+/* Живое фото в онбординге: Safari иногда рисует <video> поверх border-radius
+   квадратом — круг держим ещё и clip-path. Фон на время до первого кадра. */
+video.live-avatar { display: block; clip-path: circle(50% at 50% 50%); background: #9b9497; }

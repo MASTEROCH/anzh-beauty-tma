@@ -9,6 +9,7 @@ import { telegramUrl } from '../data/location';
 import { openTelegram } from '../lib/telegram';
 import { durationLabel } from '../lib/plural';
 import { openSheet, openLightbox, toast } from '../lib/ui';
+import { LiveAnzhelika } from '../components/LiveAvatar';
 import { Icon } from '../components/Icon';
 import { WorkImg, masterLine, openProcedurePhoto, openWorkPhoto, procedureCaption, workAlt } from '../components/Gallery';
 import { useLang, t } from '../lib/i18n';
@@ -116,8 +117,7 @@ export function ServiceScreen({
       subtitle: ru ? 'Косметолог · Батуми' : 'Cosmetologist · Batumi',
       body: (
         <>
-          <img
-            src="/photos/anjelika.webp"
+          <LiveAnzhelika
             alt="Anjelika"
             style={{
               width: 96,
