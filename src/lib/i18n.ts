@@ -14,7 +14,8 @@ function fromTelegram(): Lang | null {
     Telegram?: { WebApp?: { initDataUnsafe?: { user?: { language_code?: string } } } };
   }).Telegram?.WebApp?.initDataUnsafe?.user?.language_code;
   if (!code) return null;
-  return code.startsWith('ru') ? 'ru' : 'en';
+  // Славянские и постсоветские Telegram читают по-русски, остальные — по-английски
+  return /^(ru|uk|be|kk|ky)/.test(code) ? 'ru' : 'en';
 }
 /* Хранилище может быть запрещено (приватный режим, политика WebView) —
    тогда getItem бросает, и без try/catch падал бы импорт модуля, а с ним

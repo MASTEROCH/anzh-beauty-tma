@@ -345,21 +345,22 @@ export function App() {
     });
   };
 
-  const handleLang = (l: Lang) => {
+  const handleLang = (l: Lang, quiet = false) => {
     setLang(l);
     setI18nLang(l);
     /* Язык интерфейса = язык уведомлений бота (PATCH /me {language_code}).
        Плавающий переключатель LangHud меняет его так же, как настройки;
        тот же язык повторно запроса не шлёт. */
     void syncNotificationLanguage(l);
-    toast(l === 'ru' ? 'Язык: русский' : 'Language: English', 'success');
+    // На экране знакомства выбор и так виден в переключателе — без всплывающей строки
+    if (!quiet) toast(l === 'ru' ? 'Язык: русский' : 'Language: English', 'success');
   };
 
   if (showOnboarding) {
     return (
       <div className="app">
         <div className="app-orbs" aria-hidden />
-        <OnboardingScreen onComplete={finishOnboarding} onSkip={skipOnboarding} />
+        <OnboardingScreen onComplete={finishOnboarding} onSkip={skipOnboarding} onLang={(l) => handleLang(l, true)} />
         <OfflineBar />
         <ToastHost />
       </div>

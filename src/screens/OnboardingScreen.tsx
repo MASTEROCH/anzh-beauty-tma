@@ -64,16 +64,20 @@ export interface OnboardingResult {
 interface Props {
   onComplete: (data: OnboardingResult) => void;
   onSkip: () => void;
+  /** Выбор языка на первом шаге: App меняет язык всего приложения */
+  onLang: (l: Lang) => void;
 }
 
 /** `ai` — the line promises the assistant: shown only while AI_ASSISTANT is on (lib/features.ts). */
-type Benefit = { icon: IconName; title: string; sub: string; accent: 'gold' | 'emerald'; ai?: true };
+type Benefit = { icon: IconName; title: string; sub: string; titleEn: string; subEn: string; accent: 'gold' | 'emerald'; ai?: true };
 
 const BENEFITS: Benefit[] = [
   {
     icon: 'calendar',
     title: 'Запись в 1 тап',
     sub: 'Без звонков и переписок. Выбираешь слот — Анжелика подтверждает.',
+    titleEn: 'Book in one tap',
+    subEn: 'No calls or long chats. Pick a slot — Anzhelika confirms it.',
     accent: 'gold',
   },
   /* Здесь стоял пункт про баллы за визит: за визит баллы не начисляются,
@@ -90,6 +94,8 @@ const BENEFITS: Benefit[] = [
     icon: 'clock',
     title: 'Сообщения о записях',
     sub: 'Нажми Start у бота — тогда он сможет писать тебе о записях.',
+    titleEn: 'Booking messages',
+    subEn: 'Press Start in the bot so it can message you about your bookings.',
     accent: 'emerald',
   },
   /* ИИ не проверяет противопоказания и не должен так называться (разбор
@@ -98,6 +104,8 @@ const BENEFITS: Benefit[] = [
     icon: 'message',
     title: 'AI-консультант 24/7',
     sub: 'Подскажет по процедурам и ценам; противопоказания проверяет Анжелика.',
+    titleEn: 'AI assistant 24/7',
+    subEn: 'Answers about treatments and prices; Anzhelika checks contraindications.',
     accent: 'gold',
     ai: true,
   },
@@ -109,13 +117,15 @@ const BENEFITS: Benefit[] = [
     icon: 'shield-check',
     title: 'Паспорт кожи',
     sub: 'Анкета с аллергиями и противопоказаниями. Хранится, пока ты пользуешься приложением; удалить можно в разделе «Паспорт».',
+    titleEn: 'Skin passport',
+    subEn: 'A questionnaire with allergies and contraindications. Kept while you use the app; delete it any time in “Passport”.',
     accent: 'emerald',
   },
 ];
 
 const STEP_COUNT = 5;
 
-export function OnboardingScreen({ onComplete, onSkip }: Props) {
+export function OnboardingScreen({ onComplete, onSkip, onLang }: Props) {
   const tg = getTgUser();
   const [step, setStep] = useState(0);
   const [name, setName] = useState(tg?.firstName ?? '');
@@ -129,6 +139,7 @@ export function OnboardingScreen({ onComplete, onSkip }: Props) {
      говорит прямо — строкой над галочкой (Хейтер №5, вариант «б»). */
   const [agree, setAgree] = useState(false);
   const lang = useLang();
+  const ru = lang === 'ru';
   const { me } = useMe();
   /* Редакция, которую человек видит: названная сервером, а до входа — та,
      что лежит в этой сборке (public/legal/privacy.html). Её же несёт
@@ -184,26 +195,26 @@ export function OnboardingScreen({ onComplete, onSkip }: Props) {
       <div className="onb-orbs" aria-hidden />
       <header className="onb-header">
         {step > 0 ? (
-          <button className="header-back" onClick={prev} aria-label="Назад">
+          <button className="header-back" onClick={prev} aria-label={ru ? 'Назад' : 'Back'}>
             <Icon name="chevron-left" size={20} strokeWidth={2.2} />
           </button>
         ) : (
           <img src="/brand/anzh-logo.svg" alt="ANZH" style={{ height: 22 }} />
         )}
-        <div className="onb-dots" aria-label={`Шаг ${step + 1} из ${STEP_COUNT}`}>
+        <div className="onb-dots" aria-label={ru ? `Шаг ${step + 1} из ${STEP_COUNT}` : `Step ${step + 1} of ${STEP_COUNT}`}>
           {Array.from({ length: STEP_COUNT }, (_, i) => (
             <span key={i} className={`onb-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} />
           ))}
         </div>
         {step < STEP_COUNT - 1 ? (
-          <button className="onb-skip" onClick={onSkip}>Пропустить</button>
+          <button className="onb-skip" onClick={onSkip}>{ru ? 'Пропустить' : 'Skip'}</button>
         ) : (
           <div style={{ width: 36 }} />
         )}
       </header>
 
       <div className="onb-body" ref={bodyRef}>
-        {step === 0 && <WelcomeSlide firstName={tg?.firstName} />}
+        {step === 0 && <WelcomeSlide firstName={tg?.firstName} lang={lang} onLang={onLang} />}
         {step === 1 && (
           <IdentitySlide
             name={name}
@@ -211,10 +222,11 @@ export function OnboardingScreen({ onComplete, onSkip }: Props) {
             gender={gender}
             setGender={setGenderLocal}
             tgHandle={tg?.username}
+            ru={ru}
           />
         )}
-        {step === 2 && <BenefitsSlide />}
-        {step === 3 && <HowItWorksSlide gender={gender ?? 'f'} />}
+        {step === 2 && <BenefitsSlide ru={ru} />}
+        {step === 3 && <HowItWorksSlide gender={gender ?? 'f'} ru={ru} />}
         {step === 4 && (
           <SignupSlide
             name={name}
@@ -238,11 +250,10 @@ export function OnboardingScreen({ onComplete, onSkip }: Props) {
           onClick={step === STEP_COUNT - 1 ? () => { void submit(); } : next}
           disabled={!canContinue || submitting}
         >
-          {step === 0 && 'Знакомимся →'}
-          {step === 1 && 'Дальше →'}
-          {step === 2 && 'Дальше →'}
-          {step === 3 && 'Создать кабинет →'}
-          {step === 4 && (submitting ? 'Создаю…' : 'Создать кабинет')}
+          {step === 0 && (ru ? 'Знакомимся →' : 'Let’s start →')}
+          {(step === 1 || step === 2) && (ru ? 'Дальше →' : 'Next →')}
+          {step === 3 && (ru ? 'Создать кабинет →' : 'Create my account →')}
+          {step === 4 && (submitting ? (ru ? 'Создаю…' : 'Creating…') : (ru ? 'Создать кабинет' : 'Create my account'))}
         </button>
         {step === 4 && (
           <p className="onb-fine">
@@ -264,7 +275,8 @@ export function OnboardingScreen({ onComplete, onSkip }: Props) {
 }
 
 /* ─── Шаг 0 · Приветствие ──────────────────────────────────── */
-function WelcomeSlide({ firstName }: { firstName?: string }) {
+function WelcomeSlide({ firstName, lang, onLang }: { firstName?: string; lang: Lang; onLang: (l: Lang) => void }) {
+  const ru = lang === 'ru';
   return (
     <div className="onb-slide">
       <div className="onb-welcome">
@@ -277,25 +289,49 @@ function WelcomeSlide({ firstName }: { firstName?: string }) {
         </div>
         <div className="onb-eyebrow">ANZH · cosmetology</div>
         <h1 className="onb-title">
-          {firstName ? <>{firstName}, привет —<br />я <span className="onb-name-accent">Анжелика</span></> : <>Привет, я <span className="onb-name-accent">Анжелика</span></>}
+          {ru
+            ? (firstName ? <>{firstName}, привет —<br />я <span className="onb-name-accent">Анжелика</span></> : <>Привет, я <span className="onb-name-accent">Анжелика</span></>)
+            : (firstName ? <>Hi {firstName} —<br />I’m <span className="onb-name-accent">Anzhelika</span></> : <>Hi, I’m <span className="onb-name-accent">Anzhelika</span></>)}
         </h1>
         {/* Здесь стояли стаж, число процедур, рейтинг и число отзывов —
             цифры-заготовки, не подтверждённые Анжеликой. Решение
             владельца: выдуманное убирать, а не прятать. */}
         <p className="onb-lead">
-          Косметолог в Батуми
+          {ru ? 'Косметолог в Батуми' : 'Cosmetologist in Batumi'}
         </p>
         <p className="onb-text">
-          {AI_ASSISTANT
-            ? 'Это твой цифровой кабинет: запись, паспорт кожи и личный AI-ассистент.'
-            : 'Это твой цифровой кабинет: запись ко мне и паспорт кожи.'}{' '}
-          Я провожу тебя за минуту.
+          {ru
+            ? <>{AI_ASSISTANT ? 'Это твой цифровой кабинет: запись, паспорт кожи и личный AI-ассистент.' : 'Это твой цифровой кабинет: запись ко мне и паспорт кожи.'} Я провожу тебя за минуту.</>
+            : <>{AI_ASSISTANT ? 'Your personal space: booking, skin passport and an AI assistant.' : 'Your personal space: booking with me and your skin passport.'} I’ll show you around in a minute.</>}
         </p>
         <div className="onb-meta-row">
           <span className="onb-meta-chip">
             <Icon name="pin" size={12} strokeWidth={1.8} />
             Parnavaz Mepe 92/94
           </span>
+        </div>
+
+        {/* Язык — первым же выбором (Роч 15.10): у Анжелики много англоязычных
+            пациентов — турки, грузины, арабы, израильтяне, американцы; кто не
+            читает по-русски, обычно читает по-английски. По умолчанию — язык
+            Telegram (lib/i18n.ts). Остальные языки добавим позже. */}
+        <div className="onb-lang" role="radiogroup" aria-label="Язык · Language">
+          <span className="onb-lang-label">Язык · Language</span>
+          <div className="seg">
+            {([['ru', 'Русский'], ['en', 'English']] as Array<[Lang, string]>).map(([l, label]) => (
+              <button
+                key={l}
+                role="radio"
+                aria-checked={lang === l}
+                className={`seg-btn ${lang === l ? 'active' : ''}`}
+                onClick={() => { if (lang !== l) onLang(l); }}
+                lang={l}
+              >
+                <span>{label}</span>
+                {lang === l && <Icon name="check" size={14} strokeWidth={2.6} className="seg-check" />}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -304,20 +340,21 @@ function WelcomeSlide({ firstName }: { firstName?: string }) {
 
 /* ─── Шаг 1 · Знакомство: имя + обращение ──────────────────── */
 function IdentitySlide({
-  name, setName, gender, setGender, tgHandle,
+  name, setName, gender, setGender, tgHandle, ru,
 }: {
   name: string; setName: (v: string) => void;
   gender: Gender | null; setGender: (g: Gender) => void;
   tgHandle?: string;
+  ru: boolean;
 }) {
   return (
     <div className="onb-slide">
-      <div className="onb-eyebrow">знакомство</div>
-      <h2 className="onb-title onb-title-sm">Давай познакомимся</h2>
+      <div className="onb-eyebrow">{ru ? 'знакомство' : 'about you'}</div>
+      <h2 className="onb-title onb-title-sm">{ru ? 'Давай познакомимся' : 'Let’s get acquainted'}</h2>
       <p className="onb-text onb-text-sm">
         {tgHandle
-          ? 'Имя забрала из Telegram — поправь, если зовут иначе.'
-          : 'Скажи, как тебя зовут и как к тебе обращаться.'}
+          ? (ru ? 'Имя забрала из Telegram — поправь, если зовут иначе.' : 'I took your name from Telegram — fix it if it’s different.')
+          : (ru ? 'Скажи, как тебя зовут и как к тебе обращаться.' : 'Tell me your name and how to address you.')}
       </p>
 
       {tgHandle && (
@@ -330,11 +367,11 @@ function IdentitySlide({
 
       <div className="onb-form">
         <label className="onb-field">
-          <span className="onb-label">имя</span>
+          <span className="onb-label">{ru ? 'имя' : 'name'}</span>
           <input
             className="onb-input"
             type="text"
-            placeholder="Как тебя зовут"
+            placeholder={ru ? 'Как тебя зовут' : 'Your name'}
             value={name}
             onChange={(e) => setName(e.target.value)}
             autoComplete="given-name"
@@ -342,14 +379,14 @@ function IdentitySlide({
         </label>
 
         <div className="onb-field">
-          <span className="onb-label">пол</span>
+          <span className="onb-label">{ru ? 'пол' : 'gender'}</span>
           <div className="seg">
             <button
               className={`seg-btn ${gender === 'f' ? 'active' : ''}`}
               onClick={() => setGender('f')}
               aria-pressed={gender === 'f'}
             >
-              <span>Женский</span>
+              <span>{ru ? 'Женский' : 'Female'}</span>
               {gender === 'f' && <Icon name="check" size={14} strokeWidth={2.6} className="seg-check" />}
             </button>
             <button
@@ -357,14 +394,16 @@ function IdentitySlide({
               onClick={() => setGender('m')}
               aria-pressed={gender === 'm'}
             >
-              <span>Мужской</span>
+              <span>{ru ? 'Мужской' : 'Male'}</span>
               {gender === 'm' && <Icon name="check" size={14} strokeWidth={2.6} className="seg-check" />}
             </button>
           </div>
           <span className="onb-hint">
-            {gender
-              ? `Буду писать «ты ${gg('записана', 'записан', gender)}» — и подберу протоколы под тебя.`
-              : 'Нужен, чтобы правильно обращаться и подбирать протоколы.'}
+            {ru
+              ? (gender
+                ? `Буду писать «ты ${gg('записана', 'записан', gender)}» — и подберу протоколы под тебя.`
+                : 'Нужен, чтобы правильно обращаться и подбирать протоколы.')
+              : 'Helps me address you correctly and pick the right protocols.'}
           </span>
         </div>
       </div>
@@ -373,14 +412,14 @@ function IdentitySlide({
 }
 
 /* ─── Шаг 2 · Что внутри ───────────────────────────────────── */
-function BenefitsSlide() {
+function BenefitsSlide({ ru }: { ru: boolean }) {
   return (
     <div className="onb-slide">
-      <div className="onb-eyebrow">что внутри</div>
-      <h2 className="onb-title onb-title-sm">Зачем тебе кабинет</h2>
+      <div className="onb-eyebrow">{ru ? 'что внутри' : 'what’s inside'}</div>
+      <h2 className="onb-title onb-title-sm">{ru ? 'Зачем тебе кабинет' : 'Why you’ll like it'}</h2>
       <p className="onb-text onb-text-sm">
         {/* No count in the text (K13, F1): the list below is filtered by AI_ASSISTANT */}
-        Вот что ты получаешь сразу.
+        {ru ? 'Вот что ты получаешь сразу.' : 'Here’s what you get right away.'}
       </p>
       <ul className="onb-benefits">
         {BENEFITS.filter((b) => AI_ASSISTANT || !b.ai).map((b) => (
@@ -389,8 +428,8 @@ function BenefitsSlide() {
               <Icon name={b.icon} size={22} strokeWidth={1.7} />
             </div>
             <div className="onb-benefit-body">
-              <div className="onb-benefit-title">{b.title}</div>
-              <div className="onb-benefit-sub">{b.sub}</div>
+              <div className="onb-benefit-title">{ru ? b.title : b.titleEn}</div>
+              <div className="onb-benefit-sub">{ru ? b.sub : b.subEn}</div>
             </div>
           </li>
         ))}
@@ -400,21 +439,25 @@ function BenefitsSlide() {
 }
 
 /* ─── Шаг 3 · Как это работает ─────────────────────────────── */
-function HowItWorksSlide({ gender }: { gender: Gender }) {
-  const steps = [
+function HowItWorksSlide({ gender, ru }: { gender: Gender; ru: boolean }) {
+  const steps = ru ? [
     { num: 1, title: 'Выбери процедуру', sub: 'Каталог с ценами и описанием процедур.' },
     /* «Предложит другое время» и «план ухода после» сервер на запуск не
        делает: статуса «другое время» нет, из уведомлений клиентке уходит
        только напоминание за 24 часа и ответ на заявку. */
     { num: 2, title: 'Тапни удобный слот', sub: 'Заявка уйдёт Анжелике на подтверждение.' },
     { num: 3, title: `Приходи ${gg('готовой', 'готовым', gender)}`, sub: 'Нажми Start у бота — тогда он сможет писать тебе о записях.' },
+  ] : [
+    { num: 1, title: 'Pick a treatment', sub: 'A catalogue with prices and descriptions.' },
+    { num: 2, title: 'Tap a time that suits you', sub: 'Your request goes to Anzhelika to confirm.' },
+    { num: 3, title: 'Come in ready', sub: 'Press Start in the bot so it can message you about your bookings.' },
   ];
   return (
     <div className="onb-slide">
-      <div className="onb-eyebrow">как это работает</div>
-      <h2 className="onb-title onb-title-sm">3 шага — и ты {gg('записана', 'записан', gender)}</h2>
+      <div className="onb-eyebrow">{ru ? 'как это работает' : 'how it works'}</div>
+      <h2 className="onb-title onb-title-sm">{ru ? <>3 шага — и ты {gg('записана', 'записан', gender)}</> : '3 steps to your booking'}</h2>
       <p className="onb-text onb-text-sm">
-        Без звонков и лишних переписок — всё в одном экране.
+        {ru ? 'Без звонков и лишних переписок — всё в одном экране.' : 'No calls, no long chats — everything on one screen.'}
       </p>
       <ol className="onb-steps">
         {steps.map((s) => (
@@ -430,10 +473,10 @@ function HowItWorksSlide({ gender }: { gender: Gender }) {
       <div className="onb-callout">
         <Icon name="info" size={18} strokeWidth={1.8} />
         <span>
-          {AI_ASSISTANT
-            ? 'Можешь не записываться — просто посмотри каталог или спроси AI-ассистента.'
-            : 'Можешь не записываться — просто посмотри каталог с ценами.'}
-          <strong> Доступ в кабинет бесплатный.</strong>
+          {ru
+            ? (AI_ASSISTANT ? 'Можешь не записываться — просто посмотри каталог или спроси AI-ассистента.' : 'Можешь не записываться — просто посмотри каталог с ценами.')
+            : (AI_ASSISTANT ? 'No need to book — just browse the catalogue or ask the AI assistant.' : 'No need to book — just browse the catalogue with prices.')}
+          <strong>{ru ? ' Доступ в кабинет бесплатный.' : ' The app is free.'}</strong>
         </span>
       </div>
     </div>
@@ -458,10 +501,12 @@ function SignupSlide({
   const ru = lang === 'ru';
   return (
     <div className="onb-slide">
-      <div className="onb-eyebrow">последний шаг</div>
-      <h2 className="onb-title onb-title-sm">{name ? `${name}, где тебя найти` : 'Где тебя найти'}</h2>
+      <div className="onb-eyebrow">{ru ? 'последний шаг' : 'last step'}</div>
+      <h2 className="onb-title onb-title-sm">{ru ? (name ? `${name}, где тебя найти` : 'Где тебя найти') : (name ? `${name}, how can we reach you` : 'How can we reach you')}</h2>
       <p className="onb-text onb-text-sm">
-        Анжелика ведёт клиентов по инстаграму — так она узнает, что это ты, и подтянет твою историю процедур.
+        {ru
+          ? 'Анжелика ведёт клиентов по инстаграму — так она узнает, что это ты, и подтянет твою историю процедур.'
+          : 'Anzhelika keeps in touch with clients on Instagram — this way she’ll know it’s you and see your treatment history.'}
       </p>
 
       {/* Здесь был блок стартового бонуса баллами: баллы на запуск скрыты. */}
@@ -469,7 +514,7 @@ function SignupSlide({
       <div className="onb-form">
         <label className="onb-field">
           <span className="onb-label">
-            инстаграм <span className="faint">· чтобы Анжелика тебя узнала</span>
+            {ru ? 'инстаграм' : 'instagram'} <span className="faint">{ru ? '· чтобы Анжелика тебя узнала' : '· so she knows it’s you'}</span>
           </span>
           <input
             className="onb-input"
@@ -484,7 +529,7 @@ function SignupSlide({
         </label>
         <label className="onb-field">
           <span className="onb-label">
-            телефон <span className="faint">· опционально</span>
+            {ru ? 'телефон' : 'phone'} <span className="faint">{ru ? '· опционально' : '· optional'}</span>
           </span>
           <input
             className="onb-input"
@@ -494,7 +539,7 @@ function SignupSlide({
             onChange={(e) => setPhone(e.target.value)}
             autoComplete="tel"
           />
-          <span className="onb-hint">Нужен, только если потеряется Telegram</span>
+          <span className="onb-hint">{ru ? 'Нужен, только если потеряется Telegram' : 'Only in case we lose you on Telegram'}</span>
         </label>
 
         {/* Согласие только с политикой — для обычных данных: имя, Telegram,

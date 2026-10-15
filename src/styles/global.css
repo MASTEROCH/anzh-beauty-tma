@@ -8524,3 +8524,8 @@ body[data-sheet-open] .lang-hud { display: none; }
 .cc-quiz-dl > div { display: grid; grid-template-columns: 128px 1fr; gap: 10px; font-size: 14px; }
 .cc-quiz-dl dt { color: var(--text-secondary); }
 .cc-quiz-dl dd { margin: 0; color: var(--text-primary); }
+
+/* Онбординг: выбор языка на первом шаге */
+.onb-lang { width: 100%; max-width: 340px; margin: 22px auto 0; display: grid; gap: 8px; }
+.onb-lang-label { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-hint); text-align: center; }
+.onb-lang .seg-btn { min-height: 44px; }
