@@ -105,6 +105,9 @@ export function AccountScreen({
   const gender = useGender();
   const quizResults = useQuizResults();
   const userName = client.name;
+  /* Первая буква имени для монограммы. Вне Telegram имени нет — и пустая
+     строка здесь рисовала пустой квадрат вместо лица. */
+  const initial = userName.trim().slice(0, 1).toUpperCase();
 
   // Список — только мои записи с сервера (GET /bookings): поиск «своих» по
   // имени или инстаграму на телефоне показывал человеку чужую историю.
@@ -124,7 +127,12 @@ export function AccountScreen({
     openSheet({
       title: t('settings.title', lang),
       subtitle: 'ANZH Cosmetology',
-      body: <SettingsSheet lang={lang} onLang={onLang} onStudio={openStudioGate} />,
+      /* Вход в кабинет — только сотрудникам. Клиентка видела строку
+         «Кабинет мастера», нажимала, и пускало её ровно в отказ «вы не
+         сотрудник»: кнопка, которая заведомо ведёт в тупик. Роль приходит
+         от сервера (`GET /me`), а не из токена, поэтому гость и клиентка её
+         не увидят, а сотрудница — увидит сразу после входа. */
+      body: <SettingsSheet lang={lang} onLang={onLang} onStudio={me?.role === 'owner' || me?.role === 'staff' ? openStudioGate : undefined} />,
     });
 
   const openStudioGate = () =>
@@ -526,14 +534,25 @@ export function AccountScreen({
             {ru ? 'правка' : 'edit'}
           </button>
         </div>
+        {/* Первая буква имени; вне Telegram её нет — тогда значок */}
         <button onClick={showHealth} className="patient-card">
+          {/* 🚨 Монограмма и имя берутся у человека, а вне Telegram человека нет:
+              карточка показывала пустой зелёный квадрат и пустоту справа от него —
+              подложку без единого слова. Безымянная анкета остаётся анкетой, и
+              говорить она должна то же: что это и зачем её заполнять. */}
           <div className="patient-head">
-            <div className="patient-avatar">{userName.slice(0, 1).toUpperCase()}</div>
+            <div className="patient-avatar">
+              {initial || <Icon name="user" size={22} strokeWidth={1.9} />}
+            </div>
             <div className="patient-id">
-              <div className="patient-name">{userName}</div>
-              {client.instagram && (
-                <div className="patient-meta">@{client.instagram}</div>
-              )}
+              <div className="patient-name">{userName.trim() || (ru ? 'Паспорт кожи' : 'Skin passport')}</div>
+              <div className="patient-meta">
+                {client.instagram
+                  ? `@${client.instagram}`
+                  : passport.updatedAt
+                    ? (ru ? 'анкета заполнена' : 'questionnaire filled in')
+                    : (ru ? 'две минуты — и Анжелика видит её до записи' : 'two minutes — and Anjelika sees it before the visit')}
+              </div>
             </div>
             {passport.fitzpatrick && <div className="patient-badge">Fitzpatrick {passport.fitzpatrick}</div>}
           </div>

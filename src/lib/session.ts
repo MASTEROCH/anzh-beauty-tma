@@ -27,6 +27,13 @@ import { rawInitData } from './telegram';
 /** Базовый адрес API. По умолчанию — тот же домен, `/api/v1` (контракт §7.1). */
 const API_BASE = String(import.meta.env.VITE_API_BASE ?? '/api/v1').replace(/\/+$/, '');
 
+/**
+ * Полный адрес ручки API — для того, что браузер грузит сам, без fetch:
+ * <img>/<video> вложений чата. Такой адрес сервер отдаёт уже ПОДПИСАННЫМ
+ * (короткоживущая подпись в query), заголовок авторизации ему не нужен.
+ */
+export const apiUrl = (path: string): string => (/^https?:\/\//.test(path) ? path : `${API_BASE}${path}`);
+
 /** Настоящий `fetch`, взятый при загрузке модуля — до любого стороннего скрипта. */
 const nativeFetch: typeof fetch | null =
   typeof globalThis !== 'undefined' && typeof globalThis.fetch === 'function'
@@ -207,6 +214,11 @@ type QueryValue = string | number | boolean | null | undefined;
 export interface RequestOptions {
   body?: unknown;
   /**
+   * Файл как есть (фото/видео во вложении чата): уходит телом без JSON и
+   * base64, с собственным Content-Type. Взаимоисключается с `body`.
+   */
+  raw?: Blob;
+  /**
    * Для запросов, СОЗДАЮЩИХ сущность. С ключом сетевая ошибка даёт один
    * повтор с тем же ключом: сервер вернёт тот же результат, а не второй объект.
    */
@@ -265,7 +277,8 @@ async function send<T>({ method, path, opts, bearer, timeoutMs }: SendArgs): Pro
   outer?.addEventListener('abort', onOuterAbort, { once: true });
 
   const headers: Record<string, string> = { Accept: 'application/json' };
-  if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
+  if (opts.raw) headers['Content-Type'] = opts.raw.type || 'application/octet-stream';
+  else if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
   if (bearer) headers.Authorization = `Bearer ${bearer}`;
   if (opts.idempotencyKey) headers['Idempotency-Key'] = opts.idempotencyKey;
 
@@ -275,7 +288,7 @@ async function send<T>({ method, path, opts, bearer, timeoutMs }: SendArgs): Pro
       res = await doFetch(urlOf(path, opts.query), {
         method,
         headers,
-        body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+        body: opts.raw ?? (opts.body === undefined ? undefined : JSON.stringify(opts.body)),
         signal: ctrl.signal,
         credentials: 'same-origin',
       });

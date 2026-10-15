@@ -1,5 +1,11 @@
+import { usePriceMode } from '../lib/priceMode';
+import { useRate } from '../lib/rates';
 import { useMemo, useState } from 'react';
-import { durationLabel } from '../lib/plural';
+import { durationLabel, plural } from '../lib/plural';
+import { ON_REQUEST, askAbout, type OnRequestService } from '../data/onRequest';
+import { coverPhotoFor } from '../data/works';
+import { openChat } from '../lib/chatBus';
+import { tap } from '../lib/haptics';
 import { categories, sTitle, sShort, CATEGORY_KEY, servicePhoto, type Service } from '../data/services';
 import { catalogNote, useCatalog } from '../lib/catalog';
 import { SECOND_PRICE_NOTE, servicePrice, serviceSecondPrice } from '../lib/money';
@@ -15,6 +21,15 @@ const NBSP = String.fromCharCode(0xa0);
    H-2: the block is one flex item, and a no-break space ties the bracket to the main line,
    so the dollars never wrap away to the length). Once under the list — the note on which
    currency is paid (lib/money.ts SECOND_PRICE_NOTE), only when a second price is shown. */
+/* Фаза «дыхания» плитки без фото — по id, чтобы она не прыгала при
+   перерисовке и у соседних плиток была разной. Отрицательная задержка
+   значит «уже идёт»: плитка не стартует с одной и той же позы. */
+const tilePhase = (id: string) => {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 997;
+  return h % 14;
+};
+
 export function CatalogScreen({
   onOpen,
   favorites,
@@ -33,11 +48,17 @@ export function CatalogScreen({
   const [cat, setCat] = useState<Service['category'] | 'all'>('all');
   const [q, setQ] = useState('');
   const lang = useLang();
+  const priceMode = usePriceMode(); // перерисовка при смене валюты показа
+  useRate();
+  const ru = lang === 'ru';
   const note = catalogNote(catalog);
 
   // Чипы — только направлений, где есть процедуры: пустой фильтр — обещание,
   // которое интерфейс не выполняет (и так же скрыт «Дерматолог» с витрины).
-  const present = useMemo(() => new Set(live.map((s) => s.category)), [live]);
+  // Услуги «по запросу» (data/onRequest.ts) — пока у сервера нет такой же
+  // строки с ценой. Появилась цена — карточка уступает место обычной.
+  const extra = useMemo(() => ON_REQUEST.filter((x) => !live.some((s) => s.id === x.id)), [live]);
+  const present = useMemo(() => new Set([...live.map((s) => s.category), ...extra.map((x) => x.category)]), [live, extra]);
   const chips = categories.filter((c) => c.id === 'all' || present.has(c.id as Service['category']));
 
   const filtered = useMemo(() => {
@@ -49,8 +70,47 @@ export function CatalogScreen({
     });
   }, [cat, q, live, lang]);
 
+  const extraShown = useMemo(() => {
+    const needle = q.toLowerCase();
+    return extra.filter((x) => {
+      if (cat !== 'all' && x.category !== cat) return false;
+      if (needle && !`${x.title} ${x.short} ${x.titleEn} ${x.shortEn} ${x.masterName.ru}`.toLowerCase().includes(needle)) return false;
+      return true;
+    });
+  }, [extra, cat, q]);
+  const shownCount = filtered.length + extraShown.length;
+
+  const renderAsk = (x: OnRequestService) => {
+          const photo = coverPhotoFor(x.id)?.src ?? null;
+          const ask = () => { tap(); openChat('admin', askAbout(x, ru ? 'ru' : 'en')); };
+          return (
+            <article key={x.id} className="card service-card service-card--ask" data-slug={x.id}>
+              <button
+                className={`service-image${photo ? '' : ' service-image--blank'}`}
+                onClick={ask}
+                style={{ border: 0, cursor: 'pointer', ...(photo ? { backgroundImage: `url(${photo})` } : { ['--tile-phase' as string]: `-${tilePhase(x.id)}s` }) }}
+                aria-label={ru ? `Узнать цену: ${x.title}` : `Ask the price: ${x.titleEn}`}
+              >
+                {!photo && <Icon name={x.icon} size={34} strokeWidth={1.5} className="service-image-glyph" />}
+              </button>
+              <div className="service-body" onClick={ask} style={{ cursor: 'pointer' }}>
+                <h3 className="service-title">{ru ? x.title : x.titleEn}</h3>
+                <p className="service-desc">{ru ? x.short : x.shortEn}</p>
+                <div className="service-master">{x.masterName[ru ? 'ru' : 'en']}</div>
+                <div className="service-meta">
+                  <span className="service-ask">
+                    <Icon name="message" size={12} strokeWidth={2.1} />
+                    {ru ? 'Цена у администратора' : 'Price on request'}
+                  </span>
+                </div>
+              </div>
+            </article>
+          );
+        };
+
+
   // K11b: the note once per screen, when the list shows a second price (lari rows only — K13, H-1a)
-  const priceNote = useMemo(() => filtered.some((s) => serviceSecondPrice(s) !== null), [filtered]);
+  const priceNote = useMemo(() => filtered.some((s) => serviceSecondPrice(s) !== null), [filtered, priceMode]);
   // K13 (F2): only favorites that are on the showcase count — an id of an archived demo row
   // (kept on the device from the prototype) is not "saved" anywhere the person can see
   const savedCount = useMemo(() => live.filter((s) => favorites.has(s.id)).length, [live, favorites]);
@@ -100,7 +160,7 @@ export function CatalogScreen({
       )}
 
       <div className="faint" style={{ fontSize: 12, padding: '0 20px 8px' }}>
-        {filtered.length} {filtered.length === 1 ? t('catalog.procedures.one', lang) : t('catalog.procedures.many', lang)}
+        {shownCount} {ru ? plural(shownCount, 'процедура', 'процедуры', 'процедур') : shownCount === 1 ? 'treatment' : 'treatments'}
         {savedCount === 0 && <> · {t('catalog.hintFav', lang)}</>}
       </div>
 
@@ -123,25 +183,41 @@ export function CatalogScreen({
       )}
 
       <div className="services-grid">
-        {filtered.map((s) => {
+        {[...filtered.filter((s) => s.category !== 'training'), ...extraShown, ...filtered.filter((s) => s.category === 'training')].map((item) => {
+          if (!('priceMinor' in item)) return renderAsk(item);
+          const s = item;
           const isFav = favorites.has(s.id);
           const price = servicePrice(s, lang);
           const second = price !== null ? serviceSecondPrice(s, lang) : null;
           return (
             <article key={s.id} className="card service-card" data-testid="service-card" data-slug={s.id}>
               <button
-                className={`service-image${servicePhoto(s.id) ? '' : ' service-image--blank'}`}
+                className={`service-image${servicePhoto(s.id) ? '' : ' service-image--blank'}${!servicePhoto(s.id) && s.category === 'training' ? ' service-image--course' : ''}`}
                 onClick={() => onOpen(s.id)}
                 style={{
                   border: 0,
                   cursor: 'pointer',
-                  ...(servicePhoto(s.id) ? { backgroundImage: `url(${servicePhoto(s.id)})` } : {}),
+                  ...(servicePhoto(s.id)
+                    ? { backgroundImage: `url(${servicePhoto(s.id)})` }
+                    : { ['--tile-phase' as string]: `-${tilePhase(s.id)}s` }),
                 }}
                 aria-label={`Открыть ${s.title}`}
               >
-                {servicePhoto(s.id)
-                  ? <span className="service-image-badge"><Icon name={s.icon} size={16} strokeWidth={1.9} /></span>
-                  : <Icon name={s.icon} size={30} strokeWidth={1.5} className="service-image-glyph" />}
+                {/* Значок поверх фотографии убран: он повторял то, что и так
+                    видно на снимке, и отъедал угол кадра. Иконка остаётся
+                    только там, где фотографии нет вовсе. */}
+                {!servicePhoto(s.id) && <Icon name={s.icon} size={34} strokeWidth={1.5} className="service-image-glyph" />}
+                {!servicePhoto(s.id) && s.category === 'training' && (
+                  <>
+                    <span className="service-image-cap" aria-hidden><Icon name="graduation" size={14} strokeWidth={1.9} /></span>
+                    {s.days ? (
+                      <span className="service-image-facts" aria-hidden>
+                        <span>{durationLabel(s.duration, s.days, lang)}</span>
+                        {s.models ? <span>{s.models} {ru ? 'моделей' : 'models'}</span> : null}
+                      </span>
+                    ) : null}
+                  </>
+                )}
               </button>
               <div className="service-body" onClick={() => onOpen(s.id)} style={{ cursor: 'pointer' }}>
                 <h3 className="service-title">{sTitle(s, lang)}</h3>
@@ -173,7 +249,7 @@ export function CatalogScreen({
             </article>
           );
         })}
-        {filtered.length === 0 && (
+        {shownCount === 0 && (
           <div className="card" style={{ textAlign: 'center', padding: 28 }}>
             <div style={{ marginBottom: 8, color: 'var(--brand-primary)', display: 'flex', justifyContent: 'center' }}>
               <Icon name="lotus" size={32} strokeWidth={1.6} />

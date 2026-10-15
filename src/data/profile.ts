@@ -32,11 +32,15 @@ export const profile = {
  * "before documents"). On the showcase only after her "yes": PROFILE_TEXTS_SHOWN above.
  */
 export const about = {
-  /* 🚨 Именно её портрет, тот же человек, что в шапке профиля.
-     Сначала стоял portrait-2.jpg — это лицо клиентки из стока, и блок
-     «о враче» показывал постороннюю женщину. В разделе про человека
-     чужое лицо — не мелочь: оно обнуляет весь текст под ним. */
-  photo: '/photos/anjelika.webp',
+  /* 🚨 Её портрет — и ДРУГОЙ кадр, не тот, что в обложке экрана.
+     Сначала здесь стоял portrait-2.jpg: лицо клиентки из стока, то есть
+     блок «о враче» показывал постороннюю женщину. Потом — тот же снимок,
+     что в обложке, и страница трижды показывала одно лицо.
+     Этот кадр — из студии: она в халате у круглого зеркала, лицо в
+     отражении. Другой кадр, другой смысл и ПОРТРЕТНАЯ пропорция: сюда
+     стоял квадрат 480 px из кружка команды, растянутый на широкую рамку
+     шторки — лицо обрезалось снизу и мылилось. */
+  photo: '/photos/works/master-anzhelika/about-v1.webp',
 
   /* Кредо — ОДНА фраза, и короткая: в коде выводится в ёлочках, то есть
      как её слова. */
@@ -48,13 +52,13 @@ export const about = {
   body: {
     ru: [
       'Я принципиально не беру всех подряд на процедуры и не всегда иду за тем, с чем человек пришёл. Прежде всего я врач: сама смотрю состояние кожи, понимаю, как работают процедуры и каков механизм их действия, и по опыту могу увидеть наперёд, как состояние кожи будет развиваться дальше. На этом строю выбор — только действительно нужные процедуры.',
-      'Я окончила Харьковский национальный медицинский университет в 2020 году. Косметологией заинтересовалась на 4 курсе, когда попала на кафедру дерматовенерологии: там впервые познакомилась с кожей, лицом и профессией дерматокосметолога. Это была самая тяжёлая кафедра за все шесть лет — я её ненавидела, но это один из предметов, которые я знала лучше всего. На 5 курсе выбрала курс дерматокосметологии, а в 2018 году пошла в школу косметологов.',
+      'Я окончила Харьковский национальный медицинский университет в 2020 году. Косметологией заинтересовалась на 4 курсе, когда попала на кафедру дерматовенерологии: там впервые познакомилась с кожей, лицом и профессией дерматокосметолога. Это была самая требовательная кафедра за все шесть лет, и именно этот предмет я знаю лучше всего. На 5 курсе выбрала курс дерматокосметологии, а в 2018 году пошла в школу косметологов.',
       'Учусь постоянно: у меня больше 50 сертификатов с конгрессов и мировых семинаров из разных уголков планеты. Хожу и на кадавер-курсы, где работают на биоматериалах. Главная задача — как можно больше учиться и идти в ногу со временем.',
       'В 2020 году я переехала в Батуми. Четыре месяца проработала в салоне, потом подруга, мастер по перманенту, позвала меня к себе: мы вдвоём сняли кабинет и квартиру и сделали из этого студию. Денег не было — было только желание. Потом был целый этаж в салоне красоты, первое собственное помещение — «мини-сарай», где мы сами красили стены, — и студия побольше. Через полтора года мы разделились, чтобы развивать каждая своё. Сейчас у меня собственное помещение, и мастера работают вместе со мной.',
     ],
     en: [
       'As a matter of principle, I don’t take everyone for treatments, and I don’t always go along with what a person comes in asking for. First of all I am a doctor: I look at the condition of the skin myself, I understand how treatments work and what their mechanism of action is, and from experience I can see in advance how the skin will develop. That is how I choose — only the treatments that are really needed.',
-      'I graduated from Kharkiv National Medical University in 2020. I became interested in cosmetology in my 4th year, when I got to the department of dermatovenereology: that is where I first met skin, the face, and the profession of a dermatocosmetologist. It was the hardest department of all six years — I hated it, but it is one of the subjects I knew best. In my 5th year I chose a dermatocosmetology elective, and in 2018 I went to a cosmetology school.',
+      'I graduated from Kharkiv National Medical University in 2020. I became interested in cosmetology in my 4th year, when I got to the department of dermatovenereology: that is where I first met skin, the face, and the profession of a dermatocosmetologist. It was the most demanding department of all six years, and it is the subject I know best. In my 5th year I chose a dermatocosmetology elective, and in 2018 I went to a cosmetology school.',
       'I keep learning: I have more than 50 certificates from congresses and international seminars around the world. I also attend cadaver courses, where we work on biomaterials. My main goal is to learn as much as possible and keep up with the times.',
       'In 2020 I moved to Batumi. I worked in a salon for four months, then a friend, a permanent-makeup artist, invited me to join her: together we rented a room and an apartment and turned them into a studio. We had no money — only the will. Then came a whole floor in a beauty salon, our first own space — a “mini shed” whose walls we painted ourselves — and a bigger studio. After a year and a half we split to develop our own directions. Now I have my own space, and the masters work alongside me.',
     ],
@@ -73,32 +77,49 @@ export const about = {
   ],
 } as const;
 
-/** Кадры для сторис-карусели «О нас» на профиле — T2 ed. 2 §2.2. Her own portrait on all
-    four: the prototype frames carried stock faces of strangers and a lip photo. */
+/** Кадры для сторис-карусели «О нас» на профиле — T2 ed. 2 §2.2.
+ *
+ * 🚨 РАЗНЫЕ КАДРЫ. Один и тот же её портрет стоял на всех четырёх, и он же
+ * — в обложке экрана и в карточке «о враче»: лицо повторялось шесть раз на
+ * одной странице. Повтор не «узнаваемость», а признак того, что картинку
+ * поставили, лишь бы заполнить место.
+ * Теперь кадр отвечает тексту: про учёбу — стеллаж с её сертификатами, про
+ * первый кабинет — её сегодняшнее помещение, про отбор пациенток — кабинет,
+ * где она их и смотрит. Портрет остаётся ровно там, где речь о ней самой. */
 export const story: Array<{ photo: string; title: string; text: string; titleEn: string; textEn: string }> = [
   {
-    photo: '/photos/anjelika.webp',
-    title: 'Кафедра, которую ненавидела',
-    text: 'С дерматовенерологии на 4 курсе начался мой путь в косметологии. Самая тяжёлая кафедра за все шесть лет — и один из предметов, которые я знала лучше всего.',
-    titleEn: 'The department I hated',
-    textEn: 'My path into cosmetology began with dermatovenereology in my 4th year. The hardest department of all six years — and one of the subjects I knew best.',
+    /* Интерьер студии, а не снова её портрет: он уже стоит на обложке и в
+       «О враче». Кресла в зоне ожидания — первое, что видит человек у двери. */
+    photo: '/photos/studio/7.webp',
+    /* 🚨 Тут было «Кафедра, которую ненавидела». Фраза взята из голосового, где
+       это была шутка с продолжением («и именно её я знала лучше всего»), но
+       на слайде она читается как «ненавидит свою работу» — клиентку это
+       отталкивает, а не привлекает (Роч, 15.10.2026). Смысл тот же, стороны
+       перевёрнуты: трудно — потому что требовательно, и это сделало врачом. */
+    title: 'Всё началось с кожи',
+    text: 'На четвёртом курсе я попала на кафедру дерматовенерологии — самую требовательную за все шесть лет учёбы. Там я впервые по-настоящему познакомилась с кожей и профессией, и этот предмет стал тем, что я знаю лучше всего.',
+    titleEn: 'It all began with skin',
+    textEn: 'In my fourth year I joined the dermatovenereology department — the most demanding of all six years. That is where I truly got to know skin and the profession, and it became the subject I know best.',
   },
   {
-    photo: '/photos/anjelika.webp',
+    // Помещение, к которому она шла: ресепшен сегодняшней студии
+    photo: '/photos/studio/v33.webp',
     title: 'Не было денег — было желание',
     text: 'Я переехала в Батуми в 2020 году, ушла из салона и вместе с подругой сняла первый кабинет. Теперь у меня собственное помещение, и мастера работают вместе со мной.',
     titleEn: 'No money, just the will',
     textEn: 'I moved to Batumi in 2020, left the salon and rented a first room with a friend. Now I have my own space, and the masters work alongside me.',
   },
   {
-    photo: '/photos/anjelika.webp',
+    // Те самые сертификаты, о которых текст
+    photo: '/photos/studio/v37.webp',
     title: 'Учусь постоянно',
     text: 'Больше 50 сертификатов с конгрессов и мировых семинаров, кадавер-курсы. Главная задача — как можно больше учиться.',
     titleEn: 'Always learning',
     textEn: '50+ certificates from congresses and international seminars, plus cadaver courses. My main goal is to learn as much as possible.',
   },
   {
-    photo: '/photos/anjelika.webp',
+    // Кабинет, где она и смотрит состояние кожи
+    photo: '/photos/studio/v35.webp',
     title: 'Не всех подряд',
     text: 'Я принципиально не беру всех подряд. Сначала смотрю состояние кожи, а потом решаю, какие процедуры действительно нужны.',
     titleEn: 'I don’t take everyone',

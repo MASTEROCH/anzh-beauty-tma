@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Icon } from './Icon';
+import { genderOrDefault } from '../lib/gender';
+import { asset } from '../lib/asset';
 import { closeSheet, toast } from '../lib/ui';
 import { select, notify } from '../lib/haptics';
 import { saveQuizToPassport, useHealthConsent, type QuizSave, type Sensitivity } from '../lib/healthPassport';
@@ -10,7 +12,7 @@ import { liveServices } from '../lib/catalog';
 import { servicePrice } from '../lib/money';
 import type { Quiz } from '../data/quizzes';
 import { scoreQuiz, SECONDARY_LABEL, type Answer } from '../lib/quizScore';
-import { saveResult } from '../lib/quizResults';
+import { saveResult, syncQuizResult, type StoredResult } from '../lib/quizResults';
 import { Routine } from './Routine';
 import { routineFor } from '../data/routines';
 import type { Service } from '../data/services';
@@ -70,7 +72,13 @@ export function QuizRunner({
   const done = step >= quiz.questions.length;
   const question = quiz.questions[step];
 
+  /* Двойной тап по варианту отвечал и на СЛЕДУЮЩИЙ вопрос: второй палец
+     попадал в кнопку нового экрана. На сайте — _nextQBusy 400 мс, здесь так же. */
+  const busy = useRef(false);
   const commit = (value: Answer) => {
+    if (busy.current) return;
+    busy.current = true;
+    window.setTimeout(() => { busy.current = false; }, 350);
     const next = [...answers];
     next[step] = value;
     setAnswers(next);
@@ -87,8 +95,9 @@ export function QuizRunner({
       (lib/healthPassport.ts, saveQuizToPassport). */
   const writePassport = (all: Answer[]) => {
     const scored = scoreQuiz(quiz, all);
+    let stored: StoredResult | null = null;
     if (scored) {
-      saveResult({
+      stored = {
         quizId: quiz.id,
         quizTitle: quiz.title,
         resultKey: scored.key,
@@ -97,11 +106,16 @@ export function QuizRunner({
         secondary: scored.secondary,
         answers: all,
         takenAt: Date.now(),
-      });
+      };
+      saveResult(stored);
     }
+    // Каждый разбор — на сервер (с согласием): его увидит «Паспорт» и студия
+    const toServer = stored ? syncQuizResult(stored) : Promise.resolve<'kept_local'>('kept_local');
 
     if (quiz.id === 'profile') {
-      const concernIdx = typeof all[2] === 'number' ? all[2] : 5;
+      // «Что беспокоит» — множественный выбор (как на сайте); в анкету идёт первое
+      const c2 = all[2];
+      const concernIdx = Array.isArray(c2) ? (c2[0] ?? 5) : typeof c2 === 'number' ? c2 : 5;
       const sensIdx = typeof all[3] === 'number' ? all[3] : 1;
       const careIdx = typeof all[4] === 'number' ? all[4] : 0;
       void saveQuizToPassport({
@@ -117,14 +131,17 @@ export function QuizRunner({
         .then(setSaveState);
       return;
     }
-    setSaveState('memory');
+    void toServer.then((st) => setSaveState(st === 'kept_local' ? 'memory' : st));
   };
 
   /* ── Вопрос ── */
   if (!done) {
     const qText = ru ? question.q : question.qEn ?? question.q;
-    const options = (ru ? question.a : question.aEn ?? question.a) ?? [];
+    const male = genderOrDefault() === 'm';
+    const options = (ru ? (male && question.aMale ? question.aMale : question.a) : question.aEn ?? question.a) ?? [];
     const isMulti = !!question.multi;
+    const photos = question.photos ? question.photos[male ? 'm' : 'w'] : null;
+    const current = answers[step];
 
     return (
       <div>
@@ -139,21 +156,22 @@ export function QuizRunner({
             {isMulti && ` · ${ru ? 'можно несколько' : 'multiple choice'}`}
           </div>
           <h3 className="quiz-q">{qText}</h3>
-          <div className="quiz-options">
+          <div className={`quiz-options${photos ? ' quiz-options--photo' : ''}`}>
             {options.map((o, i) => {
               const picked = isMulti && multi.includes(i);
               return (
                 <button
                   key={o}
-                  className={`quiz-option${picked ? ' picked' : ''}`}
+                  className={`quiz-option${picked || (!isMulti && current === i) ? ' picked' : ''}${photos ? ' quiz-option--photo' : ''}`}
                   onClick={() => {
                     select();
                     if (isMulti) setMulti((m) => (m.includes(i) ? m.filter((x) => x !== i) : [...m, i]));
                     else commit(i);
                   }}
                 >
+                  {photos?.[i] && <img className="quiz-option-img" src={asset(photos[i])} alt="" loading="lazy" decoding="async" />}
                   <span>{o}</span>
-                  {isMulti
+                  {photos ? null : isMulti
                     ? <Icon name={picked ? 'check' : 'plus'} size={16} strokeWidth={2.2} />
                     : <Icon name="chevron-right" size={17} strokeWidth={2} />}
                 </button>
@@ -171,7 +189,15 @@ export function QuizRunner({
           )}
         </div>
         {step > 0 && (
-          <button className="btn btn-secondary btn-block mt-sm" onClick={() => setStep((s) => s - 1)}>
+          <button
+            className="btn btn-secondary btn-block mt-sm"
+            onClick={() => {
+              // Назад — с прошлым выбором: раньше множественный выбор сбрасывался
+              const prev = answers[step - 1];
+              setMulti(Array.isArray(prev) ? prev : []);
+              setStep((s) => s - 1);
+            }}
+          >
             {ru ? 'Назад' : 'Back'}
           </button>
         )}
@@ -188,7 +214,8 @@ export function QuizRunner({
   const desc = ru ? result.desc : result.descEn ?? result.desc;
   const traits = (ru ? result.traits : result.traitsEn ?? result.traits) ?? [];
   const procedures = (ru ? result.procedures : result.proceduresEn ?? result.procedures) ?? [];
-  const concern = quiz.id === 'profile' && typeof answers[2] === 'number' ? PROFILE_CONCERN[answers[2]] : undefined;
+  const a2 = answers[2];
+  const concern = quiz.id === 'profile' ? PROFILE_CONCERN[Array.isArray(a2) ? a2[0] : typeof a2 === 'number' ? a2 : -1] : undefined;
   const picks = suggest(concern);
   const hasRoutine = !!routineFor(quiz.id, result.key, lang);
   // Nothing to pick — nothing to unlock
@@ -224,6 +251,9 @@ export function QuizRunner({
       {saveState && <SaveNote state={saveState} consent={!!consent} lang={lang} />}
 
       <p className="quiz-desc">{desc}</p>
+      {(ru ? result.note : result.noteEn ?? result.note) && (
+        <p className="quiz-note">{ru ? result.note : result.noteEn ?? result.note}</p>
+      )}
 
       {traits.length > 0 && (
         <div className="row" style={{ flexWrap: 'wrap', gap: 6, marginTop: 14 }}>

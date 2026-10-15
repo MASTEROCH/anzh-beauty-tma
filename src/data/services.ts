@@ -31,6 +31,8 @@ export type Service = {
   duration: number | null;
   /** Курс идёт днями, а не минутами: 2 дня × 6 часов не влезают в duration */
   days?: number;
+  /** Сколько моделей на практике — решающая цифра курса, её показывает плитка */
+  models?: number;
   /** Price in minor units, like the server: 40000 with GEL is 400 ₾, 80000 with USD is $800. */
   priceMinor: number;
   /** Currency of THIS price (owner's decision B1-B, 06.10.2026): no switch; the main price is
@@ -82,7 +84,7 @@ export const categories: Array<{ id: Service['category'] | 'all'; label: string;
   { id: 'care',      label: 'Уход',     icon: 'flower' },
   { id: 'brows',     label: 'Брови',    icon: 'lash' },
   { id: 'derma',     label: 'Дерматолог', icon: 'stethoscope' },
-  { id: 'training',  label: 'Обучение',   icon: 'crown' },
+  { id: 'training',  label: 'Обучение',   icon: 'graduation' },
 ];
 
 /*
@@ -174,7 +176,7 @@ export const services: Service[] = [
     priceMinor: 10000,
     currency: 'GEL',
     priceFrom: true,
-    icon: 'lip',
+    icon: 'droplet',
     includes: [],
     contraindications: [],
   },
@@ -254,7 +256,7 @@ export const services: Service[] = [
     priceMinor: 60000,
     currency: 'GEL',
     priceFrom: true,
-    icon: 'droplet',
+    icon: 'layers',
     includes: [],
     contraindications: [],
   },
@@ -327,6 +329,45 @@ export const services: Service[] = [
       'Противопоказаний нет — это диагностический приём',
     ],
   },
+  // Из голосовых владелицы 05.10 (лог ROCH #1009): цены названы, «от».
+  // ⚠️ Длительность в голосовых НЕ названа — 60 и 30 мин стоят как
+  // допущение до слова Анжелики (сервер без минут не записывает, B4-A).
+  {
+    id: 'deep-cleansing',
+    category: 'clean',
+    zone: 'face',
+    title: 'Чистка лица',
+    titleEn: 'Facial cleansing',
+    short: 'Поры, закрытые комедоны, уход после',
+    shortEn: 'Pores, closed comedones, aftercare',
+    description: 'Эстетическая чистка: очищение пор, работа с закрытыми комедонами и уход после процедуры. Проводит врач-дерматолог Мария.',
+    descriptionEn: 'An aesthetic cleansing: clearing pores, working with closed comedones and aftercare. Performed by dermatologist Mariya.',
+    duration: 60,
+    priceMinor: 20000,
+    currency: 'GEL',
+    priceFrom: true,
+    icon: 'wave',
+    includes: [],
+    contraindications: [],
+  },
+  {
+    id: 'mesotherapy',
+    category: 'inj',
+    zone: 'face',
+    title: 'Мезотерапия',
+    titleEn: 'Mesotherapy',
+    short: 'Лицо, зона вокруг глаз, кожа головы · курс от 3 сеансов',
+    shortEn: 'Face, eye area, scalp · a course of 3+ sessions',
+    description: 'Всегда курсом — минимум 3 сеанса. Препарат и число сеансов Анжелика подбирает на осмотре под задачу: лицо, зона вокруг глаз или кожа головы. Цена — за один сеанс.',
+    descriptionEn: 'Always as a course — at least 3 sessions. Anzhelika picks the product and the number of sessions at the exam for your goal: face, eye area or scalp. The price is per session.',
+    duration: 30,
+    priceMinor: 25000,
+    currency: 'GEL',
+    priceFrom: true,
+    icon: 'droplet',
+    includes: ['Минимальный курс — 3 сеанса'],
+    contraindications: [],
+  },
   {
     id: 'training-injections',
     category: 'training',
@@ -347,9 +388,10 @@ export const services: Service[] = [
     // A course runs in days, not minutes (B4-A): no visit minutes.
     duration: null,
     days: 2,
+    models: 10,
     priceMinor: 80000,
     currency: 'USD',
-    icon: 'syringe',
+    icon: 'droplet',
     includes: [
       'Два дня, оба — с 12:00 до 17:00',
       'Практика на 10 моделях',
@@ -378,9 +420,10 @@ export const services: Service[] = [
     ].join('\n\n'),
     duration: null,
     days: 2,
+    models: 5,
     priceMinor: 100000,
     currency: 'USD',
-    icon: 'crown',
+    icon: 'layers',
     includes: [
       'Два дня практики',
       'Первый день — теория и практика',
@@ -409,9 +452,10 @@ export const services: Service[] = [
     ].join('\n\n'),
     duration: null,
     days: 1,
+    models: 5,
     priceMinor: 40000,
     currency: 'USD',
-    icon: 'crown',
+    icon: 'cannula',
     includes: [],
     contraindications: [
       'Высшее или среднее медицинское образование',
@@ -469,10 +513,23 @@ export const CATEGORY_KEY: Record<string, string> = {
 /* Фото из загруженного каталога берём ТОЛЬКО относительным путём внутри
    /photos/: адрес пишет владелица из кабинета, а подставляется он в
    `url(...)` стиля — чужой домен или скобка в строке сюда не пройдут. */
-const SAFE_PHOTO = /^\/photos\/[A-Za-z0-9._-]+\.(?:jpe?g|png|webp)$/;
+/* До двух папок внутри /photos/: собственные снимки лежат не в корне, а
+   в `/photos/works/<услуга>/1.webp`. Прежнее правило разрешало только корень
+   и молча отрезало бы их, даже если бы владелица вписала адрес из кабинета.
+   `..` и чужой домен по-прежнему не проходят: разрешены только эти символы. */
+const SAFE_PHOTO = /^\/photos\/(?:[A-Za-z0-9._-]+\/){0,2}[A-Za-z0-9._-]+\.(?:jpe?g|png|webp)$/;
+
+/* Запасная обложка из наших снимков. Подаётся снаружи (lib/catalog.ts), а не
+   импортируется: этот файл остаётся чистыми данными — tools/catalog-import.mjs
+   снимает с него типы и отказывает на любом настоящем импорте. */
+let photoFallback: ((id: string) => string | null) | null = null;
+export function setServicePhotoFallback(fn: ((id: string) => string | null) | null) {
+  photoFallback = fn;
+}
 
 export const servicePhoto = (id: string): string | null => {
   const fromCatalog = liveById.get(id)?.photoUrl;
   if (fromCatalog && SAFE_PHOTO.test(fromCatalog)) return fromCatalog;
-  return null;
+  const own = photoFallback?.(id);
+  return own && SAFE_PHOTO.test(own) ? own : null;
 };

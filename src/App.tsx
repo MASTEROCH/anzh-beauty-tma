@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { BottomNav } from './components/BottomNav';
 import { AiChatBubble } from './components/AiChatBubble';
+import { ChatPanel } from './components/ChatPanel';
+import { onOpenChat, type ChatRequest } from './lib/chatBus';
 import { AI_ASSISTANT } from './lib/features';
 import { SheetHost, ToastHost, LightboxHost } from './components/UIHost';
 import { OfflineBar } from './components/OfflineBar';
@@ -27,6 +29,9 @@ import { installEdgeSwipeGuard } from './lib/gestures';
 import { useHeaderHeight } from './lib/headerHeight';
 import { useChrome } from './lib/chrome';
 import { initSession, sessionState } from './lib/session';
+import { loadStudioProfile } from './lib/studioProfile';
+import { loadRate, useRate } from './lib/rates';
+import { usePriceMode } from './lib/priceMode';
 import { refreshMe, updateMe, useMe, type MePatch } from './lib/api';
 import { useCatalogPassive } from './lib/catalog';
 
@@ -121,7 +126,33 @@ export function App() {
   useHeaderHeight();
   useFabYield();
   const chrome = useChrome();
+  usePriceMode(); // смена валюты показа перерисовывает все экраны с ценами
+  useRate();
+  /* 🚨 Свёрнутая панель обязана РАСКРЫВАТЬСЯ ПО ТАПУ.
+     Без этого пилюля с одной вкладкой — тупик: человек видит, где он, и
+     не видит, как уйти. Прокрутка сама решает, сворачивать или нет
+     (lib/chrome.ts), но решение «хочу переключиться» принимает он, и
+     оно обязано быть сильнее прокрутки. Любая следующая прокрутка
+     возвращает панель под управление chrome.ts. */
+  const [navOpen, setNavOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatReq, setChatReq] = useState<ChatRequest | null>(null);
+  useEffect(() => onOpenChat((r) => { setChatReq(r); setChatOpen(true); }), []);
+  /* Экраны с нижней кнопкой («Выбери время», «Записаться»): панель под ней
+     НЕ сворачивается. Свёрнутая она оставляла кнопку висеть над пустотой, а
+     быстрая запись дублировала бы саму кнопку. Здесь кнопка и панель — одна
+     стопка, и жест прокрутки её не разбирает. */
+  useEffect(() => {
+    if (!chrome.hidden) setNavOpen(false);
+  }, [chrome.hidden]);
+  useEffect(() => {
+    if (!navOpen) return;
+    const close = () => setNavOpen(false);
+    document.addEventListener('scroll', close, { capture: true, passive: true, once: true });
+    return () => document.removeEventListener('scroll', close, { capture: true });
+  }, [navOpen]);
   const [screen, setScreenRaw] = useState<Screen>(initialScreen);
+  const dockedCta = screen === 'booking' || screen === 'service' || screen === 'plan';
   const [serviceId, setServiceId] = useState<string | undefined>();
   const [lang, setLang] = useState<Lang>(getLang);
   /* No currency switch (owner's decision B1-B, 06.10.2026): every price is shown in its
@@ -206,6 +237,11 @@ export function App() {
       });
     };
     start();
+    /* Публичные данные студии и курс — без пропуска и независимо от входа:
+       гость вне Telegram видит тот же адрес и те же цены, что и клиентка.
+       Оба вызова не бросают; нет ответа — остаются запасные значения. */
+    void loadStudioProfile();
+    void loadRate();
     // Стартовали без связи — вход повторится, когда она вернётся.
     const onOnline = () => {
       const st = sessionState();
@@ -331,7 +367,7 @@ export function App() {
   }
 
   return (
-    <div className={`app${chrome.hidden ? ' chrome-away' : ''}${chrome.scrolling ? ' is-scrolling' : ''}`}>
+    <div className={`app${chrome.hidden && !navOpen ? ' chrome-away' : ''}${dockedCta ? ' nav-pinned' : ''}${chrome.scrolling ? ' is-scrolling' : ''}`}>
       <div className="app-orbs" aria-hidden />
       {screen === 'profile' && (
         <ProfileScreen
@@ -409,6 +445,9 @@ export function App() {
 
       {screen !== 'studio' && (
         <BottomNav
+          collapsed={chrome.hidden && !navOpen && !dockedCta}
+          onExpand={() => setNavOpen(true)}
+          onChat={() => setChatOpen(true)}
           current={
             screen === 'service' || screen === 'confirm' || screen === 'plan' ? 'catalog' : screen
           }
@@ -419,7 +458,13 @@ export function App() {
         />
       )}
 
-      {screen !== 'studio' && <LangHud lang={lang} onLang={handleLang} />}
+      {screen !== 'studio' && (
+        <LangHud
+          lang={lang}
+          onLang={handleLang}
+          currency={screen === 'profile' || screen === 'catalog' || screen === 'service' || screen === 'booking' || screen === 'plan' || screen === 'confirm'}
+        />
+      )}
 
       {/* The assistant is hidden until it is reworked (owner 06.10) — one switch, lib/features.ts */}
       {screen !== 'studio' && AI_ASSISTANT && (
@@ -429,6 +474,19 @@ export function App() {
           onOpenService={openService}
           onOpenCatalog={() => setScreen('catalog')}
           onOpenPlan={() => setScreen('plan')}
+        />
+      )}
+
+      {screen !== 'studio' && (
+        <ChatPanel
+          open={chatOpen}
+          request={chatReq}
+          onClose={() => setChatOpen(false)}
+          onBook={(id) => openBooking(id)}
+          onOpenService={openService}
+          onOpenCatalog={() => setScreen('catalog')}
+          onOpenPlan={() => setScreen('plan')}
+          onOpenPassport={() => setScreen('account')}
         />
       )}
 

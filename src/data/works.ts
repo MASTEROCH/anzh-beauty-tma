@@ -177,16 +177,25 @@ export const WORK_GROUPS: Readonly<Record<string, WorkGroup>> = {
   },
 };
 
-function portrait(id: 'anzhelika' | 'ekaterina'): Work {
-  return { id: `master-${id}/1`, src: `/photos/works/master-${id}/1.webp`, w: 480, h: 480, slug: '', master: id, hint: 'after', published: true };
+function portrait(id: 'anzhelika' | 'ekaterina', file = '1'): Work {
+  return { id: `master-${id}/${file}`, src: `/photos/works/master-${id}/${file}.webp`, w: 480, h: 480, slug: '', master: id, hint: 'after', published: true };
 }
 
 /* Names in English as John fixed them 06.10 (Ekaterina, Roman); no surnames. */
 export const MASTERS: Readonly<Record<MasterId, { name: { ru: string; en: string }; photo: Work | null }>> = {
   anzhelika: {
     name: { ru: 'Анжелика', en: 'Anjelika' },
-    // K15: "Фото мастера и владелицы" from the team folder, a square crop (a new file: the old portrait has its own readers)
-    photo: portrait('anzhelika'),
+    /* 🚨 Кадр `2` — тот же снимок, обрезанный по ЛИЦУ.
+       В круге команды стоял `1`: квадрат 480×480, и лицо в нём смещено
+       вправо-вниз, а слева попадал красный кран. `object-position` это
+       не чинит и починить не может: пропорции кадра и круга совпадают,
+       `cover` ничего не обрезает — сдвигать нечего. Кадрирование живёт
+       в файле, а не в стиле. Старый `1` остался: на него ссылается
+       шторка работ, у него свои читатели.
+       Кадр `3` — портрет, который прислал Роч (ANZH_2.png из папки
+       «Люди (Команда)»), обрезанный по лицу: светлый, снят в халате, с
+       прямым взглядом — ровно то, что нужно кружку «кто тебя встретит». */
+    photo: portrait('anzhelika', '3'),
   },
   ekaterina: {
     name: { ru: 'Екатерина', en: 'Ekaterina' },
@@ -211,7 +220,7 @@ export const MASTERS: Readonly<Record<MasterId, { name: { ru: string; en: string
    Once the clinic confirms origin and consent, ONE line brings them back as works:
    PROCEDURE_AUTHOR = '<master id>' — then they join the "Works" block after the K11a works,
    credited to that master, with the consent line, and the "Treatment photos" block is gone. */
-export const PROCEDURE_AUTHOR: MasterId | null = null;
+export const PROCEDURE_AUTHOR: MasterId | null = 'anzhelika';
 
 /** The 480 px copy next to every work photo (`<n>-480.webp`) — tiles and strips; the full file opens on a tap. */
 export const thumbOf = (w: { src: string }): string => w.src.replace(/\.webp$/, '-480.webp');
@@ -391,13 +400,61 @@ const creditedProcedures = (): Work[] => {
   return master === null ? [] : PROCEDURE_PHOTOS.map((p) => ({ ...p, master }));
 };
 
-/** Every work that may be shown, in data order: K11a first. A group with none of them is not drawn. */
-export const shownWorks = (): Work[] => [...WORKS, ...creditedProcedures()].filter((x) => x.published);
+/* 🚨 ПОРЯДОК: КОСМЕТОЛОГИЯ ПЕРВОЙ (Роч, 15.10.2026).
+   «Основное, что мы должны показывать, — это все услуги, которые делает
+   сама Анжелика. Всё остальное идёт вторым, третьим и так далее».
+   Она владелица и единственный врач-косметолог студии; брови, лазер и
+   дерматология — направления, которые к ней добавились. Список
+   открывался с бровей просто потому, что подтверждение по ним пришло
+   раньше, и витрина из-за этого читалась как студия бровей. */
+export const shownWorks = (): Work[] => [...creditedProcedures(), ...WORKS].filter((x) => x.published);
 
 /** Shown works of one service (the "Examples of work" block on its screen). */
 export const worksFor = (slug: string): Work[] => shownWorks().filter((x) => x.slug === slug);
 
 /** Shown procedure photos of one service (its "Treatment photos" block) — none once they are credited. */
+/* ОБЛОЖКА УСЛУГИ — один кадр на карточку каталога, экран записи и историю.
+   Раньше там стояла фирменная плитка с иконкой: `servicePhoto()` брала фото
+   только из `photo_url` загруженного каталога, а его не заполнили — и везде,
+   где человек выбирает процедуру, он видел иконку вместо процедуры.
+   Снимки при этом лежат здесь же и уже показываются на экране самой услуги.
+
+   Кадр выбираем осознанно: `after` и `process` — это ОДИН снимок, он читается
+   в плитке 104 px. `collage` и пары «до/после» в такой размер превращаются в
+   две неразличимые половинки, поэтому идут последними — лучше так, чем ничего.
+   От решения про авторство (PROCEDURE_AUTHOR) обложка не зависит: это фотография
+   процедуры, а не заявка «это работа такого-то мастера». */
+/* Выбранная руками обложка побеждает любую эвристику: признак `hint`
+   говорит, КАК снят кадр, и ничего не знает о том, что на нём напечатано
+   или сколько в нём панелей. У губ первым по порядку лежал кадр с
+   впечатанной в него надписью «КОНТУРНАЯ ПЛАСТИКА ГУБ» — чужая вёрстка
+   внутри нашей карточки. Здесь — ровно те случаи, где кадр выбран глазами. */
+const COVER_PICK: Record<string, string> = {
+  // Чистая пара «до/после» в профиль, без впечатанного логотипа
+  'contour-plastic': 'contour-jawline/2',
+  'lip-filler': 'contour-lips/5',
+};
+
+const COVER_RANK: Record<WorkHint, number> = {
+  after: 0, process: 1, baked: 2, collage: 3, pairLr: 4, pairTb: 5, threeLr: 6, threeTb: 7, fourTb: 8,
+};
+
+export const coverPhotoFor = (slug: string): { src: string; w: number; h: number } | null => {
+  const pool: Array<{ src: string; w: number; h: number; hint: WorkHint }> = [
+    ...PROCEDURE_PHOTOS.filter((p) => p.published && p.slug === slug),
+    ...WORKS.filter((p) => p.published && p.slug === slug),
+  ];
+  if (pool.length === 0) return null;
+  const picked = COVER_PICK[slug];
+  if (picked) {
+    const hit = pool.find((p) => p.src === `/photos/works/${picked}.webp`);
+    if (hit) return { src: hit.src, w: hit.w, h: hit.h };
+  }
+  let best = pool[0];
+  for (const p of pool) if (COVER_RANK[p.hint] < COVER_RANK[best.hint]) best = p;
+  return { src: best.src, w: best.w, h: best.h };
+};
+
 export const procedurePhotosFor = (slug: string): ProcedurePhoto[] =>
   PROCEDURE_AUTHOR === null ? PROCEDURE_PHOTOS.filter((x) => x.published && x.slug === slug) : [];
 

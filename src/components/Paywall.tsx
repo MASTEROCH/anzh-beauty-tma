@@ -3,6 +3,7 @@ import { Icon } from './Icon';
 import { closeSheet, openSheet, toast } from '../lib/ui';
 import { notify, tap } from '../lib/haptics';
 import { payWithStars, starsToUsd, usePayAvailability, type PayAvailability } from '../lib/payments';
+import { StarPrice } from './StarPrice';
 import { BUNDLE, PAID_QUIZZES, type Quiz } from '../data/quizzes';
 import { useLang, type Lang } from '../lib/i18n';
 import { g as gg, useGender, type Gender } from '../lib/gender';
@@ -161,14 +162,12 @@ export function Paywall({
       <div className="pw-price">
         <div className="pw-price-row">
           <span>{ru ? 'Этот разбор' : 'This analysis'}</span>
-          <strong className="pw-price-now">
-            {/* Число и звезда — одна строка: контейнер стоит колонкой ради
-                подписи в долларах, и иконка уезжала под цену */}
-            <span className="pw-price-figure">
-              {price}<Icon name="star" size={14} strokeWidth={2} fill="current" />
-            </span>
-            <span className="pw-price-usd">≈ ${starsToUsd(price)}</span>
-          </strong>
+          {/* 🚨 Одна вёрстка цены на весь продукт — StarPrice.
+              Здесь стояла своя: звёзды крупно, доллар подписью, и значок
+              звезды СПРАВА от числа, тогда как на экране выбора он слева.
+              Две разные цены одного и того же — это не мелочь, человек
+              считает их разными предложениями. */}
+          <StarPrice stars={price} size="lg" />
         </div>
         <div className="pw-price-note">
           {quiz.questions.length} {ru ? 'вопросов · около' : 'questions · about'} {quiz.minutes} {ru ? 'минут' : 'min'}
@@ -185,8 +184,8 @@ export function Paywall({
           <div className="pw-bundle-text">
             <div className="pw-bundle-title">
               {ru
-                ? `Все шесть разборов — ${bundlePrice}★ ≈ $${starsToUsd(bundlePrice)}`
-                : `All six analyses — ${bundlePrice}★ ≈ $${starsToUsd(bundlePrice)}`}
+                ? `Все шесть разборов — $${starsToUsd(bundlePrice)} · ${bundlePrice} ★`
+                : `All six analyses — $${starsToUsd(bundlePrice)} · ${bundlePrice} ★`}
             </div>
             <div className="pw-bundle-sub">
               {ru ? `Дешевле на ${save}★, чем по одному` : `${save}★ cheaper than one by one`}
@@ -510,9 +509,11 @@ function ReadyBuy({ id, stars, phase, termsVersion, lang, onBuy, onTicked }: {
           </span>
         ) : (
           <span className="pw-buy-label">
-            <Icon name="star" size={16} strokeWidth={2} fill="current" />
-            {ru ? `Оплатить ${stars} звёзд` : `Pay ${stars} Stars`}
-            <span className="pw-buy-usd">≈ ${starsToUsd(stars)}</span>
+            {ru ? `Оплатить $${starsToUsd(stars)}` : `Pay $${starsToUsd(stars)}`}
+            <span className="pw-buy-usd">
+              <Icon name="star" size={12} strokeWidth={2} fill="current" />
+              {stars}
+            </span>
           </span>
         )}
       </button>
@@ -574,7 +575,7 @@ function PurchaseSuccess({ stars, unlocks }: { stars: number; unlocks: string })
       <div className="pw-done-receipt">
         <div className="pw-done-line">
           <span>{ru ? 'Списано' : 'Charged'}</span>
-          <strong>{stars}★ <span className="pw-done-usd">≈ ${starsToUsd(stars)}</span></strong>
+          <strong>${starsToUsd(stars)} <span className="pw-done-usd">· {stars} ★</span></strong>
         </div>
         <div className="pw-done-line">
           <span>{ru ? 'Доступ' : 'Access'}</span>

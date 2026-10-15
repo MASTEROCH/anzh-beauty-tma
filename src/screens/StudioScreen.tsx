@@ -4,18 +4,20 @@ import { Icon, type IconName } from '../components/Icon';
 import { StudioAsk } from '../components/StudioAsk';
 import { ClientStrip, clientNameOf, openClientCard } from '../components/ClientCardView';
 import { MoneyBoard } from '../components/MoneyBoard';
-import { openServiceEditor, ArchiveButton } from '../components/ServiceEditor';
+import { StudioProcedures } from '../components/StudioProcedures';
+import { StudioAbout } from '../components/StudioAbout';
 import { QuestQueue } from '../components/QuestQueue';
 import { PromoStudio } from '../components/PromoStudio';
 import { StudioTeam } from '../components/StudioTeam';
 import { StudioPromos } from '../components/StudioPromos';
 import { StudioReviews } from '../components/StudioReviews';
+import { useStaffInbox } from '../lib/staffInbox';
 import { StudioChats } from '../components/StudioChats';
 import { ClientRevenue } from '../components/ClientRevenue';
 import { PinGate } from '../components/PinGate';
 import { useCabinet, accessOf, lockCabinet, cabinetDenied } from '../lib/staff';
 import { openSheet, closeSheet, toast } from '../lib/ui';
-import { notify } from '../lib/haptics';
+import { notify, tap } from '../lib/haptics';
 import { findService, servicePhoto } from '../data/services';
 import { ApiError } from '../lib/session';
 import { patchService, type WireService } from '../lib/api/staff';
@@ -48,7 +50,7 @@ import { addDaysISO } from '../lib/appointments';
    «Студией» — она только у владелицы: ни одной её ручки сервер мастеру
    не откроет. */
 type Tab = 'requests' | 'day' | 'clients' | 'money' | 'studio';
-type StudioTab = 'price' | 'team' | 'promo' | 'reviews' | 'stories';
+type StudioTab = 'price' | 'team' | 'about' | 'promo' | 'reviews' | 'stories';
 type ClientsTab = 'base' | 'money' | 'chats';
 
 /* ВТОРОЙ РЯД (решение ночи 24.09): чаты, акции, сторис, отзывы и задания
@@ -95,6 +97,9 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
   const history = useStaffList('history', needHistory);
   const clients = useClientsList(open);
   useLiveServices();
+  // Живые входящие: держим соединение весь кабинет, чтобы новое сообщение
+  // клиентки было видно на любой вкладке (счётчик + всплывающая строка)
+  const inbox = useStaffInbox(open);
 
   const pending = useMemo(() => pendingOf(queue.visits), [queue.visits]);
   const today = useMemo(() => dayOf(day.visits), [day.visits]);
@@ -335,7 +340,7 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
             {([
               ['base', 'База'],
               ['money', 'По выручке'],
-              ...(SECOND_ROW ? [['chats', 'Переписка']] : []),
+              ['chats', 'Переписка'],
             ] as Array<[ClientsTab, string]>)
               .map(([id, label]) => (
                 <button
@@ -344,11 +349,12 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
                   onClick={() => setClientsTab(id)}
                 >
                   {label}
+                  {id === 'chats' && inbox.unread > 0 && <span className="chip-count">{inbox.unread}</span>}
                 </button>
               ))}
           </div>
 
-          {SECOND_ROW && clientsTab === 'chats' && <StudioChats />}
+          {clientsTab === 'chats' && <StudioChats />}
 
           {clientsTab === 'money' && (
             <>
@@ -465,8 +471,8 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
       {tab === 'studio' && can.manageTeam && (
         <div className="studio-sub">
           {([
-            ...(can.editPrices ? [['price', 'Прайс']] : []),
-            ...(can.manageTeam ? [['team', 'Команда']] : []),
+            ...(can.editPrices ? [['price', 'Процедуры']] : []),
+            ...(can.manageTeam ? [['team', 'Команда'], ['about', 'О студии']] : []),
             ...(SECOND_ROW ? [['promo', 'Акции'], ['reviews', 'Отзывы'], ['stories', 'Сторис']] : []),
           ] as Array<[StudioTab, string]>).map(([id, label]) => (
             <button
@@ -501,7 +507,8 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
         <section className="section section-tight"><StudioReviews /></section>
       )}
 
-      {tab === 'studio' && studioTab === 'price' && can.editPrices && <PriceTab />}
+      {tab === 'studio' && studioTab === 'price' && can.editPrices && <StudioProcedures />}
+      {tab === 'studio' && studioTab === 'about' && can.manageTeam && <StudioAbout />}
     </div>
 
       {/* «Выйти» в правом верхнем углу. Выход закрывает кабинет: следующий
@@ -519,9 +526,9 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
         {([
           ['requests', 'Заявки', 'message', pending.length],
           ['day', 'День', 'calendar', today.length],
-          ['clients', 'Клиенты', 'user', 0],
+          ['clients', 'Клиенты', 'user', inbox.unread],
           ['money', can.seeAllMoney ? 'Деньги' : 'Доход', 'star', 0],
-          ...(can.manageTeam ? [['studio', 'Студия', 'settings', 0]] : []),
+          ...(can.manageTeam ? [['studio', 'Студия', 'menu', 0]] : []),
         ] as Array<[Tab, string, IconName, number]>).map(([id, label, icon, count]) => (
           <button
             key={id}
@@ -648,15 +655,28 @@ function CompleteForm({ visit, summary }: { visit: Visit; summary?: ClientSummar
         <li>Визит попадёт в карточку клиентки и в выручку</li>
       </ul>
       <label className="field mt-md">
-        <span className="field-k">Сколько взяли{currencySign(visit.currency) ? `, ${currencySign(visit.currency)}` : ''}</span>
-        <input
-          className="input"
-          inputMode="decimal"
-          value={amount}
-          onChange={(e) => { setAmount(e.target.value); setWhy(null); }}
-          aria-label="Сколько взяли"
-        />
+        <span className="field-k">Сколько взяли</span>
+        <span className="money-field">
+          <input
+            className="input input--money"
+            inputMode="decimal"
+            value={amount}
+            onChange={(e) => { setAmount(e.target.value); setWhy(null); }}
+            aria-label="Сколько взяли"
+            aria-invalid={amount.trim() !== '' && paid === null ? true : undefined}
+          />
+          {currencySign(visit.currency) && <span className="money-sign" aria-hidden>{currencySign(visit.currency)}</span>}
+        </span>
       </label>
+      {/* Чаще всего берут ровно по прайсу — одним нажатием, а не набором цифр.
+          Если сумма уже другая (врач назвала после осмотра), кнопка вернёт прайс. */}
+      {visit.totalMinor > 0 && minorToInput(visit.totalMinor) !== amount && (
+        <div className="money-quick">
+          <button className="chip" onClick={() => { setAmount(minorToInput(visit.totalMinor)); setWhy(null); tap(); }}>
+            по прайсу · {formatMoney(visit.totalMinor, visit.currency)}
+          </button>
+        </div>
+      )}
       {why && <p className="form-why" role="alert">{why}</p>}
       <div className="stack-tight mt-md">
         <button className="btn btn-primary btn-block" disabled={busy || paid === null} onClick={() => { void decide('done'); }}>
@@ -667,146 +687,6 @@ function CompleteForm({ visit, summary }: { visit: Visit; summary?: ClientSummar
         </button>
       </div>
     </>
-  );
-}
-
-/* ── Прайс: витрина и архив с сервера ── */
-function PriceTab() {
-  const live = useLiveServices();
-  const archived = useArchivedServices(true);
-
-  return (
-    <section className="section" style={{ paddingTop: 10 }}>
-      <div className="studio-price-head">
-        <div className="eyebrow">прайс и состав</div>
-        <button className="chip chip-gold" onClick={() => openServiceEditor()}>
-          <Icon name="plus" size={13} strokeWidth={2.6} /> процедура
-        </button>
-      </div>
-
-      {live.loading && !live.loaded && <div className="card" style={{ padding: 20, textAlign: 'center' }}><div className="muted">Загружаем прайс…</div></div>}
-      {live.error && (
-        <div className="card empty-state mb" role="alert">
-          <div className="empty-title">Прайс не загрузился</div>
-          <div className="empty-sub">{loadErrorText(live.error)} — проверьте интернет.</div>
-          <button className="btn btn-secondary btn-block mt-md" onClick={() => { void loadLiveServices(true); }}>Повторить</button>
-        </div>
-      )}
-
-      <div className="col" style={{ gap: 8 }}>
-        {live.list.map((svc) => (
-          <div key={svc.slug} className="studio-price-line">
-            <PriceRow svc={svc} />
-            <ArchiveButton service={svc} archived={false} />
-          </div>
-        ))}
-      </div>
-
-      {/* Архив виден владелице, но не клиенткам: услугу можно вернуть,
-          а история визитов по ней никуда не делась */}
-      {archived.list.length > 0 && (
-        <>
-          <div className="eyebrow" style={{ margin: '20px 0 8px' }}>
-            убрано из каталога · {archived.list.length}
-          </div>
-          <div className="col" style={{ gap: 8 }}>
-            {archived.list.map((svc) => (
-              <div key={svc.slug} className="studio-price-line archived">
-                <div className="studio-arch-name">
-                  <Icon name={findService(svc.slug)?.icon ?? 'sparkles'} size={15} strokeWidth={1.8} />
-                  {svc.title.ru}
-                  {svc.price_minor != null && <span className="faint">{formatMoney(svc.price_minor, svc.currency)}</span>}
-                </div>
-                <ArchiveButton service={svc} archived />
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-      {archived.error && <p className="form-why" role="alert">Архив не загрузился — {loadErrorText(archived.error).toLowerCase()}</p>}
-
-      <p className="faint" style={{ fontSize: 12, marginTop: 14 }}>
-        Новая цена действует для новых заявок: в уже оставленных цена зафиксирована.
-        Убранная процедура исчезает у клиенток, но остаётся в истории и в отчётах.
-      </p>
-    </section>
-  );
-}
-
-/* ── Строка прайса: цена правится прямо в кабинете (PATCH /services/{slug}) ── */
-function PriceRow({ svc }: { svc: WireService }) {
-  const server = svc.price_minor ?? null;
-  // The price is edited in the row's own currency (M-5). A row without a currency
-  // gets no inline field: the editor asks for the currency first — no silent dollar.
-  const currency = svc.currency || null;
-  const [draft, setDraft] = useState<string>(server != null ? minorToInput(server) : '');
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => { setDraft(server != null ? minorToInput(server) : ''); }, [server]);
-
-  const commit = async () => {
-    const v = parseMoneyInput(draft);
-    if (v === null || v <= 0) { setDraft(server != null ? minorToInput(server) : ''); return; }
-    if (v === server || !currency) return;
-    setBusy(true);
-    try {
-      const saved = await patchService(svc.slug, { price_minor: v, currency });
-      applyService(saved);
-      // Витрина клиентки на этом же устройстве (lib/catalog.ts) — своя копия
-      // GET /services: кладём строку из ответа сервера. Перечитывание без
-      // пропуска край Vercel до 30 с отдаёт с прежней ценой (Хейтер, волна 4).
-      applyOwnerEdit(saved.slug, saved);
-      toast(`${svc.title.ru} — ${formatMoney(v, currency)}`, 'success');
-    } catch (e) {
-      cabinetDenied(e);
-      setDraft(server != null ? minorToInput(server) : '');
-      toast(e instanceof ApiError && e.isNetwork ? 'Нет связи — цена не изменилась' : 'Цена не сохранилась — повторите');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const changed = parseMoneyInput(draft) !== server;
-
-  return (
-    <div className="price-row">
-      <div className="price-row-icon"><Icon name={findService(svc.slug)?.icon ?? 'sparkles'} size={17} strokeWidth={1.8} /></div>
-      {/* Название — вход в правку процедуры (название, описание, длительность) */}
-      <div
-        className="price-row-body"
-        role="button"
-        tabIndex={0}
-        aria-label={`Изменить: ${svc.title.ru}`}
-        onClick={() => openServiceEditor(svc)}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openServiceEditor(svc); } }}
-      >
-        <div className="price-row-title">{svc.title.ru}</div>
-        <div className="price-row-sub">
-          {svc.duration_min || svc.days ? durationLabel(svc.duration_min ?? 0, svc.days ?? undefined) : 'без длительности'}
-        </div>
-      </div>
-      <div className="price-row-edit">
-        {currency ? (
-          <>
-            <span className="price-row-cur">{currencySign(currency)}</span>
-            <input
-              className="price-input"
-              inputMode="decimal"
-              value={draft}
-              disabled={busy}
-              aria-label={`Цена: ${svc.title.ru}`}
-              onChange={(e) => setDraft(e.target.value)}
-              onBlur={() => { void commit(); }}
-            />
-          </>
-        ) : (
-          <button className="chip" aria-label={`Цена и валюта: ${svc.title.ru}`} onClick={() => openServiceEditor(svc)}>
-            {server != null ? formatMoney(server, null) : 'цена'}
-          </button>
-        )}
-      </div>
-      {changed && <span className="price-dirty" aria-hidden />}
-    </div>
   );
 }
 
@@ -963,17 +843,40 @@ function RevenueChart({ list, currency, tag }: { list: Visit[]; currency: string
   }, [list]);
 
   const max = Math.max(1, ...weeks.map((w) => w.sum));
+  const total = weeks.reduce((n, w) => n + w.sum, 0);
+  const now = weeks[weeks.length - 1];
 
+  /* Было: столбики «висели» от верха колонки, а дата ехала вслед за ними —
+     у каждого своя высота подписи, и график читался вверх ногами (Роч 15.10).
+     Теперь как у Apple Health/Stocks: общая базовая линия, сумма над
+     столбиком, даты одним ровным рядом под линией; пустая неделя — тонкая
+     черта на линии, без «0 ₾». Текущая неделя — золотом и подписана словами. */
   return (
     <div className="studio-chart">
-      <div className="eyebrow mb-sm">выручка по неделям{tag}</div>
-      <div className="studio-bars">
+      <div className="rv-head">
+        <div>
+          <div className="eyebrow">выручка по неделям{tag}</div>
+          <div className="rv-now">{formatMoney(now.sum, currency)}<span> эта неделя</span></div>
+        </div>
+        <div className="rv-total">
+          <b>{formatMoney(total, currency)}</b>
+          <span>за 6 недель</span>
+        </div>
+      </div>
+      <div className="rv-plot" role="img" aria-label={`Выручка по неделям: ${weeks.map((w) => `${w.label} — ${formatMoney(w.sum, currency)}`).join(', ')}`}>
+        {weeks.map((w, i) => {
+          const last = i === weeks.length - 1;
+          return (
+            <div key={i} className={`rv-col${last ? ' now' : ''}${w.sum === 0 ? ' zero' : ''}`}>
+              {w.sum > 0 && <span className="rv-val">{formatMoney(w.sum, currency)}</span>}
+              <span className="rv-bar" style={{ height: w.sum > 0 ? `${Math.max(8, (w.sum / max) * 100)}%` : undefined, animationDelay: `${i * 40}ms` }} />
+            </div>
+          );
+        })}
+      </div>
+      <div className="rv-labels" aria-hidden>
         {weeks.map((w, i) => (
-          <div key={i} className="studio-bar-col">
-            <div className="studio-bar-val">{w.sum > 0 ? formatMoney(w.sum, currency) : ''}</div>
-            <div className="studio-bar" style={{ height: `${Math.max(4, (w.sum / max) * 100)}%` }} />
-            <div className="studio-bar-label">{w.label}</div>
-          </div>
+          <span key={i} className={i === weeks.length - 1 ? 'now' : undefined}>{i === weeks.length - 1 ? 'сейчас' : w.label}</span>
         ))}
       </div>
     </div>

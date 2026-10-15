@@ -20,6 +20,9 @@ import { durationLabel } from './plural';
 import { FROM_SENTENCE, formatAmount, priceUnit, servicePrice } from './money';
 import { isPriceMinor } from './showable';
 import { isBookable, type Service } from '../data/services';
+import { studioAddress, getStudio } from '../data/location';
+import { TEAM } from '../data/team';
+import { ON_REQUEST, type OnRequestService } from '../data/onRequest';
 
 /* Texts — Katya, T2 ed. 2 §3 ("to the showcase after Anjelika's yes"). The assistant
    speaks Russian only; Katya's lines carry no leading emoji, so the replaced answers
@@ -134,6 +137,48 @@ function pricesReply(): AiReply {
   };
 }
 
+/** Что делает процедура — для плашек «расскажи про …» в чате: по id, без угадывания по словам. */
+const LEAD_BY_ID: Record<string, string> = {
+  'contour-plastic': LEAD.contour, 'filler-dissolve': LEAD.fillerDissolve, biorevit: LEAD.biorevit,
+  botulinum: LEAD.botulinum, 'collagen-stimulators': LEAD.collagen, 'mono-threads': LEAD.threads,
+  'smas-lifting': LEAD.smas, 'lip-filler': LEAD.lips,
+};
+export function explainProcedure(id: string): AiReply {
+  return aboutService(id, LEAD_BY_ID[id] ?? '');
+}
+
+/** Услуга «по запросу» (брови, лазер…) — её нет в витрине с ценой, но студия её делает */
+function matchOnRequest(q: string): OnRequestService | undefined {
+  if (liveServices().length === 0) return undefined;
+  let best: { s: OnRequestService; n: number } | undefined;
+  for (const s of ON_REQUEST) {
+    if (liveServices().some((x) => x.id === s.id)) continue; // уже с ценой — отвечает витрина
+    const stems = s.title.toLowerCase().split(/[^a-zа-яё0-9]+/i).filter((w) => w.length >= 4).map((w) => w.slice(0, Math.max(4, w.length - 2)));
+    const n = stems.filter((st) => q.includes(st)).length;
+    if (n > 0 && (!best || n > best.n)) best = { s, n };
+  }
+  return best?.s;
+}
+
+function onRequestReply(s: OnRequestService): AiReply {
+  return {
+    text: `«${s.title}» делает ${s.masterName.ru.split(' · ')[0]}. ${s.short}. Цену и свободное время сейчас называет администратор — напишите, и вам ответят в этом же чате.`,
+    actions: [{ kind: 'handoff', label: 'Узнать цену и время' }],
+  };
+}
+
+/** Процедура витрины, чьё название узнаётся в вопросе: по основам слов (≥ 4 букв). */
+function matchByTitle(q: string): Service | undefined {
+  let best: { s: Service; n: number } | undefined;
+  for (const s of liveServices()) {
+    if (!isBookable(s)) continue;
+    const stems = s.title.toLowerCase().split(/[^a-zа-яё0-9]+/i).filter((w) => w.length >= 4).map((w) => w.slice(0, Math.max(4, w.length - 2)));
+    const n = stems.filter((st) => q.includes(st)).length;
+    if (n > 0 && (!best || n > best.n)) best = { s, n };
+  }
+  return best?.s;
+}
+
 export function respond(message: string): AiReply {
   const q = message.toLowerCase();
 
@@ -158,6 +203,82 @@ export function respond(message: string): AiReply {
       ],
     };
   }
+
+
+  // ── Скриптованные ответы без обращения к модели ─────────────────────────
+  // Всё, что отвечается данными приложения (часы, команда, каналы, валюта,
+  // порядок записи), отвечается здесь, а не нейросетью: быстрее, бесплатно и
+  // не расходится с тем, что студия сама задала в кабинете.
+  if (/^\s*(привет|здравств|добр(ый|ое|ого)|hello|hi\b|хай|салам)/.test(q) && q.length < 40) {
+    return {
+      text: 'Здравствуйте 💛 Я ANZH — помощник студии. Могу рассказать про любую процедуру, цены, адрес, порядок записи. Выберите процедуру внизу или задайте вопрос.',
+      actions: [{ kind: 'catalog', label: 'Открыть каталог' }],
+    };
+  }
+
+  if (/(что (ты )?умеешь|чем (ты )?(можешь )?помочь|что можешь|помощь|help)/.test(q)) {
+    return {
+      text: 'Я знаю процедуры студии: что делает каждая, сколько длится и стоит. Подскажу адрес, часы работы, как записаться и отменить запись, как связаться с командой. Если вопрос про вашу кожу или здоровье — передам администратору: такое решает врач на осмотре.',
+      actions: [{ kind: 'catalog', label: 'Показать процедуры' }, { kind: 'handoff', label: 'Написать администратору' }],
+    };
+  }
+
+  if (/(живой|человек|оператор|админ|менеджер|позови|соедини|связаться|связь)/.test(q) && !/(процедур|цен)/.test(q)) {
+    return {
+      text: 'Конечно. Администратор отвечает здесь же, в чате, и в других каналах студии — выберите удобный.',
+      actions: [{ kind: 'handoff', label: 'Написать администратору' }],
+    };
+  }
+
+  if (/(кто (у вас|работает|мастер|врач|принимает)|мастер(а|ов)?\b|команд|специалист|врачи|доктор)/.test(q) && !/(процедур|цен|стоим)/.test(q)) {
+    const lines = TEAM.map((m) => `· ${m.name.ru} — ${m.role.ru.toLowerCase()}`).join('\n');
+    return {
+      text: `В студии работают:\n${lines}\n\nФото и подробности — в разделе «О нас», блок «Команда»: нажмите на фото человека.`,
+      actions: [{ kind: 'catalog', label: 'Процедуры по мастерам' }],
+    };
+  }
+
+  if (/(график|режим работы|часы работы|до скольки|во сколько (откры|закры)|выходн|работаете|работает студия|открыт)/.test(q)) {
+    const st = getStudio();
+    return {
+      text: `Студия работает: ${st.hours.ru}. ${clinicOpen() ? 'Сейчас открыто.' : `Сейчас закрыто — администратор ${nextOpening()}.`} Записаться можно в любое время: заявка дождётся утра.`,
+      actions: [{ kind: 'book', label: 'Выбрать время' }],
+    };
+  }
+
+  if (/(как (записать|запис)|как оформить|как попасть|записаться как)/.test(q)) {
+    return {
+      text: 'Запись в четыре шага: 1) выберите процедуру в каталоге; 2) выберите день и время; 3) отправьте заявку; 4) администратор подтверждает её, ответ появится в «Паспорте». Пока заявку не подтвердили, вы ничего не теряете.',
+      actions: [{ kind: 'catalog', label: 'Выбрать процедуру' }, { kind: 'book', label: 'Сразу к записи' }],
+    };
+  }
+
+  if (/(валют|лари|доллар|в gel|в usd|курс|переключ.*цен|цены в)/.test(q)) {
+    return {
+      text: 'Цены можно смотреть в лари и в долларах: переключатель — пилюля вверху справа на экранах каталога и записи. Доллары пересчитываются по курсу Нацбанка Грузии на сегодня, поэтому рядом стоит «≈». Итог визита всегда фиксируется в валюте процедуры.',
+      actions: [{ kind: 'catalog', label: 'Открыть каталог' }],
+    };
+  }
+
+  if (/(инстаграм|instagram|телеграм|telegram|ватсап|whatsapp|вацап|телефон|позвонить|номер)/.test(q)) {
+    return {
+      text: 'Связаться можно в чате с администратором — вкладка «Администратор» здесь же: там Telegram, Instagram и другие каналы, которые студия включила.',
+      actions: [{ kind: 'handoff', label: 'Открыть связь' }],
+    };
+  }
+
+  if (/(язык|english|по-английски|на английском)/.test(q)) {
+    return {
+      text: 'Приложение есть на русском и английском: язык переключается пилюлей RU/EN вверху справа. Чат помощника отвечает по-русски; администратор — на русском и английском.',
+      actions: [],
+    };
+  }
+
+  // Цена конкретной процедуры — ответ про неё, а не общий «от 100 ₾»
+  const named = matchByTitle(q);
+  const ask = matchOnRequest(q);
+  if (ask) return onRequestReply(ask);
+  if (named && /(цен|стоим|сколько|прайс)/.test(q)) return describe(named, '');
 
   // Только процедуры витрины: обучение — не визит (isBookable, по kind), скрытое — не предлагаем
   if (/(цен|стоим|сколько|прайс|деньг)/.test(q)) return pricesReply();
@@ -199,7 +320,7 @@ export function respond(message: string): AiReply {
 
   if (/(адрес|где|как добра|кабинет|метро|парков)/.test(q)) {
     return {
-      text: '📍 Батуми, Parnavaz Mepe 92/94, 1 этаж, домофон 12. Десять минут от Boulevard, парковка у входа.',
+      text: `📍 ${studioAddress('ru')}. Карта с меткой — в разделе «О нас», «Где найти».`,
       actions: [{ kind: 'book', label: 'Выбрать время' }],
     };
   }
@@ -239,6 +360,10 @@ export function respond(message: string): AiReply {
   if (/(спасиб|благодар|круто|супер|класс)/.test(q)) {
     return { text: 'Рада помочь 💛 Если что-то ещё — спрашивай, я всегда тут.', actions: [] };
   }
+
+  // Название процедуры в вопросе («расскажи про лазер») — без нейросети, по словам из каталога
+  const hit = matchByTitle(q);
+  if (hit) return describe(hit, '');
 
   return {
     text: 'Тут я лучше не буду угадывать — спрошу Анжелику, она ответит точно. А пока могу показать процедуры, цены или свободное время.',

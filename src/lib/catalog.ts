@@ -25,11 +25,18 @@ import {
   categories,
   services as BUNDLED,
   setLiveServices,
+  setServicePhotoFallback,
   type Service,
 } from '../data/services';
 import { getServices, type ServerService } from './api/catalog';
+import { coverPhotoFor } from '../data/works';
 import { ApiError } from './session';
 import { isOnShowcase, isShowable, positiveOrNull, type ShowcaseCategory } from './showable';
+
+/* Обложка из собственных снимков — там, где каталог не прислал `photo_url`.
+   Подаём сюда, а не импортируем в data/services.ts: тот файл обязан остаться
+   без настоящих импортов (его читают снятием типов). */
+setServicePhotoFallback((id) => coverPhotoFor(id)?.src ?? null);
 
 export const CATALOG_CACHE_KEY = 'anzh_catalog_cache_v1';
 /**

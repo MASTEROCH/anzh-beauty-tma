@@ -6,7 +6,9 @@ import { useLang, t } from '../lib/i18n';
 import { buildPlan, courseNotes, planMessage } from '../lib/plan';
 import { formatLongDate, formatMonthShort } from '../lib/appointments';
 import { useCatalog } from '../lib/catalog';
-import { formatPrice, servicePrice } from '../lib/money';
+import { displayPrice, servicePrice } from '../lib/money';
+import { usePriceMode } from '../lib/priceMode';
+import { useRate } from '../lib/rates';
 import { telegramUrl } from '../data/location';
 import { openTelegram } from '../lib/telegram';
 
@@ -22,6 +24,8 @@ export function PlanScreen({
   onCatalog: () => void;
 }) {
   const lang = useLang();
+  const priceMode = usePriceMode(); // перерисовка при смене валюты показа
+  useRate();
   const ru = lang === 'ru';
   // Каталог с сервера: цены плана — те, что на витрине (а не из бандла).
   const { live } = useCatalog();
@@ -85,7 +89,7 @@ export function PlanScreen({
         </div>
         <div className="plan-summary-cell">
           {/* Prices in their own currency (B1-B); no single currency — no sum, a dash */}
-          <span className="v" data-testid="plan-total">{(plan.total && formatPrice(plan.total, lang)) ?? '—'}</span>
+          <span className="v" data-testid="plan-total">{(plan.total && displayPrice(plan.total, lang)) ?? '—'}</span>
           <span className="k">{ru ? 'итого' : 'total'}</span>
         </div>
       </section>

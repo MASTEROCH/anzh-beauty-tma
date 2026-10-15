@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { findService, sTitle, sShort, servicePhoto } from '../data/services';
 import { catalogNote, useCatalog } from '../lib/catalog';
-import { FROM_FOOTNOTE, FROM_NOTE, PAY_NOTE, formatPrice, priceSourceOf, servicePrice, visitTotal } from '../lib/money';
+import { FROM_FOOTNOTE, FROM_NOTE, PAY_NOTE, displayPrice, priceSourceOf, servicePrice, visitTotal } from '../lib/money';
+import { usePriceMode } from '../lib/priceMode';
+import { useRate } from '../lib/rates';
 import { isOnShowcase } from '../lib/showable';
 import { openSheet, toast } from '../lib/ui';
 import { Icon } from '../components/Icon';
+import { PingPong } from '../components/PingPong';
+import { SwipeRow } from '../components/SwipeRow';
 import { useLang, t } from '../lib/i18n';
 import {
   addDaysISO, isBookable, isoWeekday, requestBooking, salonToday, salonTz, setSalonTimeZone,
@@ -234,6 +238,8 @@ export function BookingScreen({
   onClientChange: (patch: Partial<ClientProfile>) => void;
 }) {
   const lang = useLang() as Lang;
+  const priceMode = usePriceMode(); // перерисовка при смене валюты показа
+  useRate();
   const ru = lang === 'ru';
   const passport = useHealthPassport();
   const session = useSession();
@@ -332,7 +338,7 @@ export function BookingScreen({
      (lib/money.ts visitTotal). The booked total is the server's — Booking.total_minor,
      shown on the confirmation; the number for anything functional is priceMinor. */
   const total = visitTotal(chosen.map(priceSourceOf));
-  const price = total ? formatPrice(total, lang) : null;
+  const price = total ? displayPrice(total, lang) : null;
   const totalFrom = total?.priceFrom === true;
   /* K11 Б2 (the lawyer): the visit summary names the payment currency once. No second price
      here — the sum to pay is the main currency only, so the note says only that (K13, H-5:
@@ -572,9 +578,9 @@ export function BookingScreen({
               className={`service-image${servicePhoto(service.id) ? '' : ' service-image--blank'}`}
               style={servicePhoto(service.id) ? { backgroundImage: `url(${servicePhoto(service.id)})` } : undefined}
             >
-              {servicePhoto(service.id)
-                ? <span className="service-image-badge"><Icon name={service.icon} size={16} strokeWidth={1.9} /></span>
-                : <Icon name={service.icon} size={28} strokeWidth={1.5} className="service-image-glyph" />}
+              {/* Значок поверх снимка убран (как в каталоге): иконка остаётся
+                  только там, где фотографии нет. */}
+              {!servicePhoto(service.id) && <Icon name={service.icon} size={30} strokeWidth={1.5} className="service-image-glyph" />}
             </div>
             <div className="service-body">
               <h3 className="service-title">{sTitle(service, lang)}</h3>
@@ -588,25 +594,33 @@ export function BookingScreen({
             <span style={{ position: 'absolute', top: '50%', right: 14, transform: 'translateY(-50%)', color: 'var(--tl)', fontSize: 18 }}>›</span>
           </button>
           {/* Добавленные к визиту — списком, а не чипами: их надо видеть
-              целиком и уметь снять одним тапом */}
+              целиком. Снимаются жестом — потянуть строку влево (решение
+              Роча 15.10: «×» на каждой строке убран, как и в кабинете). */}
           {extrasLive.length > 0 && (
             <div className="bk-extras">
               {extrasLive.map((id) => {
                 const x = findService(id);
                 if (!x) return null;
                 return (
-                  <div key={id} className="bk-extra">
-                    <Icon name={x.icon} size={15} strokeWidth={1.9} />
-                    <span className="bk-extra-title">{sTitle(x, lang)}</span>
-                    <span className="bk-extra-meta">{x.duration != null && <>+{x.duration} {t('common.min', lang)} · </>}{servicePrice(x, lang)}</span>
-                    <button
-                      className="bk-extra-off"
-                      aria-label={ru ? `Убрать: ${sTitle(x, lang)}` : `Remove ${sTitle(x, lang)}`}
-                      onClick={() => toggleExtra(id)}
-                    >
-                      <Icon name="x" size={13} strokeWidth={2.6} />
-                    </button>
+                  <SwipeRow key={id} label={ru ? 'Убрать' : 'Remove'} instant onCommit={() => toggleExtra(id)}>
+                  <div className="bk-extra">
+                    {/* Снимок процедуры, а не её иконка: человек выбрал
+                        процедуру по фотографии в каталоге и узнаёт её
+                        здесь по тому же кадру. Иконка остаётся только
+                        там, где снимка нет. */}
+                    {servicePhoto(x.id)
+                      ? <span className="bk-extra-shot" style={{ backgroundImage: `url(${servicePhoto(x.id)})` }} aria-hidden />
+                      : <Icon name={x.icon} size={15} strokeWidth={1.9} />}
+                    {/* Название и цена в одной строке не помещались и
+                        обрезались многоточием на самом нужном слове.
+                        Теперь цена идёт ПОД названием, а длинное название
+                        не прячется, а ездит (PingPong). */}
+                    <span className="bk-extra-body">
+                      <PingPong className="bk-extra-title">{sTitle(x, lang)}</PingPong>
+                      <span className="bk-extra-meta">{x.duration != null && <>+{x.duration} {t('common.min', lang)} · </>}{servicePrice(x, lang)}</span>
+                    </span>
                   </div>
+                  </SwipeRow>
                 );
               })}
               <div className="bk-extra-total" data-testid="visit-total">
@@ -812,7 +826,13 @@ export function BookingScreen({
           <div className="eyebrow mb-sm">{t('booking.details', lang)}</div>
           <div className="summary-row">
             <span className="k">{t('booking.sum.service', lang)}</span>
-            <span className="v">{chosen.map((x) => sTitle(x, lang)).join(' + ')}</span>
+            {/* Каждая процедура — своей строкой. Склеенные через « + » в одну
+                строку названия не помещались в карточку и выходили за её край
+                («Контурная пластика + Увеличение гу…»); а перенос по словам
+                внутри склейки читался кашей. Столбик решает оба. */}
+            <span className="v v-list">
+              {chosen.map((x) => <span key={x.id}>{sTitle(x, lang)}</span>)}
+            </span>
           </div>
           <div className="summary-row">
             <span className="k">{t('booking.sum.duration', lang)}</span>

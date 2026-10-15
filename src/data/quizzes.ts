@@ -15,12 +15,19 @@ export interface QuizQuestion {
   a: string[];
   aEn?: string[];
   multi?: boolean;
+  /** Варианты с фотографией (морфотип): файлы по порядку ответов, мужской/женский */
+  photos?: { m: string[]; w: string[] };
+  /** Мужская формулировка вариантов (как _MORPHO_MALE_ANSWERS на сайте) */
+  aMale?: string[];
 }
 
 export interface QuizProduct { n: string; d: string }
 
 export interface QuizResult {
   key: string;
+  /** Приписка под итогом — как на anzh.store (quiz-data.js, поле note) */
+  note?: string;
+  noteEn?: string;
   title: string;
   titleEn?: string;
   sub: string;
@@ -62,11 +69,11 @@ export const QUIZZES: Quiz[] = [
     questions: [
       { q: "Ваш пол:", qEn: "Your gender:", a: ["Женский", "Мужской", "Другое"], aEn: ["Female", "Male", "Other"] },
       { q: "Ваш возраст:", qEn: "Your age:", a: ["18–25", "26–35", "36–45", "46–55", "55+"], aEn: ["18–25", "26–35", "36–45", "46–55", "55+"] },
-      { q: "Что вас больше всего беспокоит в коже?", qEn: "What concerns you most about your skin?", a: ["Акне и воспаления", "Сухость и шелушение", "Возрастные изменения", "Пигментация и неровный тон", "Чувствительность и покраснения", "Пока не знаю"], aEn: ["Acne and breakouts", "Dryness and flaking", "Signs of aging", "Pigmentation and uneven tone", "Sensitivity and redness", "Not sure yet"] },
+      { q: "Что вас больше всего беспокоит в коже?", qEn: "What concerns you most about your skin?", a: ["Акне и воспаления", "Сухость и шелушение", "Возрастные изменения", "Пигментация и неровный тон", "Чувствительность и покраснения", "Пока не знаю"], aEn: ["Acne and breakouts", "Dryness and flaking", "Signs of aging", "Pigmentation and uneven tone", "Sensitivity and redness", "Not sure yet"], multi: true },
       { q: "Насколько чувствительна ваша кожа?", qEn: "How sensitive is your skin?", a: ["Очень чувствительная", "Умеренно чувствительная", "Не чувствительная"], aEn: ["Very sensitive", "Somewhat sensitive", "Not sensitive"] },
       { q: "Какой у вас текущий уход за кожей?", qEn: "What is your current skincare routine?", a: ["Никакого", "Базовый (умывание + крем)", "Многоступенчатый", "Профессиональный"], aEn: ["None", "Basic (cleanser + moisturiser)", "Multi-step", "Professional"] },
       { q: "Используете ли вы солнцезащитный крем?", qEn: "Do you use sunscreen?", a: ["Никогда", "Иногда", "Ежедневно SPF"], aEn: ["Never", "Sometimes", "Daily SPF"] },
-      { q: "Какова ваша главная цель для кожи?", qEn: "What is your main skin goal?", a: ["Чистая кожа без воспалений", "Молодость и упругость", "Ровный тон и сияние", "Успокоить чувствительную кожу", "Наладить уход с нуля", "Поддерживать хорошее состояние"], aEn: ["Clear, blemish-free skin", "Youthful and firm skin", "Even tone and glow", "Calm sensitive skin", "Build a routine from scratch", "Maintain current condition"] },
+      { q: "Какова ваша главная цель для кожи?", qEn: "What is your main skin goal?", a: ["Чистая кожа без воспалений", "Молодость и упругость", "Ровный тон и сияние", "Успокоить чувствительную кожу", "Наладить уход с нуля", "Поддерживать хорошее состояние"], aEn: ["Clear, blemish-free skin", "Youthful and firm skin", "Even tone and glow", "Calm sensitive skin", "Build a routine from scratch", "Maintain current condition"], multi: true },
     ],
     results: {
       "done": {
@@ -94,6 +101,7 @@ export const QUIZZES: Quiz[] = [
     anchorStars: 1000,
     minutes: 5,
     questions: [
+      { q: "Ваш возраст:", qEn: "Your age:", a: ["До 20 лет", "20-30 лет", "30-40 лет", "40-50 лет", "Более 50 лет"], aEn: ["Under 20", "20-30", "30-40", "40-50", "Over 50"] },
       { q: "Блестит ли ваша кожа в течение дня?", qEn: "Does your skin get shiny during the day?", a: ["Нет, кожа матовая", "Немного — в районе носа и лба", "Да, лицо блестит везде"], aEn: ["No, it stays matte", "A little — around the nose and forehead", "Yes, my whole face gets shiny"] },
       { q: "Как выглядит ваша кожа в целом?", qEn: "How would you describe your skin overall?", a: ["Гладкая, поры чистые, цвет ровный — без особых проблем", "Немного сухая, иногда стягивает, но без раздражения", "Часто некомфортно — стянутость, покраснение", "Нос и лоб жирнятся, а щёки — сухие или нормальные", "Жирнится, есть чёрные точки или прыщи"], aEn: ["Smooth, clean pores, even tone — no major issues", "A bit dry, sometimes tight, no irritation", "Often uncomfortable — tight, red or irritated", "Oily nose and forehead, but cheeks are dry or normal", "Gets oily, has blackheads or breakouts"] },
       { q: "Как ваша кожа чувствует себя сразу после умывания?", qEn: "How does your skin feel right after washing?", a: ["Сухая, иногда шелушится, стягивает", "Нормально — слегка сухая, быстро приходит в норму", "Жирнится на отдельных участках", "Жирная по всему лицу"], aEn: ["Dry, sometimes flaky, feels tight", "Fine — slightly dry but settles quickly", "Oily in certain areas", "Oily all over"] },
@@ -101,7 +109,6 @@ export const QUIZZES: Quiz[] = [
       { q: "Есть ли у вас прыщи или воспаления?", qEn: "Do you have pimples or breakouts?", a: ["Да — прыщи и воспаления", "Есть чёрные точки", "Пару прыщей бывает перед месячными", "Нет, кожа чистая"], aEn: ["Yes — regular breakouts and blemishes", "I have blackheads", "A couple of spots before my period", "No, my skin stays clear"] },
       { q: "Как часто появляются прыщи или воспаления?", qEn: "How often do breakouts happen?", a: ["Часто", "Иногда — обычно перед месячными", "Почти никогда", "Чаще в зоне носа и лба"], aEn: ["Often", "Sometimes — usually before my period", "Almost never", "More often on the nose and forehead"] },
       { q: "Краснеет ли кожа или покалывает без особой причины?", qEn: "Does your skin flush or tingle for no obvious reason?", a: ["Нет", "Очень редко", "Да — при резкой смене температуры, от алкоголя или острой еды"], aEn: ["No", "Very rarely", "Yes — when it's hot or cold, after alcohol or spicy food"] },
-      { q: "Ваш возраст:", qEn: "Your age:", a: ["До 20 лет", "20-30 лет", "30-40 лет", "40-50 лет", "Более 50 лет"], aEn: ["Under 20", "20-30", "30-40", "40-50", "Over 50"] },
       { q: "Есть ли у вас морщины?", qEn: "Do you have wrinkles?", a: ["Нет", "Есть мелкие морщинки", "Есть заметные морщины"], aEn: ["No", "Fine lines", "Noticeable wrinkles"] },
       { q: "Кожа упругая или уже начала «провисать»?", qEn: "Does your skin still feel firm, or has it started to sag?", a: ["Упругая, пружинистая", "Немного потеряла тонус", "Заметно менее упругая", "Совсем не упругая"], aEn: ["Firm and springy", "Lost a little firmness", "Noticeably less firm", "Not firm at all"] },
       { q: "Есть ли пигментные пятна или неровный тон?", qEn: "Do you have dark spots or uneven skin tone?", a: ["Нет", "Есть несколько", "Много"], aEn: ["No", "A few", "Many"] },
@@ -152,6 +159,8 @@ export const QUIZZES: Quiz[] = [
       },
       "combo": {
         key: "combo",
+        note: "Важно: один уход на всё лицо не работает. Т-зона и щёки требуют разных продуктов и разного подхода.",
+        noteEn: "Key: one routine for the whole face does not work. T-zone and cheeks need different products and different care.",
         title: "Комбинированная кожа",
         titleEn: "Combination Skin",
         sub: "Нос жирнится, щёки сухие — и оба недовольны",
@@ -237,16 +246,18 @@ export const QUIZZES: Quiz[] = [
       { q: "Есть ли у вас морщины?", qEn: "Do you have wrinkles?", a: ["Нет", "Только когда улыбаюсь или хмурюсь", "Видны, даже когда лицо расслаблено", "Глубокие и заметные"], aEn: ["No", "Only when smiling or frowning", "Visible even when my face is relaxed", "Deep and prominent"] },
       { q: "Кожа ещё упругая?", qEn: "Does your skin still feel firm?", a: ["Да, плотная и упругая", "Немного потеряла тонус", "Заметно менее плотная", "Кожа «поплыла»"], aEn: ["Yes, firm and bouncy", "Lost a little tone", "Noticeably less firm", "Skin feels like it's sagging"] },
       { q: "Изменился ли контур лица?", qEn: "Has your facial contour changed?", a: ["Нет", "Едва заметно", "Да, заметные изменения", "Сильные изменения"], aEn: ["No", "Barely noticeable", "Yes, noticeable changes", "Significant changes"] },
-      { q: "Что из этого есть у вас?", qEn: "Do you have any of these?", a: ["Складки от носа к уголкам рта", "Морщины вокруг глаз («гусиные лапки»)", "Морщины на лбу или второй подбородок", "Обвисшие щёки или «брыли»", "Нет ничего из этого"], aEn: ["Folds running from nose to corners of mouth", "Wrinkles around the eyes (crow's feet)", "Forehead lines or a double chin", "Sagging cheeks or jowls", "None of these"] },
+      { q: "Что из этого есть у вас?", qEn: "Do you have any of these?", a: ["Складки от носа к уголкам рта", "Морщины вокруг глаз («гусиные лапки»)", "Морщины на лбу или второй подбородок", "Обвисшие щёки или «брыли»", "Нет ничего из этого"], aEn: ["Folds running from nose to corners of mouth", "Wrinkles around the eyes (crow's feet)", "Forehead lines or a double chin", "Sagging cheeks or jowls", "None of these"], multi: true },
       { q: "Как выглядит ваша кожа в целом?", qEn: "How does your skin look overall?", a: ["Свежая", "Немного устала", "Тусклая, без блеска", "«Возрастная», заметно постарела"], aEn: ["Fresh and rested", "A little tired", "Dull, no glow", "Noticeably aged"] },
       { q: "Используете ли вы антивозрастной уход?", qEn: "Do you use anti-aging skincare?", a: ["Да, регулярно и с умом", "Иногда", "Нет"], aEn: ["Yes, regularly and mindfully", "Sometimes", "No"] },
-      { q: "Есть ли в вашем уходе:", qEn: "Do you use any of these?", a: ["Витамин C", "Ретинол", "Пептиды", "Ничего из этого"], aEn: ["Vitamin C", "Retinol", "Peptides", "None of these"] },
+      { q: "Есть ли в вашем уходе:", qEn: "Do you use any of these?", a: ["Витамин C", "Ретинол", "Пептиды", "Ничего из этого"], aEn: ["Vitamin C", "Retinol", "Peptides", "None of these"], multi: true },
       { q: "Есть ли пигментные пятна или неровный тон?", qEn: "Do you have dark spots or uneven skin tone?", a: ["Нет", "Есть немного", "Хорошо заметные"], aEn: ["No", "A little", "Quite noticeable"] },
       { q: "Если появился прыщ или раздражение — как быстро кожа успокаивается?", qEn: "If you get a pimple or irritation — how quickly does your skin calm down?", a: ["Быстро, за день-два", "Примерно за неделю", "Долго, может болеть несколько недель"], aEn: ["Quickly — within a day or two", "About a week", "It takes a long time, sometimes weeks"] },
     ],
     results: {
       "prevention": {
         key: "prevention",
+        note: "Лучший anti-age — это не «сильные средства», а своевременно выстроенный уход. Если сейчас выстроить правильный уход, кожа дольше останется плотной и свежей, а возрастные изменения будут проявляться значительно медленнее.",
+        noteEn: "The best anti-age is not \"strong products\" but timely, well-structured care. If you build the right routine now, your skin will stay firm and fresh longer, and aging signs will appear much slower.",
         title: "Превентивный антиэйдж-уход",
         titleEn: "Preventive Anti-Aging",
         sub: "Морщин пока нет — но ты уже думаешь на шаг вперёд",
@@ -261,6 +272,8 @@ export const QUIZZES: Quiz[] = [
       },
       "first_changes": {
         key: "first_changes",
+        note: "Это один из лучших этапов, чтобы начать anti-age грамотно. Если подключить правильную систему сейчас, можно очень долго удерживать кожу в хорошем состоянии.",
+        noteEn: "This is one of the best stages to start anti-age care properly. If you connect the right system now, you can maintain good skin condition for a very long time.",
         title: "Первые возрастные изменения",
         titleEn: "First Signs of Aging",
         sub: "Мимические морщинки появились — и ты их замечаешь",
@@ -275,6 +288,8 @@ export const QUIZZES: Quiz[] = [
       },
       "pronounced": {
         key: "pronounced",
+        note: "На этом этапе уже часто лучше всего работает сочетание домашнего ухода + процедур. Если выстроить правильную систему, можно заметно улучшить качество кожи, тонус и замедлить дальнейшие изменения.",
+        noteEn: "At this stage, a combination of home care + procedures often works best. With the right system, you can noticeably improve skin quality, tone, and slow further changes.",
         title: "Выраженные возрастные изменения",
         titleEn: "Pronounced Aging Changes",
         sub: "Изменения очевидны, и ты готова с ними работать",
@@ -289,6 +304,8 @@ export const QUIZZES: Quiz[] = [
       },
       "intensive": {
         key: "intensive",
+        note: "Здесь уже редко работает только домашний уход. Максимальный результат даёт: грамотный домашний уход + правильно подобранные процедуры. Задача ухода — поддерживать кожу, усиливать результат процедур и замедлять дальнейшие изменения.",
+        noteEn: "Home care alone rarely works at this stage. Best results come from: proper home care + well-chosen procedures. The goal of care is to support skin, enhance procedure results, and slow further changes.",
         title: "Интенсивный антиэйдж",
         titleEn: "Intensive Anti-Aging",
         sub: "Кожа требует серьёзного внимания — и ты это знаешь",
@@ -417,6 +434,8 @@ export const QUIZZES: Quiz[] = [
     results: {
       "high": {
         key: "high",
+        note: "Основной курс — поддержка и профилактика старения",
+        noteEn: "Main course — maintenance and aging prevention",
         title: "Кожа высокого качества",
         titleEn: "High-Quality Skin",
         sub: "Кожа сияет — и ты это замечаешь",
@@ -431,6 +450,8 @@ export const QUIZZES: Quiz[] = [
       },
       "medium": {
         key: "medium",
+        note: "Сочетайте антиоксиданты днём и ретиноиды вечером для максимального эффекта",
+        noteEn: "Combine antioxidants during the day and retinoids in the evening for maximum effect",
         title: "Кожа среднего качества",
         titleEn: "Average Skin Quality",
         sub: "Кожа бывает хорошей — но не стабильно",
@@ -445,6 +466,8 @@ export const QUIZZES: Quiz[] = [
       },
       "low": {
         key: "low",
+        note: "Если кожа реактивная — сначала восстановите барьер (Cicaplast B5+, P.O.S.T. recovery). Если «уставшая» без реактивности — можно вводить активы (ретинол, витамин С)",
+        noteEn: "If skin is reactive — first restore the barrier (Cicaplast B5+, P.O.S.T. recovery). If \"tired\" without reactivity — you can introduce actives (retinal, vitamin C)",
         title: "Сниженное качество кожи",
         titleEn: "Reduced Skin Quality",
         sub: "Кожа выглядит уставшей — даже после отдыха",
@@ -459,6 +482,8 @@ export const QUIZZES: Quiz[] = [
       },
       "problem": {
         key: "problem",
+        note: "Этап 1: стабилизация барьера (2-3 недели без кислот и ретинола). Этап 2: ввод одного ведущего актива. Этап 3: эстетические процедуры",
+        noteEn: "Stage 1: barrier stabilization (2-3 weeks without acids and retinol). Stage 2: introduce one leading active. Stage 3: aesthetic procedures",
         title: "Проблемная / истощённая кожа",
         titleEn: "Problematic / Depleted Skin",
         sub: "Кожа сигналит — и уже давно",
@@ -556,14 +581,14 @@ export const QUIZZES: Quiz[] = [
       { q: "Ваш биологический пол?", qEn: "What is your biological sex?", a: ["Мужчина", "Женщина"], aEn: ["Male", "Female"] },
       { q: "Сколько вам лет?", qEn: "How old are you?", a: ["25–30", "30–40", "40+"], aEn: ["25–30", "30–40", "40+"] },
       { q: "Как выглядело ваше лицо в возрасте 18–20 лет?", qEn: "How did your face look at age 18–20?", a: ["Худое, тонкое, с небольшим объёмом", "Гармоничное, среднего объёма", "Более мягкое, округлое, с выраженными тканями", "Чёткое, структурное, с выраженными чертами"], aEn: ["Lean, thin, with little volume", "Balanced, medium volume", "Softer, rounder, with fuller tissues", "Defined, structured, with strong features"] },
-      { q: "Какой из этих морфотипов лица похож на ваш больше всего?", qEn: "Which of these facial aging types looks most like yours?", a: ["Усталый тип", "Деформационный тип", "Тип с мелкими морщинами", "Мышечный тип"], aEn: ["Tired type", "Deformational type", "Fine-line type", "Muscular type"] },
+      { q: "Какой из этих морфотипов лица похож на ваш больше всего?", qEn: "Which of these facial aging types looks most like yours?", a: ["Усталый тип", "Деформационный тип", "Тип с мелкими морщинами", "Мышечный тип"], aEn: ["Tired type", "Deformational type", "Fine-line type", "Muscular type"], photos: { m: ["/photos/quiz/morpho-tired-m.webp", "/photos/quiz/morpho-deform-m.webp", "/photos/quiz/morpho-fineline-m.webp", "/photos/quiz/morpho-muscular-m.webp"], w: ["/photos/quiz/morpho-tired-w.webp", "/photos/quiz/morpho-deform-w.webp", "/photos/quiz/morpho-fineline-w.webp", "/photos/quiz/morpho-muscular-w.webp"] } },
       { q: "Как чаще всего выглядит ваше лицо к вечеру?", qEn: "How does your face usually look by the evening?", a: ["Уставшим, как будто «осевшим»", "Более тяжёлым, отёчным, расплывчатым", "Сухим, тусклым, морщинки становятся заметнее", "Напряжённым, более «жёстким» по чертам", "Практически не меняется"], aEn: ["Tired, as if it has \"settled\"", "Heavier, puffy, less defined", "Dry, dull, fine lines more visible", "Tense, features look more \"rigid\"", "Barely changes at all"] },
       { q: "Что вы замечаете у себя раньше всего из возрастных изменений?", qEn: "What age-related changes do you notice first?", a: ["Тёмные круги или «мешки» под глазами — лицо кажется уставшим", "Черты лица «поплыли» вниз — овал, щёки, носогубки", "Мелкие морщины вокруг глаз, губ, на щеках", "Выраженные мимические заломы и складки", "Пока без особых изменений"], aEn: ["Dark circles or puffiness under the eyes — face looks tired", "Facial features have \"drifted\" downward — jawline, cheeks, nasolabial folds", "Fine wrinkles around eyes, lips, cheeks", "Pronounced expression lines and creases", "No noticeable changes yet"] },
       { q: "Как можно описать вашу кожу?", qEn: "How would you describe your skin?", a: ["Нормальная/комбинированная, но быстро теряет свежесть", "Плотная, склонная к отёкам или тяжести", "Тонкая, сухая или обезвоженная", "Плотная, упругая, с хорошим каркасом"], aEn: ["Normal/combination, but loses freshness quickly", "Dense, prone to puffiness or heaviness", "Thin, dry or dehydrated", "Dense, firm, with a strong framework"] },
       { q: "Есть ли у вас склонность к отёчности?", qEn: "Do you tend to get puffy?", a: ["Иногда", "Да, выраженная", "Почти нет", "Редко или почти никогда"], aEn: ["Sometimes", "Yes, noticeably", "Hardly ever", "Rarely or almost never"] },
       { q: "Что больше всего «выдаёт возраст» на вашем лице?", qEn: "What \"gives away your age\" the most?", a: ["Усталость и потеря свежести", "Черты «поплыли» вниз", "Морщины и сухость кожи", "Активная мимика и заломы", "Ничего из вышеперечисленного"], aEn: ["Tiredness and loss of freshness", "Features drifting downward", "Wrinkles and dry skin", "Active expressions and creases", "None of the above"] },
       { q: "Как ведёт себя ваш овал лица с возрастом?", qEn: "How does your facial contour change with age?", a: ["Становится менее свежим, но пока без сильной деформации", "Теряет чёткость, «плывёт»", "Долго остаётся нормальным, но кожа стареет", "Обычно держится достаточно хорошо"], aEn: ["Looks less fresh, but no major deformation yet", "Loses definition, starts to \"drift\"", "Stays normal for a long time, but skin ages", "Usually holds up quite well"] },
-      { q: "Как вы выглядите после недосыпа или стресса?", qEn: "How do you look after poor sleep or stress?", a: ["Очень уставшей, «погасшей»", "Отёчной, тяжёлой", "Сухой, измученной, морщинки заметнее", "Лицо становится напряжённым и «жёстким»"], aEn: ["Very tired, \"faded\"", "Puffy, heavy", "Dry, exhausted, wrinkles more visible", "Face becomes tense and \"rigid\""] },
+      { q: "Как вы выглядите после недосыпа или стресса?", qEn: "How do you look after poor sleep or stress?", a: ["Очень уставшей, «погасшей»", "Отёчной, тяжёлой", "Сухой, измученной, морщинки заметнее", "Лицо становится напряжённым и «жёстким»"], aEn: ["Very tired, \"faded\"", "Puffy, heavy", "Dry, exhausted, wrinkles more visible", "Face becomes tense and \"rigid\""], aMale: ["Очень уставшим, «погасшим»", "Отёчным, тяжёлым", "Сухим, измученным, морщинки заметнее", "Лицо становится напряжённым и «жёстким»"] },
       { q: "Что ближе всего к вашему типу лица?", qEn: "What best describes your face type?", a: ["Средний объём, но лицо быстро теряет «свежесть»", "Мягкие ткани, склонность к тяжести", "Худое/тонкое лицо", "Чёткие черты, выраженный мышечный каркас", "Пока без видимых изменений"], aEn: ["Medium volume, but face loses \"freshness\" quickly", "Soft tissues, tendency to heaviness", "Thin/lean face", "Defined features, pronounced muscle framework", "No visible changes yet"] },
       { q: "Как ведут себя носогубные складки?", qEn: "How do your nasolabial folds behave?", a: ["Появляются из-за уставшего вида", "Становятся глубже на фоне тяжести тканей", "Не они главная проблема, больше беспокоят мелкие морщины", "Могут быть выражены из-за мимики и плотности мышц", "Пока без видимых изменений"], aEn: ["Appear due to a tired look", "Deepen due to tissue heaviness", "Not the main concern — fine wrinkles bother more", "May be pronounced due to expressions and muscle density", "No visible changes yet"] },
       { q: "Что больше похоже на ваши изменения в зоне глаз?", qEn: "What best describes changes around your eyes?", a: ["Тёмные круги или «мешки» под глазами, уставший взгляд", "Отёчность, тяжесть верхнего/нижнего века", "Мелкая сетка морщин", "Активные «гусиные лапки» при мимике", "Пока никаких изменений"], aEn: ["Dark circles or bags under eyes, tired gaze", "Puffiness, heaviness of upper/lower lids", "Fine mesh of wrinkles", "Active crow's feet with expressions", "No changes yet"] },
@@ -574,6 +599,8 @@ export const QUIZZES: Quiz[] = [
     results: {
       "fineline_young": {
         key: "fineline_young",
+        note: "В вашем случае антивозрастной уход начинается не с подтяжки, а с увлажнения, профилактики и защиты кожи.",
+        noteEn: "Your anti-aging starts not with lifting but with hydration, prevention and skin protection.",
         title: "Мелкоморщинистый тип",
         titleEn: "Fine-Wrinkle Type",
         sub: "Возраст 25–30",
@@ -586,6 +613,8 @@ export const QUIZZES: Quiz[] = [
       },
       "fineline_mid": {
         key: "fineline_mid",
+        note: "Ваш антивозрастной уход — это стимуляция коллагена и качество кожи, а не просто заполнение объёма.",
+        noteEn: "Your anti-aging is about collagen stimulation and skin quality, not just filling volume.",
         title: "Мелкоморщинистый тип",
         titleEn: "Fine-Wrinkle Type",
         sub: "Возраст 30–40",
@@ -598,6 +627,8 @@ export const QUIZZES: Quiz[] = [
       },
       "fineline_mature": {
         key: "fineline_mature",
+        note: "Главная задача — не натянуть лицо, а сделать кожу снова плотной, живой и наполненной.",
+        noteEn: "The main goal is not to stretch the face but to make the skin dense, alive and nourished again.",
         title: "Мелкоморщинистый тип",
         titleEn: "Fine-Wrinkle Type",
         sub: "Возраст 40+",
@@ -610,6 +641,8 @@ export const QUIZZES: Quiz[] = [
       },
       "tired_young": {
         key: "tired_young",
+        note: "В вашем возрасте важно не колоть всё подряд, а поддерживать свежесть и качество кожи лёгкими методами.",
+        noteEn: "At your age, it is important not to inject everything at once, but to maintain freshness and skin quality with gentle methods.",
         title: "Усталый тип",
         titleEn: "Tired Type",
         sub: "Возраст 25–30",
@@ -622,6 +655,8 @@ export const QUIZZES: Quiz[] = [
       },
       "tired_mid": {
         key: "tired_mid",
+        note: "Ваш антивозрастной уход — это сочетание поддержки объёма, каркаса и качества кожи.",
+        noteEn: "Your anti-aging is a combination of volume support, framework and skin quality.",
         title: "Усталый тип",
         titleEn: "Tired Type",
         sub: "Возраст 30–40",
@@ -634,6 +669,8 @@ export const QUIZZES: Quiz[] = [
       },
       "tired_mature": {
         key: "tired_mature",
+        note: "Здесь уже важно работать не только с кожей, но и с опорой тканей.",
+        noteEn: "At this stage it is important to work not only with the skin but also with tissue support.",
         title: "Усталый тип",
         titleEn: "Tired Type",
         sub: "Возраст 40+",
@@ -646,6 +683,8 @@ export const QUIZZES: Quiz[] = [
       },
       "deform_young": {
         key: "deform_young",
+        note: "Приоритет: дренаж + каркас + качество кожи. Не перегружать лицо объёмом. Какие процедуры и в каком объёме — решает Анжелика на осмотре.",
+        noteEn: "Priority: drainage + support + skin quality. Do not overload the face with volume. Which treatments and how much — Anzhelika decides at the exam.",
         title: "Деформационно-отёчный тип",
         titleEn: "Deformation-Edematous Type",
         sub: "Возраст 25–35",
@@ -658,6 +697,8 @@ export const QUIZZES: Quiz[] = [
       },
       "deform_mid": {
         key: "deform_mid",
+        note: "Ваш антивозрастной уход — это лифтинг и контроль тяжёлых тканей, а не объём.",
+        noteEn: "Your anti-aging is lifting and heavy tissue control, not volume.",
         title: "Деформационно-отёчный тип",
         titleEn: "Deformation-Edematous Type",
         sub: "Возраст 35–45",
@@ -670,6 +711,8 @@ export const QUIZZES: Quiz[] = [
       },
       "deform_mature": {
         key: "deform_mature",
+        note: "Здесь особенно важно не перегружать лицо лишними процедурами и не утяжелять его дополнительным объёмом.",
+        noteEn: "Here it is especially important not to overload the face with unnecessary procedures or weigh it down with extra volume.",
         title: "Деформационно-отёчный тип",
         titleEn: "Deformation-Edematous Type",
         sub: "Возраст 45+",
@@ -682,6 +725,8 @@ export const QUIZZES: Quiz[] = [
       },
       "muscular_young": {
         key: "muscular_young",
+        note: "В вашем случае антивозрастной уход — это не только контроль мимики, но и поддержка качества кожи.",
+        noteEn: "Your anti-aging is not just about expression control but also about maintaining skin quality.",
         title: "Мышечный тип",
         titleEn: "Muscular Type",
         sub: "Возраст 25–35",
@@ -694,6 +739,8 @@ export const QUIZZES: Quiz[] = [
       },
       "muscular_mid": {
         key: "muscular_mid",
+        note: "Даже если проблема в мышцах, кожа всё равно теряет влагу — поэтому увлажнение обязательно.",
+        noteEn: "Even if the problem is in the muscles, the skin still loses moisture — hydration is essential.",
         title: "Мышечный тип",
         titleEn: "Muscular Type",
         sub: "Возраст 35–45",
@@ -706,6 +753,8 @@ export const QUIZZES: Quiz[] = [
       },
       "muscular_mature": {
         key: "muscular_mature",
+        note: "Ваш антивозрастной уход строится на контроле мимики + сохранении качества кожи.",
+        noteEn: "Your anti-aging is built on expression control + skin quality preservation.",
         title: "Мышечный тип",
         titleEn: "Muscular Type",
         sub: "Возраст 40+",
@@ -718,6 +767,8 @@ export const QUIZZES: Quiz[] = [
       },
       "combined_mid": {
         key: "combined_mid",
+        note: "Ваш антивозрастной уход должен строиться по принципу: морщины + качество кожи + каркас + лифтинг.",
+        noteEn: "Your anti-aging should follow the principle: wrinkles + skin quality + framework + lifting.",
         title: "Комбинированный тип",
         titleEn: "Combined Type",
         sub: "Возраст 30–40",
@@ -730,6 +781,8 @@ export const QUIZZES: Quiz[] = [
       },
       "combined_mature": {
         key: "combined_mature",
+        note: "Для вас не существует одной волшебной процедуры — лучший результат даёт только грамотная комбинация методик.",
+        noteEn: "There is no single magic procedure for you — the best result comes from a competent combination of methods.",
         title: "Комбинированный тип",
         titleEn: "Combined Type",
         sub: "Возраст 40+",

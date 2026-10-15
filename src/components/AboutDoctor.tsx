@@ -74,7 +74,9 @@ export function AboutDoctor({ lang }: { lang: Lang }) {
   const open = () =>
     openSheet({
       title: profile.name,
-      subtitle: ru ? 'Косметолог · Батуми' : 'Cosmetologist · Batumi',
+      /* Не только врач: студия её. Это и есть ответ на «кто меня примет» —
+         принимает владелица, а не наёмный мастер по смене. */
+      subtitle: ru ? 'Врач-косметолог · владелица студии' : 'Doctor, cosmetologist · the studio’s owner',
       body: <AboutSheet lang={lang} />,
     });
 

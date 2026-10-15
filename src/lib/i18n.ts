@@ -141,7 +141,7 @@ const DICT: Record<string, Entry> = {
   'trust.cadaver':     { ru: '✓ Кадавер-курсы', en: '✓ Cadaver courses' },
   // catalog
   'catalog.eyebrow':   { ru: 'каталог', en: 'catalog' },
-  'catalog.title':     { ru: 'Услуги Анжелики', en: "Anjelika's services" },
+  'catalog.title':     { ru: 'Услуги студии', en: 'Studio treatments' },
   'catalog.search':    { ru: 'Поиск процедуры…', en: 'Search treatments…' },
   'catalog.hintFav':   { ru: 'добавляй в избранное значком сердца', en: 'tap the heart to save favourites' },
   'catalog.favCount':  { ru: 'избранное', en: 'favourites' },

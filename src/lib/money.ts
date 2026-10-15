@@ -28,6 +28,8 @@
 import type { Service } from '../data/services';
 import type { Lang } from './i18n';
 import { isPriceMinor } from './showable';
+import { getRate, FALLBACK_RATE } from './rates';
+import { getPriceMode } from './priceMode';
 
 const NBSP = String.fromCharCode(0xa0);
 const LARI = '₾';
@@ -128,41 +130,89 @@ export function formatPrice(p: PriceSource, lang: Lang = 'ru'): string | null {
 }
 
 /**
- * Reference rate for the SECOND price (K11b): lari for one dollar. Fixed — John's decision
- * before the owner's answer, the value the code already had (2.74). One place: a new rate
- * is a code change and a release. The second price is a reference, never a promise — that
- * is why it carries "≈" and the screen says the payment currency (SECOND_PRICE_NOTE).
+ * Reference rate — kept for the code that imported it: lari for one dollar.
+ * It is now only the FALLBACK; the live rate is `getRate()` (lib/rates.ts).
  */
-export const REFERENCE_RATE = { lariPerDollar: 2.74 } as const;
+export const REFERENCE_RATE = { lariPerDollar: FALLBACK_RATE.lariPerDollar } as const;
 
 /**
- * The second price of a LARI row — converted into dollars at REFERENCE_RATE: "≈ $128"
- * ("≈" and a no-break space), whole dollars (Math.round). The screen puts it in brackets
- * right after the main line, in one block — "от 350 ₾ за сеанс (≈ $128)" — so the main
- * line's "from" and unit stand over both (K13, H-2: alone, "≈ $4" read as the price).
- * null: no price, a zero price, a value under one dollar ("≈ $1" for 1 ₾ = $0.36 would
- * lie — K13, F8), and any row not in lari — a dollar row has no second price (K13,
- * H-1a: the owner asked for dollars second to lari, not lari second to dollars).
- * Display only: never summed, sent, stored or compared.
+ * 🔄 ПЕРЕКЛЮЧАТЕЛЬ ВАЛЮТЫ (владелец, 15.10.2026).
+ * `displayPrice` — цена в той валюте, которую выбрал человек, с пометкой «≈»,
+ * если это пересчёт. Родная цена не теряется: `secondPrice` отдаёт её точной
+ * второй строкой («400 ₾»), чтобы человек видел, сколько на самом деле
+ * назначено и в чём платить.
+ *
+ * Пересчёт — только здесь и только для глаз. Сумма визита (`visitTotal`),
+ * `priceMinor`, чеки и «оплачено» остаются в родной валюте.
+ *
+ * Не пересчитываем (показываем родную как есть):
+ *   · нет цены, нулевая цена, чужая валюта кроме лари и доллара;
+ *   · результат меньше единицы выбранной валюты: «≈ $1» за 1 ₾ = $0.36 это
+ *     ложь (K13, F8).
+ * Округляем до целых: «≈ $146,12» выглядит как точность, которой нет.
+ */
+export function convertedMinor(
+  minor: number,
+  from: string,
+  to: 'GEL' | 'USD',
+): number | null {
+  if (from === to) return minor;
+  const r = getRate().lariPerDollar;
+  if (from === 'GEL' && to === 'USD') return Math.round(minor / r / 100) * 100;
+  if (from === 'USD' && to === 'GEL') return Math.round((minor / 100) * r) * 100;
+  return null;
+}
+
+/** Цена для показа в выбранной валюте. Родная валюта уже совпала — просто формат. */
+export function displayPrice(p: PriceSource, lang: Lang = 'ru'): string | null {
+  const mode = getPriceMode();
+  if (!isPriceMinor(p.priceMinor) || p.priceMinor === 0 || !p.currency || p.currency === mode) {
+    return formatPrice(p, lang);
+  }
+  const conv = convertedMinor(p.priceMinor, p.currency, mode);
+  if (conv === null || conv < 100) return formatPrice(p, lang);
+  const amount = formatAmount(conv, mode, lang);
+  if (amount === null) return formatPrice(p, lang);
+  const from = p.priceFrom === true ? `${lang === 'en' ? 'from' : 'от'}${NBSP}` : '';
+  const unit = priceUnit(p.slug, lang);
+  const body = `≈${NBSP}${amount}`;
+  return unit ? `${from}${body} ${unit}` : `${from}${body}`;
+}
+
+/**
+ * Вторая строка: РОДНАЯ точная цена, когда показ пересчитан («400 ₾»).
+ * Показ уже в родной валюте — второй строки нет. По-прежнему только в
+ * каталоге и на экране услуги, в скобках сразу за главной строкой.
  */
 export function secondPrice(
   p: Pick<PriceSource, 'priceMinor' | 'currency'>,
   lang: Lang = 'ru',
 ): string | null {
-  if (!isPriceMinor(p.priceMinor) || p.priceMinor === 0 || p.currency !== 'GEL') return null;
-  const converted = p.priceMinor / 100 / REFERENCE_RATE.lariPerDollar;
-  if (converted < 1) return null;
-  return `≈${NBSP}${formatAmount(Math.round(converted) * 100, 'USD', lang)}`;
+  const mode = getPriceMode();
+  if (!isPriceMinor(p.priceMinor) || p.priceMinor === 0 || !p.currency || p.currency === mode) return null;
+  const conv = convertedMinor(p.priceMinor, p.currency, mode);
+  if (conv === null || conv < 100) return null; // главная строка и так родная
+  return formatAmount(p.priceMinor, p.currency, lang);
 }
 
-/*
- * The note for a screen with a second price — once per screen. Only lari rows carry one
- * (K13, H-1a), so there is one note: the lawyer's line (K11 Б2; K13 wording after Katya).
- * A dollar row (a course) has no second price and no note.
+/**
+ * Пояснение к пересчитанной цене — один раз на экран. Называет, в чём
+ * платят на самом деле, и по какому курсу пересчитано: курс без даты
+ * назван ориентировочным, с датой — курсом Нацбанка Грузии.
  */
+export function secondPriceNote(lang: Lang = 'ru'): string {
+  const r = getRate();
+  const date = r.asOf ? new Date(r.asOf).toLocaleDateString(lang === 'en' ? 'en-GB' : 'ru-RU', { day: 'numeric', month: 'long' }) : null;
+  if (lang === 'en') {
+    return `Paid in lari. A price marked “≈” is converted at ${r.live && date ? `the National Bank of Georgia rate of ${date}` : 'an approximate rate'}.`;
+  }
+  return `Оплата в студии — в лари. Цена со знаком «≈» пересчитана ${r.live && date ? `по курсу Нацбанка Грузии на ${date}` : 'по ориентировочному курсу'}.`;
+}
+
+/** Прежнее имя — на случай стороннего кода: теперь это функция `secondPriceNote`. */
 export const SECOND_PRICE_NOTE: Readonly<Record<Lang, string>> = {
-  ru: 'Оплата процедур — в лари; цена со знаком «≈» — примерная.',
-  en: 'Procedures are paid in lari; a price marked “≈” is approximate.',
+  get ru() { return secondPriceNote('ru'); },
+  get en() { return secondPriceNote('en'); },
 };
 
 /** The visit summary (K13, H-5): it carries no second price, so the note names only the payment currency. */
@@ -179,6 +229,10 @@ export const priceSourceOf = (s: PricedService): PriceSource =>
 
 /** The price line of a catalog service — the same string on every screen (K5). */
 export const servicePrice = (s: PricedService, lang: Lang = 'ru'): string | null =>
+  displayPrice(priceSourceOf(s), lang);
+
+/** Родная цена услуги как назначена владелицей — для кабинета и правок. */
+export const serviceNativePrice = (s: PricedService, lang: Lang = 'ru'): string | null =>
   formatPrice(priceSourceOf(s), lang);
 
 /** The second price of a catalog service (K11b) — the catalog card and the service screen only. */

@@ -1,5 +1,5 @@
 import { Fragment, type ReactNode } from 'react';
-import { CONTACTS } from '../data/location';
+import { useStudio } from '../lib/studioProfile';
 import { openExternal } from '../lib/telegram';
 import { asset } from '../lib/asset';
 import type { Lang } from '../lib/i18n';
@@ -114,6 +114,7 @@ export function AnalysisDisclaimer({ lang }: { lang: Lang }) {
 export function LegalFooter({ lang }: { lang: Lang }) {
   const ru = lang === 'ru';
   const year = new Date().getFullYear();
+  const studio = useStudio();
 
   return (
     <footer className="legal-footer">
@@ -147,7 +148,7 @@ export function LegalFooter({ lang }: { lang: Lang }) {
       <p className="legal-note">{APP_NOT_A_DIAGNOSIS[lang]}</p>
 
       <p className="legal-copy">
-        © {year} ANZH Cosmetology · Батуми · @{CONTACTS.instagram}
+        © {year} ANZH Cosmetology · Батуми · {studio.instagram ? `@${studio.instagram}` : ''}
       </p>
     </footer>
   );

@@ -23,3 +23,9 @@ _work/
 tools/.env-push.sha
 
 .vercel
+
+# Dev stand: chat history and attachments (local only)
+tools/.stand-data/
+
+# Demo seed is generated at build
+tools/stand-seed.json

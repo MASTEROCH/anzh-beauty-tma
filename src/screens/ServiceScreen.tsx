@@ -1,3 +1,5 @@
+import { usePriceMode } from '../lib/priceMode';
+import { useRate } from '../lib/rates';
 import { findService, sTitle, servicePhoto } from '../data/services';
 import { procedurePhotosFor, worksFor } from '../data/works';
 import { useCatalog } from '../lib/catalog';
@@ -37,6 +39,8 @@ export function ServiceScreen({
   onToggleFavorite: (id: string) => void;
 }) {
   const lang = useLang();
+  const priceMode = usePriceMode(); // перерисовка при смене валюты показа
+  useRate();
   const ru = lang === 'ru';
   const catalog = useCatalog();
   const { me } = useMe();

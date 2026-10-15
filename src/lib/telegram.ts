@@ -94,8 +94,33 @@ export function tgHandle(u: TgUser | null): string {
    достаёт из той же подписанной строки сам. Клиентская копия была бы
    вторым источником одного факта — и неподписанным. */
 export function rawInitData(): string | null {
+  /* ТОЛЬКО dev-сборка и только с локальным стендом (tools/dev-stand.mjs):
+     `?as=owner` выдаёт себя за владелицу, `?as=maria` и т.д. — за мастера.
+     `import.meta.env.DEV` в production-сборке — литерал `false`, и ветка
+     вырезается целиком: ни этой строки, ни параметра в бою нет. Подпись
+     Telegram здесь не подделывается — стенд её просто не проверяет. */
+  if (import.meta.env.DEV && typeof location !== 'undefined') {
+    const as = new URLSearchParams(location.search).get('as');
+    if (as && /^[a-z]+$/.test(as)) return `dev=${as}`;
+  }
   const value = webApp()?.initData;
-  return typeof value === 'string' && value.length > 0 ? value : null;
+  if (typeof value === 'string' && value.length > 0) return value;
+  /* ДЕМО-СБОРКА (VITE_DEMO=1, ссылка прототипа с демо-сервером): вне Telegram
+     посетитель — не гость, а демо-клиентка со своим id на этом устройстве;
+     `?as=owner` / `maria` / … — вход в кабинет (PIN 2468). В обычной
+     production-сборке ветки нет: условие — литерал false. */
+  if (import.meta.env.VITE_DEMO === '1' && typeof location !== 'undefined') {
+    const as = new URLSearchParams(location.search).get('as');
+    if (as && /^[a-z]+$/.test(as) && as !== 'client') return `dev=${as}`;
+    let uid = '';
+    try { uid = localStorage.getItem('anzh_demo_uid') ?? ''; } catch { /* приватное окно */ }
+    if (!/^[a-z0-9]{8,32}$/.test(uid)) {
+      uid = Math.random().toString(36).slice(2, 12).padEnd(10, '0');
+      try { localStorage.setItem('anzh_demo_uid', uid); } catch { /* ок */ }
+    }
+    return `dev=client&uid=${uid}`;
+  }
+  return null;
 }
 
 /* «Мы внутри Telegram» = есть НЕПУСТАЯ подписанная строка. И только она.

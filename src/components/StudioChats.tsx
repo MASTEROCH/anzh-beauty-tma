@@ -1,161 +1,188 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from './Icon';
-import { openSheet, closeSheet, toast } from '../lib/ui';
-import { notify } from '../lib/haptics';
-import {
-  useThreads, sendToClient, lastMessage, needsReply, type Thread,
-} from '../lib/chats';
-import { openExternal, openTelegram } from '../lib/telegram';
-import { instagramUrl } from '../data/location';
+import { tap } from '../lib/haptics';
+import { replyChatThread, uploadAttachment, markThreadRead, type ChatThreadWire } from '../lib/api/chat';
+import { newIdempotencyKey } from '../lib/session';
+import { cabinetDenied } from '../lib/staff';
+import { useStaffInbox, setActiveThread, refreshInbox } from '../lib/staffInbox';
+import { fromWire, type ChatMsg } from '../lib/clientChat';
+import { ChatThread, ChatComposer } from './ChatThread';
+import type { PreparedMedia } from '../lib/chatMedia';
 
 /*
-   ПЕРЕПИСКА С КЛИЕНТКАМИ.
+   ПЕРЕПИСКА С КЛИЕНТКАМИ — живая.
 
-   Сортировка: сначала те, кто ждёт ответа. Список переписок, где
-   непрочитанное лежит вперемешку с законченным, требует читать его
-   целиком — а именно этого у мастера между приёмами нет.
+   Обратная сторона встроенного чата клиентки («Чат» → «Администратор»).
+   Сообщения приходят сразу (длинный опрос, lib/staffInbox.ts), история
+   хранится на сервере с датой и временем каждого сообщения, вложения —
+   фото и видео в обе стороны.
 
-   🚨 ЧЕСТНО О ГРАНИЦАХ ПРОТОТИПА. Отправить сообщение в Telegram
-   отсюда нельзя: нужен бот на сервере и право писать человеку.
-   Написанное встаёт в очередь и помечено «ждёт отправки» — прямо, а не
-   галочкой «доставлено». Ложное «доставлено» опаснее отсутствия
-   функции: мастер решит, что клиентка предупреждена, и не позвонит.
+   Список: сначала те, кто ждёт ответа, потом по свежести. Переписка
+   открывается на весь экран: отвечать в шторке на пол-экрана неудобно, а
+   фото кожи надо видеть крупно.
 
-   Рядом — кнопка, открывающая настоящий диалог там, где он и идёт
-   сегодня: в инстаграме или в Telegram.
+   Раньше здесь жили три выдуманные переписки «Катя / Лена / Маша» и очередь
+   «ждёт отправки» — макет, притворявшийся функцией.
 */
 
+const lastOf = (t: ChatThreadWire) => t.messages[t.messages.length - 1];
+const needsReply = (t: ChatThreadWire) => lastOf(t)?.from === 'client';
+
+function whenOf(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  const y = new Date(now); y.setDate(now.getDate() - 1);
+  if (d.toDateString() === y.toDateString()) return 'вчера';
+  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+}
+
+const preview = (t: ChatThreadWire) => {
+  const m = lastOf(t);
+  if (!m) return '—';
+  const body = m.text || (m.attachment?.kind === 'video' ? '🎬 Видео' : '📷 Фото');
+  return m.from === 'studio' ? `Вы: ${body}` : body;
+};
+
 export function StudioChats() {
-  const threads = useThreads();
-  const sorted = [...threads].sort((a, b) => {
+  const inbox = useStaffInbox(true);
+  const [openId, setOpenId] = useState<number | null>(null);
+  const sorted = useMemo(() => [...inbox.threads].sort((a, b) => {
     const wa = needsReply(a) ? 1 : 0;
     const wb = needsReply(b) ? 1 : 0;
     if (wa !== wb) return wb - wa;
-    return (lastMessage(b)?.at ?? 0) - (lastMessage(a)?.at ?? 0);
-  });
+    return Date.parse(lastOf(b)?.at ?? '') - Date.parse(lastOf(a)?.at ?? '');
+  }), [inbox.threads]);
   const waiting = sorted.filter(needsReply).length;
+  const current = inbox.threads.find((t) => t.client_id === openId) ?? null;
 
   return (
     <div>
       <div className="eyebrow mb-sm">
-        переписка · {threads.length}
+        переписка · {inbox.threads.length}
         {waiting > 0 && <b> · {waiting} ждут ответа</b>}
       </div>
 
-      {threads.length === 0 && (
+      {!inbox.loaded && <div className="card empty-card"><div className="muted">Загружаем переписку…</div></div>}
+      {inbox.loaded && inbox.failed && inbox.threads.length === 0 && (
+        <div className="card empty-state" role="alert">
+          <div className="empty-title">Переписка не загрузилась</div>
+          <div className="empty-sub">Проверьте интернет — повторим сами, как только появится связь.</div>
+        </div>
+      )}
+      {inbox.loaded && !inbox.failed && inbox.threads.length === 0 && (
         <div className="card empty-card">
           <Icon name="message" size={26} strokeWidth={1.8} />
-          <div className="muted mt-sm">Переписки пока нет</div>
+          <div className="muted mt-sm">Клиентки пока не писали</div>
+          <div className="faint mt-sm" style={{ fontSize: 13 }}>Сообщения из «Чат → Администратор» появятся здесь сразу.</div>
         </div>
       )}
 
-      <div className="stack-tight">
+      <div className="sc-list">
         {sorted.map((t) => {
-          const last = lastMessage(t);
+          const last = lastOf(t);
+          const unread = t.unread ?? 0;
           return (
-            <button key={t.clientKey} className="chat-row" onClick={() => openThread(t)}>
-              <span className="chat-b">
-                <span className="chat-n">
-                  {t.clientName}
-                  {needsReply(t) && <span className="chip chip-amber">ждёт ответа</span>}
+            <button key={t.client_id} className={`sc-row${unread ? ' unread' : ''}`} onClick={() => { tap(); setOpenId(t.client_id); }}>
+              <span className="sc-ava" aria-hidden>{t.name.slice(0, 1).toUpperCase()}</span>
+              <span className="sc-body">
+                <span className="sc-top">
+                  <span className="sc-name">{t.name}</span>
+                  {last && <span className="sc-when">{whenOf(last.at)}</span>}
                 </span>
-                <span className="chat-last">
-                  {last?.author === 'studio' && <span className="chat-me">вы: </span>}
-                  {last?.text ?? '—'}
+                <span className="sc-bottom">
+                  <span className="sc-last">{preview(t)}</span>
+                  {unread > 0 && <span className="sc-badge">{unread}</span>}
                 </span>
               </span>
-              <Icon name="chevron-right" size={18} strokeWidth={2} />
             </button>
           );
         })}
       </div>
+
+      {current && <StaffThread thread={current} onClose={() => setOpenId(null)} />}
     </div>
   );
 }
 
-function openThread(t: Thread) {
-  openSheet({
-    title: t.clientName,
-    subtitle: t.clientInstagram ? `@${t.clientInstagram}` : undefined,
-    body: <ThreadView thread={t} />,
-  });
-}
+function StaffThread({ thread, onClose }: { thread: ChatThreadWire; onClose: () => void }) {
+  const [pending, setPending] = useState<ChatMsg[]>([]);
+  const [draft, setDraft] = useState('');
+  const id = thread.client_id;
+  const unread = thread.unread ?? 0;
 
-const timeOf = (at: number) =>
-  new Date(at).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  useEffect(() => {
+    setActiveThread(id);
+    document.body.setAttribute('data-sheet-open', '');
+    // Escape закрывает переписку, а не весь кабинет: ловим первыми и дальше не пускаем
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); onClose(); } };
+    window.addEventListener('keydown', onKey, true);
+    return () => { setActiveThread(null); document.body.removeAttribute('data-sheet-open'); window.removeEventListener('keydown', onKey, true); };
+  }, [id, onClose]);
 
-function ThreadView({ thread }: { thread: Thread }) {
-  const threads = useThreads();
-  const live = threads.find((t) => t.clientKey === thread.clientKey) ?? thread;
-  const [text, setText] = useState('');
+  // Открыла — значит прочитала: клиентка увидит «прочитано»
+  useEffect(() => {
+    if (unread > 0) markThreadRead(id).then(refreshInbox).catch(cabinetDenied);
+  }, [id, unread]);
 
-  const send = () => {
-    sendToClient(live.clientKey, text, {
-      name: live.clientName,
-      instagram: live.clientInstagram,
-      tg: live.clientTgUsername,
-    });
-    setText('');
-    notify('success');
-    toast('В очереди на отправку');
+  const deliver = useCallback(async (local: ChatMsg) => {
+    const r = local.retry!;
+    try {
+      let uploaded = r.uploaded;
+      if (r.media && !uploaded) { uploaded = await uploadAttachment(r.media.blob, r.uploadKey); r.uploaded = uploaded; }
+      await replyChatThread(id, { text: local.text || undefined, attachment_id: uploaded?.id }, r.key);
+      setPending((p) => p.filter((m) => m.id !== local.id));
+      refreshInbox();
+    } catch (e) {
+      cabinetDenied(e);
+      setPending((p) => p.map((m) => (m.id === local.id ? { ...m, state: 'failed' } : m)));
+    }
+  }, [id]);
+
+  const send = (text: string, media?: PreparedMedia) => {
+    const key = newIdempotencyKey();
+    const local: ChatMsg = {
+      id: `local-${key}`, from: 'studio', text: text.trim(), at: Date.now(), state: 'sending',
+      attachment: media ? { kind: media.kind, url: media.preview, local: true } : undefined,
+      retry: { key, uploadKey: newIdempotencyKey(), media },
+    };
+    setPending((p) => [...p, local]);
+    void deliver(local);
   };
 
-  return (
+  const retry = (mid: string) => {
+    const m = pending.find((x) => x.id === mid);
+    if (!m) return;
+    const again = { ...m, state: 'sending' as const };
+    setPending((p) => p.map((x) => (x.id === mid ? again : x)));
+    void deliver(again);
+  };
+
+  const msgs = useMemo(() => [...thread.messages.map(fromWire), ...pending], [thread.messages, pending]);
+  const since = thread.messages[0] ? new Date(thread.messages[0].at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }) : null;
+
+  // Порталом в body: внутри кабинета панель оказывалась под его навигацией
+  // и кнопкой «выйти» (свой контекст наложения у экрана), и поле ответа
+  // пряталось за нижней панелью.
+  return createPortal(
     <>
-      <div className="chat-thread">
-        {live.messages.map((m) => (
-          <div key={m.id} className={`chat-msg ${m.author === 'studio' ? 'mine' : 'theirs'}`}>
-            <div className="chat-msg-text">{m.text}</div>
-            <div className="chat-msg-meta">
-              {timeOf(m.at)}
-              {m.delivery === 'queued' && <span className="chat-queued"> · ждёт отправки</span>}
-              {m.delivery === 'sent' && ' · отправлено'}
-              {m.delivery === 'read' && ' · прочитано'}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="chat-compose">
-        <textarea
-          className="input"
-          rows={2}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Написать клиентке…"
-        />
-        <button className="btn btn-primary btn-block mt-sm" disabled={!text.trim()} onClick={send}>
-          В очередь на отправку
-        </button>
-      </div>
-
-      {/* Пока бота нет, настоящий разговор идёт там же, где и раньше */}
-      <p className="faint mt-sm" style={{ fontSize: 12, lineHeight: 1.5 }}>
-        Сообщение уйдёт из приложения, когда подключим бота. Сейчас диалог
-        живёт в инстаграме — откройте его здесь:
-      </p>
-      <div className="row mt-sm" style={{ gap: 'var(--sp-sm)' }}>
-        {live.clientInstagram && (
-          <button
-            className="btn btn-secondary row-fill"
-            onClick={() => openExternal(instagramUrl(live.clientInstagram))}
-          >
-            Инстаграм
+      <div className="ai-chat-overlay" onClick={onClose} />
+      <div className="ai-chat-panel cp sc-panel" role="dialog" aria-label={`Переписка: ${thread.name}`}>
+        <div className="sc-head">
+          <button className="sc-back" onClick={onClose} aria-label="Назад к списку">
+            <Icon name="chevron-left" size={22} strokeWidth={2.2} />
           </button>
-        )}
-        {live.clientTgUsername && (
-          <button
-            className="btn btn-secondary row-fill"
-            onClick={() => openTelegram(`https://t.me/${live.clientTgUsername}`)}
-          >
-            Telegram
-          </button>
-        )}
+          <span className="sc-ava sm" aria-hidden>{thread.name.slice(0, 1).toUpperCase()}</span>
+          <span className="sc-head-t">
+            <b>{thread.name}</b>
+            {since && <i>переписка с {since}</i>}
+          </span>
+        </div>
+        <ChatThread msgs={msgs} mine="studio" onRetry={retry} />
+        <ChatComposer draft={draft} setDraft={setDraft} onSend={send} placeholder={`Ответить: ${thread.name}`} label="Ответ клиентке" />
       </div>
-
-      <button className="btn btn-quiet btn-block mt-md" onClick={closeSheet}>
-        Закрыть
-      </button>
-    </>
+    </>,
+    document.body,
   );
 }

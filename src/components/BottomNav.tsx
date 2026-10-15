@@ -22,16 +22,61 @@ const tabs: Tab[] = [
   { id: 'anzh',    key: 'nav.anzh',    icon: 'anzh' },
 ];
 
-export function BottomNav({ current, onChange }: { current: Screen; onChange: (s: Screen) => void }) {
+export function BottomNav({
+  current,
+  onChange,
+  collapsed = false,
+  onExpand,
+  onChat,
+}: {
+  current: Screen;
+  onChange: (s: Screen) => void;
+  /** Панель сжата в пилюлю вокруг текущей вкладки */
+  collapsed?: boolean;
+  /** Тап по сжатой панели раскрывает её, а не переключает экран */
+  onExpand?: () => void;
+  /** Левая кнопка: чат со студией (администратор / ANZH AI) */
+  onChat?: () => void;
+}) {
   const lang = useLang();
   return (
+    <>
+    {/* 🚨 Быстрая запись — ОТДЕЛЬНОЙ кнопкой справа от панели.
+        Видна только когда панель свёрнута: в развёрнутой «Запись» стоит
+        вкладкой, и две записи на одном экране — это выбор там, где его нет.
+        Свёрнутая панель оставляет одну вкладку, и запись должна остаться
+        рядом с ней: ради неё сюда и приходят. */}
+    <button
+      className="nav-chat"
+      onClick={onChat}
+      aria-label="Чат: администратор и помощник ANZH AI"
+      tabIndex={-1}
+    >
+      <Icon name="chat-ai" size={24} strokeWidth={1.8} />
+    </button>
+    <button
+      className="nav-quick"
+      onClick={() => onChange('booking')}
+      aria-label={t('nav.booking', lang)}
+      tabIndex={-1}
+    >
+      <Icon name="calendar" size={24} strokeWidth={1.8} />
+    </button>
     <nav className="bottom-nav" aria-label="Навигация">
       {tabs.map((tab) => (
         <button
           key={tab.id}
           className={`nav-item ${current === tab.id ? 'active' : ''}`}
-          onClick={() => onChange(tab.id)}
+          onClick={() => {
+            /* Сжатая панель: первый тап — «покажи остальные», и только
+               потом выбор. Иначе человек тыкает в единственную видимую
+               вкладку и остаётся на том же экране, не понимая, как уйти. */
+            if (collapsed) { onExpand?.(); return; }
+            onChange(tab.id);
+          }}
           aria-current={current === tab.id ? 'page' : undefined}
+          aria-expanded={collapsed ? false : undefined}
+          tabIndex={collapsed && current !== tab.id ? -1 : undefined}
         >
           <span className="nav-icon">
             {tab.icon === 'anzh'
@@ -42,5 +87,6 @@ export function BottomNav({ current, onChange }: { current: Screen; onChange: (s
         </button>
       ))}
     </nav>
+    </>
   );
 }

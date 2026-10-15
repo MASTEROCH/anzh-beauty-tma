@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { useReveal } from '../lib/reveal';
 import { Icon, type IconName } from './Icon';
 import { closeSheet, openSheet, openLightbox, toast } from '../lib/ui';
@@ -64,9 +64,46 @@ export function openProcedurePhoto(p: ProcedurePhoto, lang: Lang) {
 /** One photo of a work — the tile, the sheet and the service screen draw the same element.
     Tiles and strips take the 480 px copy (K15); the sheet takes the full file. */
 export function WorkImg({ w, lang, className, full = false }: { w: Pick<Work, 'src' | 'w' | 'h' | 'hint'>; lang: Lang; className: string; full?: boolean }) {
+  /* 🚨 ЗАГРУЗКА ВИДНА, А НЕ ПРОСТО ДОЛГА.
+     Плитка ждала фотографию пустым тёмным прямоугольником: сетка уже
+     построена, подписи стоят, а кадров нет — и это читается как «висит».
+     Движение отвечает на вопрос «что сейчас происходит»: пока кадр летит,
+     по плитке идёт мягкая волна; пришёл — проявляется, волна уходит под
+     ним. Выход быстрее входа (закон пары), 260 → 170 мс.
+     `decode()` вместо `onLoad`: браузер сообщает о загрузке ДО того, как
+     картинка готова к рисованию, и кадр успевал мигнуть недодекодированным. */
+  const [ready, setReady] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  useEffect(() => {
+    const el = imgRef.current;
+    if (!el) return;
+    let alive = true;
+    const done = () => { if (alive) setReady(true); };
+    if (el.complete && el.naturalWidth > 0) {
+      // Кадр уже в кэше — показываем без волны, иначе она мигнёт на ровном месте
+      done();
+      return;
+    }
+    el.decode?.().then(done).catch(done);
+    el.addEventListener('load', done);
+    el.addEventListener('error', done);
+    return () => { alive = false; el.removeEventListener('load', done); el.removeEventListener('error', done); };
+  }, [w.src, full]);
+
   return (
     <>
-      <img className={className} src={asset(full ? w.src : thumbOf(w))} width={w.w} height={w.h} loading="lazy" decoding="async" alt="" />
+      <span className={`shot-wait${ready ? ' off' : ''}`} aria-hidden />
+      <img
+        ref={imgRef}
+        className={`${className} shot${ready ? ' in' : ''}`}
+        src={asset(full ? w.src : thumbOf(w))}
+        width={w.w}
+        height={w.h}
+        loading="lazy"
+        decoding="async"
+        alt=""
+      />
       <span className="work-badge">{badgeOf(w, lang)}</span>
     </>
   );
@@ -81,6 +118,32 @@ const DIRECTIONS: ReadonlyArray<{ id: 'all' | WorkDirection; key: string; icon: 
   { id: 'laser', key: 'works.laser', icon: 'bolt' },
 ];
 
+/* Витрина не должна начинаться шестью одинаковыми кадрами одной процедуры:
+   раньше первые ряды были сплошь «Контурная пластика». Раскладываем по
+   очереди — по одному кадру каждой процедуры за круг. Порядок мастеров
+   сохраняется: работы Анжелики идут первыми (решение Роча), за ними —
+   команда, и внутри каждой части процедуры чередуются. */
+function interleave(list: Work[]): Work[] {
+  const parts: Work[][] = [];
+  for (const w of list) {
+    const key = w.master === 'anzhelika' ? 0 : 1;
+    (parts[key] ??= []).push(w);
+  }
+  return parts.filter(Boolean).flatMap((part) => {
+    const groups = new Map<string, Work[]>();
+    for (const w of part) {
+      const g = groups.get(w.slug);
+      if (g) g.push(w); else groups.set(w.slug, [w]);
+    }
+    const out: Work[] = [];
+    const queues = [...groups.values()];
+    for (let i = 0; out.length < part.length; i++) {
+      for (const q of queues) if (q[i]) out.push(q[i]);
+    }
+    return out;
+  });
+}
+
 export function Gallery({ onBook, onOpenService }: { onBook: (id: string) => void; onOpenService: (id: string) => void }) {
   const lang = useLang();
   const [dir, setDir] = useState<'all' | WorkDirection>('all');
@@ -91,11 +154,12 @@ export function Gallery({ onBook, onOpenService }: { onBook: (id: string) => voi
   // A direction without a shown photo gets no chip: an empty filter promises what it can't show
   const present = new Set(all.map((w) => WORK_GROUPS[w.slug].direction));
   const chips = DIRECTIONS.filter((d) => d.id === 'all' || present.has(d.id));
-  const list = dir === 'all' ? all : all.filter((w) => WORK_GROUPS[w.slug].direction === dir);
+  const list = useMemo(() => interleave(dir === 'all' ? all : all.filter((w) => WORK_GROUPS[w.slug].direction === dir)), [all.length, dir]); // eslint-disable-line react-hooks/exhaustive-deps
   const page = list.slice(0, shown);
   const rest = list.length - page.length;
   // Rebuild the observer on a filter change and on "Show more": new tiles must get `in`
-  const gridRef = useReveal<HTMLDivElement>([dir, shown]);
+  // Один раз, как витрина PEONIA: поднявшаяся карточка не прячется обратно
+  const gridRef = useReveal<HTMLDivElement>([dir, shown], { once: true });
 
   const openCase = (w: Work) => {
     tap();

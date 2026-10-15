@@ -29,7 +29,7 @@ import {
   type CreateBookingBody,
   type ScheduleItem,
 } from './api/bookings';
-import { formatAmount, formatPrice, priceSourceOf, visitTotal, type PriceSource } from './money';
+import { displayPrice, formatAmount, priceSourceOf, visitTotal, type PriceSource } from './money';
 import { ApiError, isAbortError, sessionState, subscribeSession } from './session';
 
 export type ApptStatus =
@@ -584,7 +584,7 @@ export function apptTotal(a: Appointment): PriceSource | null {
 /** "от 494 ₾", "$150"; null — nothing honest to show (hide the line). */
 export function apptPriceLabel(a: Appointment, lang: 'ru' | 'en' = 'ru'): string | null {
   const total = apptTotal(a);
-  return total ? formatPrice({ ...total, slug: null }, lang) : null;
+  return total ? displayPrice({ ...total, slug: null }, lang) : null;
 }
 
 /** Paid at the visit, in the visit's currency; null — not stated (not zero). */

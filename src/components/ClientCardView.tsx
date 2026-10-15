@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import { getClientQuizResults, type QuizResultWire } from '../lib/api/quizzes';
+import { QUIZZES } from '../data/quizzes';
+import { SECONDARY_LABEL } from '../lib/quizScore';
 import { Icon } from './Icon';
 import { openSheet, toast } from '../lib/ui';
 import { notify } from '../lib/haptics';
@@ -151,6 +154,7 @@ function ClientCardBody({ clientId, slugs }: { clientId: number; slugs?: string[
 
       {/* Противопоказания — первыми, до истории. Только владелица. */}
       {showHealth && <HealthSection clientId={clientId} slugs={slugs ?? []} />}
+      {showHealth && <QuizSection clientId={clientId} />}
 
       <div className="eyebrow cc-eyebrow">что уже делала</div>
       {done.length === 0 ? (
@@ -190,6 +194,95 @@ function titleOfSlug(slug: string): string {
 
 /* ── Анкета: только владелица, только по нажатию ── */
 
+/* РАЗБОРЫ КЛИЕНТКИ — «ты заранее знаешь, кто что и чем пришёл» (Анжелика).
+   Итог каждого пройденного теста с датой; тип кожи — с побочными
+   состояниями. Открывается по кнопке, как анкета: это данные о здоровье,
+   и просмотр пишется в журнал доступа на сервере. */
+function QuizSection({ clientId }: { clientId: number }) {
+  const [state, setState] = useState<Load<QuizResultWire[]> & { asked: boolean }>(
+    { data: null, loading: false, error: null, asked: false },
+  );
+  const load = () => {
+    setState({ data: null, loading: true, error: null, asked: true });
+    getClientQuizResults(clientId).then(
+      (data) => setState({ data, loading: false, error: null, asked: true }),
+      (e: unknown) => {
+        cabinetDenied(e);
+        setState({ data: null, loading: false, error: e instanceof ApiError ? e : new ApiError(0, 'network', 'сбой'), asked: true });
+      },
+    );
+  };
+  if (!state.asked) {
+    return (
+      <>
+        <div className="eyebrow cc-eyebrow">разборы кожи</div>
+        <button className="btn btn-secondary btn-block" onClick={load}>
+          <Icon name="sparkles" size={15} strokeWidth={2} /> Показать разборы
+        </button>
+      </>
+    );
+  }
+  if (state.loading) return <div className="cc-empty">Загружаем разборы…</div>;
+  if (state.error) {
+    return (
+      <div className="cc-empty" role="alert">
+        {state.error.code === 'forbidden' ? 'Разборы доступны только владелице' : `Разборы не загрузили — ${whyNot(state.error)}`}
+        {state.error.isNetwork && <button className="btn btn-secondary btn-block mt-md" onClick={load}>Повторить</button>}
+      </div>
+    );
+  }
+  const list = state.data ?? [];
+  return (
+    <>
+      <div className="eyebrow cc-eyebrow">разборы кожи · {list.length}</div>
+      {list.length === 0 && <div className="cc-empty">Клиентка ещё не проходила разборы (или не дала согласие на их хранение).</div>}
+      <div className="cc-quiz-list">
+        {list.map((r) => {
+          const quiz = QUIZZES.find((q) => q.id === r.quiz_id);
+          return (
+            <div key={r.quiz_id} className="cc-quiz">
+              <div className="cc-quiz-top">
+                <span className="cc-quiz-name">{quiz?.title ?? r.quiz_id}</span>
+                <span className="cc-quiz-date">{new Date(r.taken_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+              </div>
+              {r.quiz_id === 'profile' && quiz
+                ? <ProfileAnswers quiz={quiz} answers={r.answers} />
+                : (
+                  <>
+                    <div className="cc-quiz-result">{r.title}</div>
+                    {r.sub && <div className="cc-quiz-sub">{r.sub}</div>}
+                  </>
+                )}
+              {r.secondary && r.secondary.length > 0 && (
+                <div className="row" style={{ flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                  {r.secondary.map((x) => <span key={x} className="hp-chip warn">{SECONDARY_LABEL[x]?.ru ?? x}</span>)}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+/* «Skin Profile создан» мастеру ничего не говорит — нужны сами ответы:
+   что беспокоит, чувствительность, уход, SPF, цель. Пол и возраст есть в
+   анкете, их не дублируем. */
+const PROFILE_ROWS: Array<[number, string]> = [[2, 'Беспокоит'], [3, 'Чувствительность'], [4, 'Уход'], [5, 'SPF'], [6, 'Цель']];
+function ProfileAnswers({ quiz, answers }: { quiz: (typeof QUIZZES)[number]; answers: Array<number | number[]> }) {
+  return (
+    <dl className="cc-quiz-dl">
+      {PROFILE_ROWS.map(([i, label]) => {
+        const a = answers[i];
+        const opts = quiz.questions[i]?.a ?? [];
+        const text = Array.isArray(a) ? a.map((x) => opts[x]).filter(Boolean).join(', ') : typeof a === 'number' ? opts[a] : null;
+        return text ? (<div key={i}><dt>{label}</dt><dd>{text}</dd></div>) : null;
+      })}
+    </dl>
+  );
+}
+
 function HealthSection({ clientId, slugs }: { clientId: number; slugs: string[] }) {
   const [state, setState] = useState<Load<HealthProfile | null> & { asked: boolean }>(
     { data: null, loading: false, error: null, asked: false },
@@ -213,7 +306,7 @@ function HealthSection({ clientId, slugs }: { clientId: number; slugs: string[] 
         <button className="btn btn-secondary btn-block" onClick={load}>
           <Icon name="shield-check" size={15} strokeWidth={2} /> Показать анкету
         </button>
-        <div className="faint" style={{ fontSize: 11.5, marginTop: 6 }}>
+        <div className="faint" style={{ fontSize: 12, marginTop: 6 }}>
           Просмотр анкеты записывается в журнал доступа.
         </div>
       </>
@@ -407,7 +500,7 @@ function ClientNotes({ clientId }: { clientId: number }) {
       <button className="btn btn-secondary btn-block mt-sm" disabled={!draft.trim() || busy} onClick={() => { void save(); }}>
         {busy ? 'Сохраняем…' : 'Сохранить заметку'}
       </button>
-      <div className="faint" style={{ fontSize: 11.5, marginTop: 6 }}>
+      <div className="faint" style={{ fontSize: 12, marginTop: 6 }}>
         {owner
           ? 'Заметку видят её автор и владелица. Другие мастера и клиентка — нет.'
           : 'Заметку видите вы и владелица. Другие мастера и клиентка — нет.'}

@@ -7,23 +7,15 @@
 
 import type { Quiz, QuizResult } from '../data/quizzes';
 
-/* 🚨 ВЕСА «ТИПА КОЖИ» ИСПРАВЛЕНЫ ОТНОСИТЕЛЬНО САЙТА.
-   На anzh.store они написаны под другой порядок вопросов: четыре условия
-   ссылаются на несуществующие варианты (a[2]===4 при четырёх вариантах,
-   a[3]===3 и a[6]===3 при трёх, a[0]===3 при трёх), а часть указывает не на
-   тот ответ — «жирная кожа» получала балл за «часто некомфортно, стянутость,
-   покраснение», и «чувствительная» решалась вопросом ВОЗРАСТА.
-   Ниже веса переписаны по фактическому смыслу ответов: каждое условие
-   указывает на вариант, который этот тип кожи и означает. Исходные веса
-   сохранены в SITE_WEIGHTS_LEGACY — расхождение видно и обратимо. */
-
-/** Как было на сайте — оставлено для сверки, в расчёте НЕ участвует */
-export const SITE_WEIGHTS_LEGACY = {
-  oily:   'a[1]===2 (+3) · a[2]===4 (+3, мёртвое) · a[3]===3|2 (+3/+2, ===3 мёртвое) · a[11]===1|4 (+1)',
-  dry:    'a[1]===0 (+3) · a[2]===1|2 (+3) · a[3]===0 (+3) · a[11]===3 (+2)',
-  combo:  'a[1]===1 (+3) · a[2]===3 (+3) · a[3]===2 (+2) · a[11]===2 (+2) · a[6]===3 (+1, мёртвое)',
-  sens:   'a[7]===2 (+3) — это вопрос «Ваш возраст» · a[2]===2 (+1)',
-} as const;
+/* ТИП КОЖИ — ДОСЛОВНО КАК НА САЙТЕ (app.js, calcResult, ветка skintype).
+   Раньше здесь стояли «исправленные» веса с пометкой, что на сайте четыре
+   условия мёртвые. Это было неверно: сайт перед стартом теста переставляет
+   вопрос возраста с 8-го места на 1-е (startQuiz: qs.unshift(qs.splice(7,1)[0])),
+   и в ЭТОМ порядке все сайтовые условия указывают на существующие и верные
+   по смыслу ответы. Аудит 15.10: «исправленная» версия расходилась с сайтом
+   в 34 % наборов ответов. Теперь вопросы в data/quizzes.ts стоят в сайтовом
+   порядке (возраст первым), а формула и цепочка приоритетов перенесены без
+   правок. */
 
 export type Answer = number | number[];
 
@@ -56,38 +48,23 @@ export function scoreQuiz(quiz: Quiz, answers: Answer[]): ScoredResult | null {
       return pick('done');
 
     case 'skintype': {
-      const a = answers;
-      // Каждое условие указывает на ответ, который этот тип кожи и означает:
-      // 0 блеск · 1 общий вид · 2 после умывания · 3 обезвоженность ·
-      // 4 воспаления · 5 частота · 6 реактивность · 8 морщины · 9 тургор ·
-      // 10 пигмент · 11 поры
-      const oily  = (num(a[0]) === 2 ? 3 : 0)                       // блестит везде
-                  + (num(a[1]) === 4 ? 3 : 0)                       // жирнится, чёрные точки
-                  + (num(a[2]) === 3 ? 3 : 0)                       // жирная по всему лицу
-                  + (num(a[11]) === 1 || num(a[11]) === 4 ? 2 : 0); // расширенные поры
-      const dry   = (num(a[0]) === 0 ? 2 : 0)                       // матовая
-                  + (num(a[1]) === 1 ? 3 : 0)                       // сухая, стягивает
-                  + (num(a[2]) === 0 ? 3 : 0)                       // шелушится после умывания
-                  + (num(a[11]) === 3 ? 2 : 0);                     // поры чистые, но шелушение
-      const combo = (num(a[0]) === 1 ? 3 : 0)                       // блестит нос и лоб
-                  + (num(a[1]) === 3 ? 3 : 0)                       // Т-зона жирная, щёки сухие
-                  + (num(a[2]) === 2 ? 3 : 0)                       // жирнится участками
-                  + (num(a[11]) === 2 ? 2 : 0);                     // поры только в Т-зоне
-      const sens  = (num(a[1]) === 2 ? 3 : 0)                       // стянутость и покраснение
-                  + (num(a[6]) === 2 ? 3 : num(a[6]) === 1 ? 1 : 0); // реагирует на тепло и еду
-
-      let base = 'normal';
-      const top = Math.max(oily, dry, combo, sens);
-      if (top >= 5) {
-        base = top === oily ? 'oily' : top === combo ? 'combo' : top === dry ? 'dry' : 'sensitive';
-      }
+      // M — ответы в порядке сайта: 0 возраст · 1 блеск · 2 общий вид ·
+      // 3 после умывания · 4 обезвоженность · 5 воспаления · 6 частота ·
+      // 7 покраснение · 8 морщины · 9 тургор · 10 пигмент · 11 поры
+      const M = answers.map(num);
+      const N = (M[1] === 2 ? 3 : 0) + (M[2] === 4 ? 3 : 0) + (M[3] === 3 ? 3 : M[3] === 2 ? 2 : 0) + (M[11] === 1 || M[11] === 4 ? 1 : 0);
+      const Y = (M[1] === 0 ? 3 : 0) + (M[2] === 1 || M[2] === 2 ? 3 : 0) + (M[3] === 0 ? 3 : 0) + (M[11] === 3 ? 2 : 0);
+      const D = (M[1] === 1 ? 3 : 0) + (M[2] === 3 ? 3 : 0) + (M[3] === 2 ? 2 : 0) + (M[11] === 2 ? 2 : 0) + (M[6] === 3 ? 1 : 0);
+      const j = (M[7] === 2 ? 3 : M[7] === 1 ? 1 : 0) + (M[2] === 2 ? 1 : 0);
+      // Порядок проверки — приоритет, как на сайте, а не максимум
+      const base = N >= 5 ? 'oily' : Y >= 5 ? 'dry' : D >= 4 ? 'combo' : j >= 4 ? 'sensitive' : 'normal';
 
       const secondary: string[] = [];
-      if (num(a[6]) === 2 && base !== 'sensitive') secondary.push('sensitivity');
-      if (num(a[3]) === 0 || num(a[3]) === 1) secondary.push('dehydration');
-      if ((num(a[4]) === 0 || num(a[4]) === 1) && (num(a[5]) === 0 || num(a[5]) === 3)) secondary.push('acne');
-      if ((num(a[8]) >= 1 && num(a[9]) >= 2) || (num(a[7]) >= 3 && num(a[9]) >= 2)) secondary.push('turgor');
-      if (num(a[10]) >= 1) secondary.push('pigmentation');
+      if (M[7] === 2 && base !== 'sensitive') secondary.push('sensitivity');
+      if (M[4] === 0 || M[4] === 1) secondary.push('dehydration');
+      if ((M[5] === 0 || M[5] === 1) && (M[6] === 0 || M[6] === 3)) secondary.push('acne');
+      if ((M[8] >= 1 && M[9] >= 2) || (M[0] >= 3 && M[9] >= 2)) secondary.push('turgor');
+      if (M[10] >= 1) secondary.push('pigmentation');
 
       return { ...pick(base), secondary };
     }
@@ -161,13 +138,25 @@ export function scoreQuiz(quiz: Quiz, answers: Answer[]): ScoredResult | null {
         const col = row?.[num(answers[i])];
         if (col) col.forEach((v, k) => { score[k] += v; });
       }
+      // Как на сайте: смешанный тип — если второй балл ≥ 70 % первого;
+      // при равенстве порядок deform > tired > fineline > muscular
       const types = ['fineline', 'tired', 'deform', 'muscular'];
-      const top = score.indexOf(Math.max(...score));
-      const sorted = [...score].sort((x, y) => y - x);
-      // Два типа вплотную — это смешанный морфотип, у сайта он отдельным ключом
-      const mixed = sorted[0] - sorted[1] <= 2 && res[`combined_${ageKey}`];
-      const key = mixed ? `combined_${ageKey}` : `${types[top]}_${ageKey}`;
-      return pick(key);
+      const prio: Record<number, number> = { 0: 2, 1: 1, 2: 0, 3: 3 };
+      const order = [0, 1, 2, 3].sort((x, y) => (score[y] - score[x]) || (prio[x] - prio[y]));
+      const [top, second] = order;
+      const combined = score[second] >= score[top] * 0.7 && score[second] > 0;
+      const out: ScoredResult = combined
+        ? (res[`${types[top]}_${types[second]}_${ageKey}`] ?? res[`combined_${ageKey}`] ?? res.combined_mid ?? first)
+        : (res[`${types[top]}_${ageKey}`] ?? res[`${types[top]}_mid`] ?? res.combined_mid ?? first);
+      // Привычка сжимать челюсть (последний вопрос) — отдельная приписка, как на сайте.
+      // Без обещаний эффекта (K14): по показаниям и после осмотра.
+      const jaw = answers[16];
+      if (jaw === 1 || jaw === 3) {
+        const ru = 'Замечено: привычка сжимать челюсть или бруксизм — признак гипертонуса жевательных мышц. С этим работают ботулинотерапией по показаниям; решение — после осмотра у Анжелики.';
+        const en = 'Noted: jaw clenching or bruxism is a sign of masseter hypertonus. It is treated with botulinum therapy when indicated; the decision comes after an exam with Anzhelika.';
+        return { ...out, note: out.note ? `${out.note}\n\n${ru}` : ru, noteEn: out.noteEn ? `${out.noteEn}\n\n${en}` : en };
+      }
+      return out;
     }
 
     default:
@@ -184,12 +173,11 @@ export function scoreQuiz(quiz: Quiz, answers: Answer[]): ScoredResult | null {
 interface WeightRef { quiz: string; question: number; answer: number }
 
 const WEIGHT_REFS: WeightRef[] = [
-  ...[[0, 2], [1, 4], [2, 3], [11, 1], [11, 4],   // жирная
-      [0, 0], [1, 1], [2, 0], [11, 3],            // сухая
-      [0, 1], [1, 3], [2, 2], [11, 2],            // комбинированная
-      [1, 2], [6, 2], [6, 1],                     // чувствительная
-      [3, 0], [3, 1], [4, 0], [4, 1], [5, 0], [5, 3],
-      [8, 1], [9, 2], [7, 3], [10, 1]]            // побочные состояния
+  ...[[1, 2], [2, 4], [3, 3], [3, 2], [11, 1], [11, 4],   // жирная
+      [1, 0], [2, 1], [2, 2], [3, 0], [11, 3],            // сухая
+      [1, 1], [2, 3], [3, 2], [11, 2], [6, 3],            // комбинированная
+      [7, 2], [7, 1],                                     // чувствительная
+      [4, 0], [4, 1], [5, 0], [5, 1], [6, 0], [8, 1], [9, 2], [0, 3], [10, 1]] // побочные
     .map(([question, answer]) => ({ quiz: 'skintype', question, answer })),
 ];
 

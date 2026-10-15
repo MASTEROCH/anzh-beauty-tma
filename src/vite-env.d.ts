@@ -6,6 +6,8 @@ interface ImportMetaEnv {
    * домен Vercel, без CORS. Задаётся, только если API живёт отдельно.
    */
   readonly VITE_API_BASE?: string;
+  /** '1' — демо-сборка для ссылки прототипа: вход без Telegram, демо-сервер рядом */
+  readonly VITE_DEMO?: string;
 }
 
 interface ImportMeta {

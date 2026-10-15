@@ -3,19 +3,22 @@
 // словам Анжелики в обратном: «люди проходят тесты, формируется паспорт
 // пациента, и ты заранее знаешь, кто что и чем пришёл».
 //
-// ГДЕ ЖИВУТ. Только в памяти этого запуска. На устройстве результаты больше
-// не хранятся: ответы разбора — данные о здоровье, а ключ
-// `anzh_quiz_results_v1` стоит в списке разовой чистки (план 11b, m8:
-// на устройстве остаются только onboarded, favorites, gender, lang).
-// Разборы на сервере — второй ряд, не этой ночью. Что сохраняется надолго —
-// ключевые поля в анкете (lib/healthPassport.ts, `saveQuizToPassport`), и
-// только с согласием на данные о здоровье.
+// ГДЕ ЖИВУТ. На устройстве — нет: ответы разбора — данные о здоровье, ключ
+// `anzh_quiz_results_v1` в списке разовой чистки (план 11b, m8). Надолго —
+// на СЕРВЕРЕ (api/quizzes.ts), КАЖДЫЙ из семи разборов, и только с флагом
+// `health` и согласием на данные о здоровье. Там их видит «Паспорт» после
+// перезапуска и студия в карточке клиентки. Раньше на сервер уходили лишь
+// итоги «Профиля» и «Типа кожи», остальные пять терялись с закрытием
+// приложения (аудит 15.10). Без согласия — в памяти запуска, и экран
+// результата прямо говорит об этом (SaveNote).
 //
 // Доступ к платному разбору решает НЕ этот список, а покупки с сервера
 // (lib/payments.ts): результат в памяти не открывает разбор без оплаты.
 
-import { useSyncExternalStore } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import type { Answer } from './quizScore';
+import { getMyQuizResults, putMyQuizResult, type QuizResultWire } from './api/quizzes';
+import { healthSyncAllowed } from './healthPassport';
 
 export interface StoredResult {
   quizId: string;
@@ -55,6 +58,40 @@ function subscribe(l: () => void): () => void {
   return () => { listeners.delete(l); };
 }
 
+export const toWire = (r: StoredResult): QuizResultWire => ({
+  quiz_id: r.quizId, result_key: r.resultKey, title: r.title, sub: r.sub,
+  secondary: r.secondary, answers: r.answers, taken_at: new Date(r.takenAt).toISOString(),
+});
+
+export const fromWire = (w: QuizResultWire): StoredResult => ({
+  quizId: w.quiz_id, quizTitle: w.quiz_id, resultKey: w.result_key, title: w.title, sub: w.sub,
+  secondary: w.secondary, answers: w.answers, takenAt: Date.parse(w.taken_at) || Date.now(),
+});
+
+/** Записать на сервер: 'saved' / 'kept_local' (нельзя — нет входа или согласия) / 'failed' */
+export async function syncQuizResult(r: StoredResult): Promise<'saved' | 'kept_local' | 'failed'> {
+  if (!healthSyncAllowed()) return 'kept_local';
+  try { await putMyQuizResult(toWire(r)); return 'saved'; } catch { return 'failed'; }
+}
+
+let loading: Promise<void> | null = null;
+/** Подтянуть сохранённые разборы с сервера (один раз за запуск, когда можно). */
+export function loadQuizResults(): Promise<void> {
+  if (loading || !healthSyncAllowed()) return loading ?? Promise.resolve();
+  loading = getMyQuizResults().then((server) => {
+    const local = new Map(items.map((x) => [x.quizId, x]));
+    for (const w of server) {
+      const r = fromWire(w);
+      const mine = local.get(r.quizId);
+      if (!mine || mine.takenAt < r.takenAt) local.set(r.quizId, { ...r, quizTitle: mine?.quizTitle ?? r.quizTitle });
+    }
+    items = [...local.values()].sort((a, b) => b.takenAt - a.takenAt);
+    emit();
+  }).catch(() => { loading = null; });
+  return loading;
+}
+
 export function useQuizResults(): StoredResult[] {
+  useEffect(() => { void loadQuizResults(); }, []);
   return useSyncExternalStore(subscribe, () => items, () => items);
 }

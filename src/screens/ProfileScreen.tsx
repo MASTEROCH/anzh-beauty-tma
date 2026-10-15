@@ -8,8 +8,11 @@ import { Gallery } from '../components/Gallery';
 import { StudioCover, StudioSection } from '../components/StudioCover';
 import { TeamSection } from '../components/TeamSection';
 import { Icon } from '../components/Icon';
+import { ScrollMarquee } from '../components/ScrollMarquee';
 import { t } from '../lib/i18n';
 import { asset } from '../lib/asset';
+import { instagramUrl } from '../data/location';
+import { useStudio } from '../lib/studioProfile';
 import { shownWorks } from '../data/works';
 
 /* Регалия с числом постоянных клиентов отсюда убрана: цифра-заготовка, не
@@ -34,6 +37,7 @@ export function ProfileScreen({
   onAwardPoints: (points: number) => void;
 }) {
   const ru = lang === 'ru';
+  const studio = useStudio();
   /* «Работы наших мастеров» — the studio's own photos (K11a), not stock illustrations: drawn
      while at least one photo may be shown (data/works.ts, `published`). */
   const worksShown = shownWorks().length;
@@ -84,56 +88,78 @@ export function ProfileScreen({
         </button>
       </header>
 
-      {/* K15 (owner 07.10: "the video on the main screen as a cover"), K15b (Hater K15-H4,
-          John 07.10): the route video is the top block — above the avatar, the name and the
-          buttons; 16:9 at the screen's width, the hero right under it. */}
-      <StudioCover lang={lang} />
-
-      <section className="profile-hero">
-        <div className="profile-avatar-wrap">
-          <img src={asset("photos/anjelika.webp")} alt="Anjelika" className="profile-avatar" />
-          <span className="profile-status" aria-label="принимает записи" />
+      {/* 🚨 ПЕРВЫЙ ЭКРАН ОТВЕЧАЕТ «КУДА Я ПОПАЛ» (Роч, 15.10.2026).
+          Сверху стояло видео дороги от улицы до двери (K15, владелица 07.10:
+          «видео на главном как обложка»). Дорога — ответ на вопрос «как
+          дойти», а его задают ПОСЛЕ того, как решили идти. Первым же кадром
+          человек видел чужой подъезд и лестницу, не понимая ещё, чей это дом.
+          Видео переехало вниз, в «Где найти», где этот вопрос и возникает —
+          рядом с картой и адресом.
+          Наверху теперь то, ради чего приходят: лицо врача и имя студии. */}
+      <section className="hero" data-testid="profile-hero">
+        <img
+          className="hero-shot"
+          src={asset('brand/anzhelika.webp')}
+          width={700}
+          height={873}
+          alt={ru ? 'Анжелика — врач-косметолог, владелица студии' : 'Anjelika — doctor, cosmetologist, the studio’s owner'}
+          fetchPriority="high"
+          decoding="async"
+        />
+        {/* Свет на лицо отдельным слоем, а не яркостью всего кадра: поднять
+            экспозицию целиком — значит высветлить и белый пиджак, который и
+            так самое светлое пятно. Мягкий свет точно по лицу. */}
+        <span className="hero-lift" aria-hidden />
+        <span className="hero-veil" aria-hidden />
+        {/* Порядок: ЗНАК → кто это → одна строка про человека.
+            Было наоборот — подпись шла первой и пересекала подбородок.
+            Имя студии — это знак, а не набранное слово, и читается он
+            первым. Текст начинается ниже лица: композиция. */}
+        <div className="hero-body">
+          <img className="hero-mark" src={asset('brand/anzh-logo.svg')} alt="ANZH" width={465} height={371} />
+          <p className="hero-eyebrow">{ru ? 'Студия косметологии · Батуми' : 'Cosmetology studio · Batumi'}</p>
+          <p className="hero-lead">
+            {ru
+              ? 'Анжелика — врач-косметолог и владелица. Принимает сама.'
+              : 'Anjelika — doctor, cosmetologist and owner. She sees you herself.'}
+          </p>
+          {studio.instagram && (
+          <a
+            className="ig-link hero-ig"
+            href={instagramUrl()}
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => toast(ru ? `Открываю Instagram @${studio.instagram}` : `Opening Instagram @${studio.instagram}`, 'success')}
+          >
+            <span className="ig-glyph">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2.5" y="2.5" width="19" height="19" rx="5.5" />
+                <circle cx="12" cy="12" r="4.2" />
+                <circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" stroke="none" />
+              </svg>
+            </span>
+            <span>@{studio.instagram}</span>
+          </a>
+          )}
         </div>
-        <h1 className="profile-name">{profile.name}</h1>
-        <p className="profile-role">{t('profile.role', lang)}</p>
-        <a
-          className="ig-link"
-          href="https://instagram.com/dr.domnich"
-          target="_blank"
-          rel="noreferrer"
-          onClick={() => toast('Открываю Instagram @dr.domnich', 'success')}
-        >
-          <span className="ig-glyph">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="2.5" y="2.5" width="19" height="19" rx="5.5" />
-              <circle cx="12" cy="12" r="4.2" />
-              <circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" stroke="none" />
-            </svg>
-          </span>
-          <span>@dr.domnich</span>
-          {/* Число подписчиков было из прототипа, живым счётчиком не было */}
-        </a>
-        {PROFILE_TEXTS_SHOWN && <p className="profile-bio" data-testid="profile-bio">{t('profile.bio', lang)}</p>}
       </section>
+
+      {PROFILE_TEXTS_SHOWN && (
+        <p className="profile-bio" data-testid="profile-bio">{t('profile.bio', lang)}</p>
+      )}
 
       {/* Здесь стояли стаж, число процедур и рейтинг — цифры-заготовки.
           Вернутся, когда Анжелика их подтвердит, а рейтинг — когда будут
           настоящие отзывы, из которых его можно посчитать. */}
 
       {PROFILE_TEXTS_SHOWN && (
-      <div className="trust-row marquee" aria-label="Регалии" data-testid="profile-trust">
-        <div className="marquee-track">
-          {[0, 1].map((dup) => (
-            <div className="marquee-group" key={dup} aria-hidden={dup === 1 ? true : undefined}>
-              {TRUST_KEYS.map((key) => (
-                <span key={key} className="chip chip-gold" style={{ cursor: 'default' }}>
-                  {t(key, lang)}
-                </span>
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
+      <ScrollMarquee label="Регалии" testid="profile-trust">
+        {TRUST_KEYS.map((key) => (
+          <span key={key} className="chip chip-gold" style={{ cursor: 'default' }}>
+            {t(key, lang)}
+          </span>
+        ))}
+      </ScrollMarquee>
       )}
 
       <div className="profile-cta-row">
@@ -183,7 +209,7 @@ export function ProfileScreen({
       {PROFILE_TEXTS_SHOWN && <AboutDoctor lang={lang} />}
 
       {/* K15: the team — names and roles from the team folder, no surnames, no buttons */}
-      <TeamSection lang={lang} />
+      <TeamSection lang={lang} onOpenService={onOpenService} onBook={onBook} />
 
       {worksShown > 0 && (
       <section className="section section-tight" data-testid="profile-gallery">
@@ -240,6 +266,17 @@ export function ProfileScreen({
           </div>
         </div>
         <StudioMap />
+
+        {/* Дорога от улицы до двери: видео владелицы (K15). Стояло первым
+            блоком экрана — переехало сюда, где человек уже решил идти и
+            спрашивает «как войти»: двор, вывеска, звонок, лестница, дверь. */}
+        <div className="route">
+          <div className="route-head">
+            <Icon name="pin" size={14} strokeWidth={2.2} />
+            {ru ? 'Как до нас добраться' : 'How to find the door'}
+          </div>
+          <StudioCover lang={lang} />
+        </div>
       </section>
 
       <LegalFooter lang={lang} />

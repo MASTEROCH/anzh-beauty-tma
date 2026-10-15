@@ -314,6 +314,13 @@ export type QuizSave = 'saved' | 'kept_local' | 'failed';
  * сразу). На сервер — только при входе, включённом флаге и ДЕЙСТВУЮЩЕМ
  * согласии; иначе 'kept_local' (живёт до закрытия приложения).
  */
+/** Можно ли сейчас писать данные о здоровье на сервер: вход, флаг и согласие */
+export function healthSyncAllowed(): boolean {
+  if (sessionState().status !== 'user') return false;
+  const me = currentMe();
+  return me?.features?.health === true && !!consentFor(me);
+}
+
 export async function saveQuizToPassport(patch: Partial<HealthPassport>): Promise<QuizSave> {
   updateHealthPassport(patch);
   if (sessionState().status !== 'user') return 'kept_local';
