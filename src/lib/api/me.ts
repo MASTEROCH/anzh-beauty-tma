@@ -30,6 +30,10 @@ export interface NotificationPrefs {
   reminders?: boolean;
   review?: boolean;
   marketing?: boolean;
+  /** [ПРЕДЛОЖЕНИЕ] окна для процедур из закладок */
+  favorites?: boolean;
+  /** [ПРЕДЛОЖЕНИЕ] пора повторить процедуру */
+  repeat?: boolean;
 }
 
 /** GET /me → `{user: Me}`; тот же объект приходит в ответе POST /auth/telegram. */

@@ -1,8 +1,10 @@
+import { openStarsInfo } from './StarsInfo';
+import { PriceDrop } from './PriceDrop';
 import { useId, useState } from 'react';
 import { Icon } from './Icon';
 import { closeSheet, openSheet, toast } from '../lib/ui';
 import { notify, tap } from '../lib/haptics';
-import { payWithStars, starsToUsd, usePayAvailability, type PayAvailability } from '../lib/payments';
+import { isDemoPay, payWithStars, starsToUsd, usePayAvailability, type PayAvailability } from '../lib/payments';
 import { StarPrice } from './StarPrice';
 import { BUNDLE, PAID_QUIZZES, type Quiz } from '../data/quizzes';
 import { useLang, type Lang } from '../lib/i18n';
@@ -135,10 +137,12 @@ interface PaywallProps {
    * «купи отдельно → купи набор» замкнулся бы. Вместо него — строка.
    */
   ownsBundle?: boolean;
+  /** Открыть главой в подарок (за процедуры и подруг) — блок над ценой */
+  chapter?: React.ReactNode;
 }
 
 export function Paywall({
-  quiz, price, bundlePrice, onBought, onOpenBundle, ownsBundle = false,
+  quiz, price, bundlePrice, onBought, onOpenBundle, ownsBundle = false, chapter,
 }: PaywallProps) {
   const ru = useLang() === 'ru';
   const avail = usePayAvailability();
@@ -159,20 +163,11 @@ export function Paywall({
 
       <QuizValue quiz={quiz} />
 
-      <div className="pw-price">
-        <div className="pw-price-row">
-          <span>{ru ? 'Этот разбор' : 'This analysis'}</span>
-          {/* 🚨 Одна вёрстка цены на весь продукт — StarPrice.
-              Здесь стояла своя: звёзды крупно, доллар подписью, и значок
-              звезды СПРАВА от числа, тогда как на экране выбора он слева.
-              Две разные цены одного и того же — это не мелочь, человек
-              считает их разными предложениями. */}
-          <StarPrice stars={price} size="lg" />
-        </div>
-        <div className="pw-price-note">
-          {quiz.questions.length} {ru ? 'вопросов · около' : 'questions · about'} {quiz.minutes} {ru ? 'минут' : 'min'}
-        </div>
-      </div>
+      {chapter}
+
+      {/* Карточки «Этот разбор · цена» больше нет: цена, время и запуск —
+          одна кнопка «Начать разбор» в доке внизу (Роч 15.10: «по сути это
+          кнопка оплаты и старта теста»). */}
 
       {ownsBundle ? (
         <p className="stars-note" role="status" data-not-in-set>
@@ -180,18 +175,19 @@ export function Paywall({
           <span>{NOT_IN_YOUR_SET[ru ? 'ru' : 'en']}</span>
         </p>
       ) : save > 0 && (
-        <button className="pw-bundle" onClick={onOpenBundle}>
+        /* Оффер пакета — продающий, а не строка списка (Роч 15.10):
+           золотая рамка с бегущим бликом, скидка бейджем, старая цена
+           зачёркнута рядом с новой, стрелка — в золотом круге. Движение
+           одно и медленное (блик раз в 3,6 с), reduced-motion — статично. */
+        <button className="pw-bundle pw-offer" onClick={onOpenBundle}>
           <div className="pw-bundle-text">
-            <div className="pw-bundle-title">
-              {ru
-                ? `Все шесть разборов — $${starsToUsd(bundlePrice)} · ${bundlePrice} ★`
-                : `All six analyses — $${starsToUsd(bundlePrice)} · ${bundlePrice} ★`}
-            </div>
+            <div className="pw-offer-eyebrow">{ru ? 'выгоднее всего' : 'best value'}</div>
+            <div className="pw-bundle-title">{ru ? 'Все 6 разборов сразу' : 'All 6 analyses at once'}</div>
             <div className="pw-bundle-sub">
-              {ru ? `Дешевле на ${save}★, чем по одному` : `${save}★ cheaper than one by one`}
+              {ru ? `Экономия ${save}★ · весь паспорт кожи` : `Save ${save}★ · the full skin passport`}
             </div>
           </div>
-          <Icon name="chevron-right" size={18} strokeWidth={2} />
+          <PriceDrop oldStars={bundlePrice + save} newStars={bundlePrice} className="pw-offer-pd" />
         </button>
       )}
 
@@ -215,6 +211,8 @@ export function Paywall({
         stars={price}
         unlocks={ru ? quiz.title : quiz.titleEn ?? quiz.title}
         onOpen={onBought}
+        cta={{ ru: 'Начать разбор', en: 'Start the analysis' }}
+        meta={ru ? `${quiz.questions.length} вопросов · около ${quiz.minutes} мин · результат сразу` : `${quiz.questions.length} questions · about ${quiz.minutes} min · instant result`}
       />
     </>
   );
@@ -229,6 +227,10 @@ interface BuyButtonProps {
   /** Что открылось — показывается в чеке */
   unlocks: string;
   onOpen: () => void;
+  /** Что делает кнопка, словами: «Начать разбор» — оплата и старт одним нажатием */
+  cta?: { ru: string; en: string };
+  /** Строка под кнопкой: сколько вопросов и минут */
+  meta?: string;
 }
 
 /**
@@ -249,7 +251,7 @@ type Phase = 'idle' | 'invoice' | 'confirming';
    стоит в двух местах (разбор и набор), и строка «не диагноз» обязана
    доехать до каждого пути, где берут деньги. Галочка условий — там же и по
    той же причине (Законник п.5: «внутри BuyButton»). */
-export function BuyButton({ id, stars, unlocks, onOpen }: BuyButtonProps) {
+export function BuyButton({ id, stars, unlocks, onOpen, cta, meta }: BuyButtonProps) {
   const lang = useLang();
   const ru = lang === 'ru';
   const avail = usePayAvailability();
@@ -394,6 +396,8 @@ export function BuyButton({ id, stars, unlocks, onOpen }: BuyButtonProps) {
           lang={lang}
           onBuy={buy}
           onTicked={onTicked}
+          cta={cta}
+          meta={meta}
         />
       ) : (
         <PayUnavailable avail={avail} lang={lang} />
@@ -423,7 +427,9 @@ export function BuyButton({ id, stars, unlocks, onOpen }: BuyButtonProps) {
  * прежней) — на этом держится «галочка снята при каждом открытии»; оплата в
  * полёте его не снимает (BuyButton держит его, пока phase ≠ 'idle').
  */
-function ReadyBuy({ id, stars, phase, termsVersion, lang, onBuy, onTicked }: {
+function ReadyBuy({ id, stars, phase, termsVersion, lang, onBuy, onTicked, cta, meta }: {
+  cta?: { ru: string; en: string };
+  meta?: string;
   id: string;
   stars: number;
   phase: Phase;
@@ -469,7 +475,10 @@ function ReadyBuy({ id, stars, phase, termsVersion, lang, onBuy, onTicked }: {
   };
 
   return (
-    <>
+    /* Док внизу шторки (Роч 15.10: «где кнопка запуска разбора?»): кнопка
+       стояла под оффером, сноской и условиями — до неё надо было листать.
+       Теперь галочка и кнопка всегда на виду, описание прокручивается под ними. */
+    <div className="pw-dock">
       {/* Галочка — над кнопкой, 18+ внутри неё (Законник п.5). Ссылка на текст —
           ОТДЕЛЬНОЙ строкой, не внутри кнопки-галочки: ссылка внутри кнопки —
           невалидная разметка, и «прочитать» ставило бы отметку. Зоны нажатия
@@ -509,7 +518,11 @@ function ReadyBuy({ id, stars, phase, termsVersion, lang, onBuy, onTicked }: {
           </span>
         ) : (
           <span className="pw-buy-label">
-            {ru ? `Оплатить $${starsToUsd(stars)}` : `Pay $${starsToUsd(stars)}`}
+            {cta
+              ? `${cta[lang]} · ${isDemoPay() ? (ru ? 'демо' : 'demo') : `$${starsToUsd(stars)}`}`
+              : isDemoPay()
+                ? (ru ? 'Открыть — демо без оплаты' : 'Open — demo, no charge')
+                : (ru ? `Оплатить $${starsToUsd(stars)}` : `Pay $${starsToUsd(stars)}`)}
             <span className="pw-buy-usd">
               <Icon name="star" size={12} strokeWidth={2} fill="current" />
               {stars}
@@ -517,13 +530,22 @@ function ReadyBuy({ id, stars, phase, termsVersion, lang, onBuy, onTicked }: {
           </span>
         )}
       </button>
+      {meta && <p className="pw-dock-meta">{meta}</p>}
+      <button type="button" className="pw-stars-what" onClick={() => openStarsInfo(lang, stars)}>
+        <Icon name="star" size={12} strokeWidth={2} fill="current" /> {ru ? 'Что такое Telegram Stars и курс' : 'What Telegram Stars are · rate'}
+      </button>
+      {isDemoPay() && (
+        <p className="legal-note" style={{ marginTop: 'var(--sp-sm)', maxWidth: 'none', textAlign: 'center' }}>
+          {ru ? 'Демо-версия: звёзды не списываются, разбор откроется сразу.' : 'Demo: no Stars are charged, the analysis opens right away.'}
+        </p>
+      )}
       {/* Погасить, а не спрятать: кнопка на месте, причина — рядом и в озвучке */}
       {!ticked && (
         <p id={hintId} className="legal-note" data-pay-hint style={{ marginTop: 'var(--sp-sm)', maxWidth: 'none', textAlign: 'center' }}>
           {PAY_COPY.tickFirst[lang]}
         </p>
       )}
-    </>
+    </div>
   );
 }
 
@@ -575,7 +597,9 @@ function PurchaseSuccess({ stars, unlocks }: { stars: number; unlocks: string })
       <div className="pw-done-receipt">
         <div className="pw-done-line">
           <span>{ru ? 'Списано' : 'Charged'}</span>
-          <strong>${starsToUsd(stars)} <span className="pw-done-usd">· {stars} ★</span></strong>
+          {isDemoPay()
+            ? <strong>{ru ? 'ничего — это демо' : 'nothing — demo'}</strong>
+            : <strong>${starsToUsd(stars)} <span className="pw-done-usd">· {stars} ★</span></strong>}
         </div>
         <div className="pw-done-line">
           <span>{ru ? 'Доступ' : 'Access'}</span>

@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { useReveal } from '../lib/reveal';
 import { Icon, type IconName } from './Icon';
-import { closeSheet, openSheet, openLightbox, toast } from '../lib/ui';
+import { closeSheet, openSheet, openLightbox, openLightboxSet, toast } from '../lib/ui';
 import { select, tap } from '../lib/haptics';
 import { useLang, t, type Lang } from '../lib/i18n';
 import { isBookable, sTitle } from '../data/services';
@@ -41,12 +41,21 @@ export const workHint = (w: Pick<Work, 'hint'>, lang: Lang) => t(`works.hint.${w
 
 /** The whole photo: title and order hint as the caption; master, consent and "results vary"
     under it — the lightbox is its own path to the eye (the lawyer, K11 §5). */
-export function openWorkPhoto(w: Work, lang: Lang) {
+const workItem = (w: Work, lang: Lang) => {
   const hint = workHint(w, lang);
-  openLightbox(asset(w.src), hint ? `${shortTitle(w, lang)} · ${hint}` : shortTitle(w, lang), {
+  return {
+    src: asset(w.src),
+    caption: hint ? `${shortTitle(w, lang)} · ${hint}` : shortTitle(w, lang),
     note: `${masterLine(w.master, lang)} · ${t('works.note', lang)}`,
     alt: workAlt(w, lang),
-  });
+  };
+};
+
+/** `set` — весь ряд, из которого нажали: соседние фото листаются в просмотре */
+export function openWorkPhoto(w: Work, lang: Lang, set?: readonly Work[]) {
+  if (set && set.length > 1) { openLightboxSet(set.map((x) => workItem(x, lang)), Math.max(0, set.indexOf(w))); return; }
+  const it = workItem(w, lang);
+  openLightbox(it.src, it.caption, { note: it.note, alt: it.alt });
 }
 
 /** A procedure photo (K15) has no author and no consent on record (Hater K15-H1): its caption is
@@ -57,7 +66,11 @@ export const procedureCaption = (p: ProcedurePhoto, lang: Lang) => {
 };
 
 /** The caption names the dialog; an alt equal to it would be read twice (UIHost drops it). */
-export function openProcedurePhoto(p: ProcedurePhoto, lang: Lang) {
+export function openProcedurePhoto(p: ProcedurePhoto, lang: Lang, set?: readonly ProcedurePhoto[]) {
+  if (set && set.length > 1) {
+    openLightboxSet(set.map((x) => ({ src: asset(x.src), caption: procedureCaption(x, lang), note: t('proc.note', lang) })), Math.max(0, set.indexOf(p)));
+    return;
+  }
   openLightbox(asset(p.src), procedureCaption(p, lang), { note: t('proc.note', lang) });
 }
 
@@ -183,7 +196,7 @@ export function Gallery({ onBook, onOpenService }: { onBook: (id: string) => voi
           <button
             className="case-photo case-photo--work"
             data-work={w.id}
-            onClick={() => openWorkPhoto(w, lang)}
+            onClick={() => openWorkPhoto(w, lang, list)}
             aria-label={`${t('works.open', lang)}: ${workAlt(w, lang)}`}
           >
             <WorkImg w={w} lang={lang} className="case-photo-img" full />

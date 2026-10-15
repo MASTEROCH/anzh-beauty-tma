@@ -684,7 +684,7 @@ export const QUIZZES: Quiz[] = [
       "deform_young": {
         key: "deform_young",
         note: "Приоритет: дренаж + каркас + качество кожи. Не перегружать лицо объёмом. Какие процедуры и в каком объёме — решает Анжелика на осмотре.",
-        noteEn: "Priority: drainage + support + skin quality. Do not overload the face with volume. Which treatments and how much — Anzhelika decides at the exam.",
+        noteEn: "Priority: drainage + support + skin quality. Do not overload the face with volume. Which treatments and how much — Anjelika decides at the exam.",
         title: "Деформационно-отёчный тип",
         titleEn: "Deformation-Edematous Type",
         sub: "Возраст 25–35",

@@ -13,15 +13,22 @@ import { createRoot } from 'react-dom/client';
 import './styles/tokens.css';
 import './styles/global.css';
 import { App } from './App';
+import { StudioApp } from './screens/StudioApp';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Все модули выполнились — дальше падение рендера ловит ErrorBoundary
 bootReached();
 
+/* Два приложения в одной сборке: клиентская витрина (/) и кабинет студии
+   (/studio — второй Mini App того же бота). Выбор по адресу, до первого
+   рендера: в кабинете не запускается ничего клиентского (онбординг, чат,
+   навигация), а у клиентки нет ни строки про кабинет. */
+const isStudio = window.location.pathname.replace(/\/+$/, '') === '/studio';
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
-      <App />
+      {isStudio ? <StudioApp /> : <App />}
     </ErrorBoundary>
   </StrictMode>,
 );

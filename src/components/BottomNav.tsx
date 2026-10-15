@@ -1,6 +1,6 @@
 import type { Screen } from '../App';
 import { Icon, type IconName } from './Icon';
-import { useLang, t } from '../lib/i18n';
+import { useLang, t, tr } from '../lib/i18n';
 
 type Tab = { id: Screen; key: string; icon: IconName | 'anzh' };
 
@@ -49,7 +49,7 @@ export function BottomNav({
     <button
       className="nav-chat"
       onClick={onChat}
-      aria-label="Чат: администратор и помощник ANZH AI"
+      aria-label={tr('Чат: администратор и помощник ANZH AI', 'Chat: admin and ANZH AI assistant')}
       tabIndex={-1}
     >
       <Icon name="chat-ai" size={24} strokeWidth={1.8} />
@@ -62,7 +62,7 @@ export function BottomNav({
     >
       <Icon name="calendar" size={24} strokeWidth={1.8} />
     </button>
-    <nav className="bottom-nav" aria-label="Навигация">
+    <nav className="bottom-nav" aria-label={tr('Навигация', 'Navigation')}>
       {tabs.map((tab) => (
         <button
           key={tab.id}

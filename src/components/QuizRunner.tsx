@@ -5,7 +5,9 @@ import { asset } from '../lib/asset';
 import { closeSheet, toast } from '../lib/ui';
 import { select, notify } from '../lib/haptics';
 import { saveQuizToPassport, useHealthConsent, type QuizSave, type Sensitivity } from '../lib/healthPassport';
-import { AnalysisDisclaimer } from './LegalFooter';
+import { AnalysisDisclaimer, LegalLink } from './LegalFooter';
+import { useMe, refreshMe } from '../lib/api';
+import { grantConsent, legalVersion } from '../lib/api/me';
 import { useLang } from '../lib/i18n';
 import { sTitle } from '../data/services';
 import { liveServices } from '../lib/catalog';
@@ -249,6 +251,12 @@ export function QuizRunner({
       <AnalysisDisclaimer lang={lang} />
 
       {saveState && <SaveNote state={saveState} consent={!!consent} lang={lang} />}
+      {/* Результат должен попасть в «Паспорт» (Роч 15.10): без согласия на
+          данные о здоровье сервер его не хранит — даём согласие прямо здесь,
+          явной галочкой со ссылкой на документ, и пересохраняем. */}
+      {saveState === 'kept_local' && !consent && (
+        <ConsentSave lang={lang} onSaved={() => writePassport(answers)} />
+      )}
 
       <p className="quiz-desc">{desc}</p>
       {(ru ? result.note : result.noteEn ?? result.note) && (
@@ -362,6 +370,41 @@ export function QuizRunner({
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Согласие на данные о здоровье прямо в результате — чтобы разбор сохранился в «Паспорт». */
+function ConsentSave({ lang, onSaved }: { lang: 'ru' | 'en'; onSaved: () => void }) {
+  const ru = lang === 'ru';
+  const { me } = useMe();
+  const version = legalVersion(me, 'health_data');
+  const [tick, setTick] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const save = async () => {
+    if (!tick || busy || !version) return;
+    setBusy(true);
+    try {
+      await grantConsent('health_data', version, lang);
+      await refreshMe();
+      onSaved();
+      notify('success');
+      toast(ru ? 'Сохранено в «Паспорт» — Анжелика увидит до приёма' : 'Saved to “Passport” — Anjelika sees it before the visit', 'success');
+    } catch {
+      notify('error');
+      toast(ru ? 'Не сохранилось — проверьте интернет' : 'Not saved — check your connection');
+    } finally { setBusy(false); }
+  };
+  return (
+    <div className="qs-consent">
+      <button type="button" role="checkbox" aria-checked={tick} className={`onb-agree${tick ? ' on' : ''}`} onClick={() => { select(); setTick(!tick); }}>
+        <span className="onb-check">{tick && <Icon name="check" size={14} strokeWidth={2.4} />}</span>
+        <span className="onb-agree-text">{ru ? `${genderOrDefault() === 'm' ? 'Согласен' : 'Согласна'} на обработку данных о здоровье — ответы увидит только Анжелика` : 'I consent to processing of health data — only Anjelika sees the answers'}</span>
+      </button>
+      <p className="qs-consent-doc"><LegalLink doc="health-consent" version={version}>{ru ? 'Текст согласия' : 'Consent text'}</LegalLink></p>
+      <button className="btn btn-primary btn-block" disabled={!tick || busy || !version} aria-busy={busy} onClick={() => { void save(); }}>
+        <Icon name="check" size={16} strokeWidth={2.4} /> {busy ? (ru ? 'Сохраняю…' : 'Saving…') : (ru ? 'Сохранить в Паспорт' : 'Save to Passport')}
+      </button>
     </div>
   );
 }

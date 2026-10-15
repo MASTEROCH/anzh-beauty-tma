@@ -9,10 +9,10 @@ import { telegramUrl } from '../data/location';
 import { openTelegram } from '../lib/telegram';
 import { durationLabel } from '../lib/plural';
 import { openSheet, openLightbox, toast } from '../lib/ui';
-import { LiveAnzhelika } from '../components/LiveAvatar';
+import { LiveAnjelika } from '../components/LiveAvatar';
 import { Icon } from '../components/Icon';
 import { WorkImg, masterLine, openProcedurePhoto, openWorkPhoto, procedureCaption, workAlt } from '../components/Gallery';
-import { useLang, t } from '../lib/i18n';
+import { useLang, t, tr } from '../lib/i18n';
 
 const NBSP = String.fromCharCode(0xa0);
 import { isBookable } from '../lib/appointments';
@@ -55,7 +55,7 @@ export function ServiceScreen({
     return (
       <div className="screen">
         <header className="header">
-          <button className="header-back" onClick={onBack} aria-label="Назад"><Icon name="chevron-left" size={20} strokeWidth={2} /></button>
+          <button className="header-back" onClick={onBack} aria-label={tr('Назад', 'Back')}><Icon name="chevron-left" size={20} strokeWidth={2} /></button>
           <div className="header-title">{t('service.details', lang)}</div>
           <div style={{ width: 36 }} />
         </header>
@@ -117,7 +117,7 @@ export function ServiceScreen({
       subtitle: ru ? 'Косметолог · Батуми' : 'Cosmetologist · Batumi',
       body: (
         <>
-          <LiveAnzhelika
+          <LiveAnjelika
             alt="Anjelika"
             style={{
               width: 96,
@@ -162,11 +162,13 @@ export function ServiceScreen({
     <>
     <div className="screen has-cta">
       <header className="header">
-        <button className="header-back" onClick={onBack} aria-label="Назад"><Icon name="chevron-left" size={20} strokeWidth={2} /></button>
+        <button className="header-back" onClick={onBack} aria-label={tr('Назад', 'Back')}><Icon name="chevron-left" size={20} strokeWidth={2} /></button>
         <div className="header-title">{t('service.details', lang)}</div>
-        {shareLink
-          ? <button className="header-back" onClick={share} aria-label="Поделиться"><Icon name="share" size={17} strokeWidth={1.9} /></button>
-          : <div style={{ width: 36 }} />}
+        {/* «Поделиться» переехал на снимок к сердечку: справа в шапке
+            его накрывал переключатель валюты и языка (кадр 15.10). Пустышка
+            справа держит заголовок по центру между «назад» и ней — без неё
+            space-between прижимал «Подробнее» вправо, под переключатели. */}
+        <div style={{ width: 36, flex: '0 0 36px' }} aria-hidden />
       </header>
 
       <div
@@ -174,7 +176,7 @@ export function ServiceScreen({
         style={photo ? { backgroundImage: `url(${photo})` } : undefined}
         onClick={() => { if (photo) openLightbox(photo, s.title); }}
         role={photo ? 'button' : undefined}
-        aria-label={photo ? `Открыть фото: ${s.title}` : undefined}
+        aria-label={photo ? tr(`Открыть фото: ${s.title}`, `Open photo: ${sTitle(s, 'en')}`) : undefined}
       >
         {photo
           ? <div className="service-hero-badge"><Icon name={s.icon} size={20} strokeWidth={1.8} /></div>
@@ -182,7 +184,7 @@ export function ServiceScreen({
         <button
           className="fav-btn"
           aria-pressed={isFav}
-          aria-label={isFav ? 'Убрать из избранного' : 'В избранное'}
+          aria-label={isFav ? tr('Убрать из избранного', 'Remove from bookmarks') : tr('В избранное', 'Add to bookmarks')}
           onClick={(e) => {
             e.stopPropagation();
             onToggleFavorite(s.id);
@@ -192,6 +194,16 @@ export function ServiceScreen({
         >
           <Icon name={isFav ? 'heart-filled' : 'heart'} size={18} strokeWidth={1.8} />
         </button>
+        {shareLink && (
+          <button
+            className="fav-btn"
+            aria-label={lang === 'ru' ? 'Поделиться' : 'Share'}
+            onClick={(e) => { e.stopPropagation(); share(); }}
+            style={{ position: 'absolute', top: 18, right: 68, width: 40, height: 40, zIndex: 2 }}
+          >
+            <Icon name="share" size={17} strokeWidth={1.9} />
+          </button>
+        )}
       </div>
 
       <div className="service-detail-body">
@@ -261,7 +273,7 @@ export function ServiceScreen({
               <>
                 <div className="works-strip" data-testid="service-works">
                   {works.map((w) => (
-                    <button key={w.id} className="works-thumb" data-work={w.id} onClick={() => openWorkPhoto(w, lang)} aria-label={`${t('works.open', lang)}: ${workAlt(w, lang)}`}>
+                    <button key={w.id} className="works-thumb" data-work={w.id} onClick={() => openWorkPhoto(w, lang, works)} aria-label={`${t('works.open', lang)}: ${workAlt(w, lang)}`}>
                       <WorkImg w={w} lang={lang} className="works-thumb-img" />
                     </button>
                   ))}
@@ -289,7 +301,7 @@ export function ServiceScreen({
             <div className="info-block-title">{t('proc.title', lang)}</div>
             <div className="works-strip" data-testid="service-proc-photos">
               {procs.map((p) => (
-                <button key={p.id} className="works-thumb" data-work={p.id} onClick={() => openProcedurePhoto(p, lang)} aria-label={`${t('works.open', lang)}: ${procedureCaption(p, lang)}`}>
+                <button key={p.id} className="works-thumb" data-work={p.id} onClick={() => openProcedurePhoto(p, lang, procs)} aria-label={`${t('works.open', lang)}: ${procedureCaption(p, lang)}`}>
                   <WorkImg w={p} lang={lang} className="works-thumb-img" />
                   {p.sub && <span className="works-thumb-sub" aria-hidden>{p.sub[lang]}</span>}
                 </button>
@@ -324,7 +336,7 @@ export function ServiceScreen({
                 }}
               />
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600 }}>Анжелика · косметолог</div>
+                <div style={{ fontWeight: 600 }}>{tr('Анжелика · косметолог', 'Anjelika · cosmetologist')}</div>
                 <div className="faint" style={{ fontSize: 13 }}>{ru ? 'Косметолог · Батуми' : 'Cosmetologist · Batumi'}</div>
               </div>
               <span style={{ color: 'var(--tl)', fontSize: 18 }}>›</span>

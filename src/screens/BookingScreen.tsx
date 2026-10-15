@@ -1,3 +1,5 @@
+import { useRewards } from '../lib/rewardsLive';
+import { asset } from '../lib/asset';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { findService, sTitle, sShort, servicePhoto } from '../data/services';
 import { catalogNote, useCatalog } from '../lib/catalog';
@@ -7,7 +9,7 @@ import { useRate } from '../lib/rates';
 import { isOnShowcase } from '../lib/showable';
 import { openSheet, toast } from '../lib/ui';
 import { Icon } from '../components/Icon';
-import { LiveAnzhelika } from '../components/LiveAvatar';
+import { LiveAnjelika } from '../components/LiveAvatar';
 import { PingPong } from '../components/PingPong';
 import { SwipeRow } from '../components/SwipeRow';
 import { useLang, t } from '../lib/i18n';
@@ -227,12 +229,17 @@ interface SlotsView {
 
 export function BookingScreen({
   initialServiceId,
+  initialDateISO,
+  initialTime,
   onConfirm,
   onChooseService,
   client,
   onClientChange,
 }: {
   initialServiceId?: string;
+  /** Из напоминания бота: день и время окна, которое предложили */
+  initialDateISO?: string;
+  initialTime?: string;
   onConfirm: () => void;
   onChooseService: () => void;
   client: ClientProfile;
@@ -282,7 +289,9 @@ export function BookingScreen({
     const today = salonToday();
     return Array.from({ length: DAYS_AHEAD }, (_, i) => addDaysISO(today, i));
   }, [tz]);
-  const [dateISO, setDateISO] = useState<string>(() => dates[0]);
+  const [dateISO, setDateISO] = useState<string>(() => (initialDateISO && dates.includes(initialDateISO) ? initialDateISO : dates[0]));
+  // Окно из напоминания: выбрать его, когда сервер подтвердит, что оно ещё свободно
+  const presetTime = useRef(initialDateISO && dates.includes(initialDateISO) ? initialTime ?? null : null);
   const [slot, setSlot] = useState<Slot | null>(null);
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -327,6 +336,13 @@ export function BookingScreen({
     };
   }, [dateISO, slugsKey, guest, reloadTick]);
 
+  useEffect(() => {
+    if (!presetTime.current || slotsView.status !== 'ready') return;
+    const hit = slotsView.slots.find((x) => x.time === presetTime.current);
+    presetTime.current = null;
+    if (hit) setSlot(hit);
+  }, [slotsView]);
+
   // Выбранное время живёт только пока оно есть в ответе сервера.
   useEffect(() => {
     if (slot && !slotsView.slots.some((s) => s.starts_at === slot.starts_at)) setSlot(null);
@@ -339,6 +355,7 @@ export function BookingScreen({
      (lib/money.ts visitTotal). The booked total is the server's — Booking.total_minor,
      shown on the confirmation; the number for anything functional is priceMinor. */
   const total = visitTotal(chosen.map(priceSourceOf));
+  const rewards = useRewards();
   const price = total ? displayPrice(total, lang) : null;
   const totalFrom = total?.priceFrom === true;
   /* K11 Б2 (the lawyer): the visit summary names the payment currency once. No second price
@@ -371,7 +388,7 @@ export function BookingScreen({
       subtitle: ru ? 'Косметолог · Батуми' : 'Cosmetologist · Batumi',
       body: (
         <>
-          <LiveAnzhelika
+          <LiveAnjelika
             alt=""
             style={{ width: 96, height: 96, borderRadius: '50%', objectFit: 'cover', margin: '0 auto 14px', display: 'block', border: '2px solid var(--border-strong)' }}
           />
@@ -537,9 +554,6 @@ export function BookingScreen({
             <div className="eyebrow">{t('booking.eyebrow', lang)}</div>
             <div className="header-title">{t('booking.title', lang)}</div>
           </div>
-          <button className="chip chip-gold" onClick={showMaster} aria-label="О мастере">
-            <Icon name="lotus" size={13} strokeWidth={1.8} /> {t('common.master', lang)}
-          </button>
         </header>
 
         <div className="booking-stepper">
@@ -567,7 +581,17 @@ export function BookingScreen({
           <p className="faint" data-testid="catalog-note" style={{ fontSize: 12, padding: '10px 20px 0' }}>{note[lang]}</p>
         )}
 
+        {/* Мастер — строкой в теле, а не чипом в шапке: в шапке он наезжал
+            на переключатели валюты и языка (кадр Роча 15.10) */}
         <section style={{ padding: '14px 20px 0' }}>
+          <button className="bk-master" onClick={showMaster} aria-label={ru ? 'О мастере' : 'About the master'}>
+            <img src={asset('photos/anjelika.webp')} alt="" className="bk-master-ph" />
+            <span className="bk-master-body">
+              <span className="bk-master-k">{ru ? 'Ведёт приём' : 'Your specialist'}</span>
+              <b>{ru ? 'Анжелика · косметолог' : 'Anjelika · cosmetologist'}</b>
+            </span>
+            <Icon name="chevron-right" size={16} strokeWidth={2.2} className="bk-master-go" />
+          </button>
           <div className="eyebrow mb-sm">{t('booking.chosen', lang)}</div>
           <button
             onClick={onChooseService}
@@ -852,6 +876,14 @@ export function BookingScreen({
             <span className="k">{t('booking.sum.address', lang)}</span>
             <span className="v" style={{ textAlign: 'right', fontSize: 13 }}>{studioAddress(lang)}</span>
           </div>
+          {/* Скидка за действия: процент показываем, саму сумму со скидкой считает
+              сервер при подтверждении — клиенту в деньгах не верим */}
+          {rewards && rewards.percent > 0 && !rewards.used && (
+            <div className="summary-row" data-testid="summary-discount">
+              <span className="k">{ru ? 'Скидка за действия' : 'Action discount'}</span>
+              <span className="v" style={{ color: 'var(--brand-gold-bright)' }}>−{rewards.percent} %</span>
+            </div>
+          )}
           <div className="summary-row total">
             <span className="k">{t('booking.sum.total', lang)}</span>
             <span className="v" data-testid="summary-total">

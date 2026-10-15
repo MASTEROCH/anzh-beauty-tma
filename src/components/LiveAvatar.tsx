@@ -13,7 +13,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
    заиграло по-настоящему (событие `playing`). Не заиграло — человек видит
    портрет, а не кнопку. Первое касание экрана пробует запустить ещё раз.
    «Уменьшить движение» — только фото. Мимика сгенерирована ИИ. */
-export function LiveAnzhelika({ className, style, alt = 'Anjelika' }: { className?: string; style?: CSSProperties; alt?: string }) {
+export function LiveAnjelika({ className, style, alt = 'Anjelika' }: { className?: string; style?: CSSProperties; alt?: string }) {
   const still = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const ref = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);

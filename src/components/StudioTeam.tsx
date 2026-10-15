@@ -6,11 +6,14 @@ import { notify } from '../lib/haptics';
 import { ApiError } from '../lib/session';
 import { useCabinet, cabinetDenied } from '../lib/staff';
 import { staffStats } from '../lib/analytics';
-import { formatMoneyParts, useLiveServices, formatShort, loadErrorText, type Visit } from '../lib/studio';
+import { useLiveServices, loadErrorText, type Visit } from '../lib/studio';
 import {
-  getTeam, addTeamMember, removeTeamMember, setMemberServices, resetMemberPin,
-  type StaffMember, type WireService,
+  getTeam, addTeamMember, removeTeamMember, setMemberPin,
+  type StaffMember,
 } from '../lib/api/staff';
+import { SwipeRow } from './SwipeRow';
+import { openMemberEditor } from './MemberEditor';
+import { tap, select } from '../lib/haptics';
 
 /*
    ПАНЕЛЬ КОМАНДЫ (только владелица, всё — на сервере).
@@ -31,7 +34,13 @@ import {
 
 const COLOURS = ['#12C088', '#C9A52F', '#35E4A6', '#2F767A', '#8FF3D4', '#F5C842'];
 const colourOf = (id: number) => COLOURS[Math.abs(id) % COLOURS.length];
-const roleWord = (p: StaffMember) => p.title ?? (p.role === 'owner' ? 'владелица' : 'мастер');
+const ACCESS: Record<StaffMember['role'], string> = { owner: 'владелица', admin: 'администратор', staff: 'мастер' };
+// Должность и роль доступа; роль не повторяем, если она уже есть в должности
+const roleWord = (p: StaffMember) => {
+  const access = ACCESS[p.role];
+  if (!p.title) return access;
+  return p.title.toLowerCase().includes(access) ? p.title : `${p.title} · ${access}`;
+};
 
 function teamErrorText(e: unknown): string {
   const code = e instanceof ApiError ? e.code : 'network';
@@ -103,18 +112,25 @@ function reloadTeam() {
 export function StudioTeam({ lists }: { lists: Visit[][] }) {
   const { team, loading, error, reload } = useTeam();
   const services = useLiveServices();
+  const cab = useCabinet();
+  const [gone, setGone] = useState<ReadonlySet<number>>(new Set());
+  const order = (team ?? []).map((p) => p.telegram_id);
 
-  const openCard = (person: StaffMember) => openSheet({
-    title: person.name,
-    subtitle: roleWord(person),
-    body: <StaffCard person={person} lists={lists} services={services.list} />,
-  });
+  const edit = (person: StaffMember) => {
+    tap();
+    openMemberEditor(person, {
+      services: services.list,
+      teamOrder: order,
+      isSelf: cab.me?.telegram_id === person.telegram_id,
+      onChanged: reloadTeam,
+    });
+  };
 
   return (
     <div>
       <div className="row row-between mb-md">
         <div className="eyebrow">команда{team ? ` · ${team.length}` : ''}</div>
-        <button className="chip chip-gold" onClick={() => openAddForm()}>
+        <button className="chip chip-gold" onClick={() => { tap(); openAddForm(); }}>
           <Icon name="plus" size={13} strokeWidth={2.6} /> сотрудник
         </button>
       </div>
@@ -128,134 +144,74 @@ export function StudioTeam({ lists }: { lists: Visit[][] }) {
         </div>
       )}
 
-      <div className="stack-tight">
+      <div className="pr-list">
         {(team ?? []).map((person) => {
           const st = staffStats(lists, person.telegram_id);
-          return (
-            <button key={person.telegram_id} className="team-row" onClick={() => openCard(person)}>
-              <span className="team-ph" style={{ background: colourOf(person.telegram_id) }}>
+          const hidden = person.profile ? !person.profile.visible : false;
+          const row = (
+            <button className="pr-row tm-row" onClick={() => edit(person)} aria-label={`Карточка: ${person.name}`}>
+              <span className="tm-ph" style={{ background: colourOf(person.telegram_id) }}>
                 {person.photo_url
                   ? <img src={asset(person.photo_url)} alt="" aria-hidden />
                   : <span className="team-ini">{person.name.slice(0, 1)}</span>}
               </span>
-              <span className="team-b">
-                <span className="team-n">{person.name}</span>
-                <span className="team-r">{roleWord(person)}</span>
-                <span className="team-load">
-                  сейчас {st.upcoming} · выполнено {st.done}
-                  {st.pending > 0 && <b> · {st.pending} ждут решения</b>}
+              <span className="pr-body">
+                <span className="pr-title">{person.name}</span>
+                <span className="pr-meta">{roleWord(person)}</span>
+                <span className="tm-tags">
+                  <span className="tm-load">сейчас {st.upcoming} · выполнено {st.done}</span>
+                  {st.pending > 0 && <span className="tm-tag warn">{st.pending} ждут решения</span>}
+                  {hidden && <span className="tm-tag">скрыт на сайте</span>}
+                  {person.must_change_pin && <span className="tm-tag">сменит PIN</span>}
                 </span>
               </span>
-              <Icon name="chevron-right" size={18} strokeWidth={2} />
+              <Icon name="chevron-right" size={16} strokeWidth={2.2} className="pr-go" />
             </button>
+          );
+          const protectedRow = person.role === 'owner' || cab.me?.telegram_id === person.telegram_id;
+          return protectedRow ? <div key={person.telegram_id}>{row}</div> : (
+            <SwipeRow key={person.telegram_id} label="Убрать" onCommit={() => openRemoveConfirm(person, () => {
+              setGone((g) => new Set(g).add(person.telegram_id));
+            })} collapsing={gone.has(person.telegram_id)}>
+              {row}
+            </SwipeRow>
           );
         })}
       </div>
+      <p className="faint pr-help">Нажмите на человека — фото, описание, процедуры, контакты, PIN. Потяните влево, чтобы убрать из команды.</p>
+
+      <StaffAccessCard />
     </div>
   );
 }
 
-/* ── Карточка одного человека ── */
-
-function StaffCard({ person, lists, services }: { person: StaffMember; lists: Visit[][]; services: WireService[] }) {
-  const cab = useCabinet();
-  const self = cab.me?.telegram_id === person.telegram_id;
-  const st = staffStats(lists, person.telegram_id);
-  const leads = person.role === 'owner'
-    ? 'все процедуры'
-    : (person.services ?? [])
-      .map((slug) => services.find((s) => s.slug === slug)?.title.ru ?? slug)
-      .join(', ') || '—';
-
+/* ── Как войти сотрудникам ── */
+function StaffAccessCard() {
+  const link = typeof window !== 'undefined' ? `${window.location.origin}/studio` : '/studio';
+  const copy = () => {
+    tap();
+    const done = () => toast('Ссылка скопирована', 'success');
+    try { void navigator.clipboard?.writeText(link).then(done, () => toast('Не скопировалось — выделите ссылку вручную')); } catch { toast('Не скопировалось — выделите ссылку вручную'); }
+  };
   return (
-    <>
-      <div className="staff-hero row">
-        <span className="staff-hero-ph" style={{ background: colourOf(person.telegram_id) }}>
-          {person.photo_url
-            ? <img src={asset(person.photo_url)} alt="" aria-hidden />
-            : <span className="team-ini">{person.name.slice(0, 1)}</span>}
-        </span>
-        <div className="row-fill">
-          <div className="staff-hero-n">{person.name}</div>
-          <div className="staff-hero-r">{roleWord(person)}</div>
-          <div className="staff-hero-since">Telegram ID {person.telegram_id}</div>
-        </div>
-      </div>
-
-      <div className="staff-grid">
-        <Stat v={st.upcoming} k="записей сейчас" />
-        <Stat v={st.pending} k="ждут решения" warn={st.pending > 0} />
-        <Stat v={st.done} k="выполнено" />
-        <Stat v={st.clients} k="клиенток" />
-      </div>
-
-      <dl className="about-doc-facts">
-        <div className="about-doc-fact">
-          <dt>Ведёт</dt>
-          <dd>{leads}</dd>
-        </div>
-        <div className="about-doc-fact">
-          <dt>Выручка</dt>
-          <dd>{st.revenue.length ? `${formatMoneyParts(st.revenue)} за два года` : '—'}</dd>
-        </div>
-        {st.lastISO && (
-          <div className="about-doc-fact">
-            <dt>Последний приём</dt>
-            <dd>{formatShort(st.lastISO)}</dd>
-          </div>
-        )}
-      </dl>
-
-      {!self && person.role !== 'owner' && (
-        <div className="stack-tight mt-md">
-          <button className="btn btn-quiet btn-block" onClick={() => openServicesForm(person, services)}>
-            Какие процедуры ведёт
-          </button>
-          <button className="btn btn-quiet btn-block" onClick={() => openEditForm(person)}>
-            Имя и должность
-          </button>
-          <button className="btn btn-quiet btn-block" onClick={() => openPinResetConfirm(person)}>
-            Сбросить PIN
-          </button>
-          {/* Снятие доступа — отдельно и с подтверждением */}
-          <button className="btn btn-quiet btn-block danger" onClick={() => openRemoveConfirm(person)}>
-            Снять доступ
-          </button>
-        </div>
-      )}
-    </>
-  );
-}
-
-function Stat({ v, k, warn }: { v: number; k: string; warn?: boolean }) {
-  return (
-    <div className="staff-stat">
-      <span className={`staff-stat-v${warn ? ' warn' : ''}`}>{v}</span>
-      <span className="staff-stat-k">{k}</span>
+    <div className="tm-access">
+      <div className="eyebrow">как войти сотрудникам</div>
+      <ol className="tm-steps">
+        <li>Добавьте человека: «+ сотрудник», его Telegram ID и роль.</li>
+        <li>Задайте PIN в его карточке и передайте лично — или он задаст свой при первом входе.</li>
+        <li>Отправьте ему приложение студии: в Telegram — «ANZH Студия» у бота студии, в браузере — ссылка ниже.</li>
+      </ol>
+      <button className="tm-link" onClick={copy}>
+        <span>{link.replace(/^https?:\/\//, '')}</span>
+        <Icon name="share" size={15} strokeWidth={2} />
+      </button>
     </div>
   );
-}
-
-/* ── Сброс PIN мастера ── */
-
-function openPinResetConfirm(person: StaffMember) {
-  openSheet({
-    title: 'Сбросить PIN?',
-    subtitle: person.name,
-    body: (
-      <p className="muted" style={{ fontSize: 14, lineHeight: 1.55 }}>
-        Прежний PIN перестанет работать, а открытый кабинет у {person.name} закроется.
-        Если PIN был заблокирован после неверных вводов, блокировка тоже снимется.
-        При следующем входе {person.name} сам(а) задаст новый PIN — вы его не узнаете.
-      </p>
-    ),
-    actions: <ConfirmButton label="Да, сбросить PIN" run={() => resetMemberPin(person.telegram_id)} done={`${person.name}: PIN сброшен`} />,
-  });
 }
 
 /* ── Снятие доступа ── */
 
-function openRemoveConfirm(person: StaffMember) {
+function openRemoveConfirm(person: StaffMember, onGone?: () => void) {
   openSheet({
     title: 'Снять доступ?',
     subtitle: person.name,
@@ -273,7 +229,7 @@ function openRemoveConfirm(person: StaffMember) {
         danger
         run={() => removeTeamMember(person.telegram_id)}
         done={`${person.name} — доступ снят`}
-        after={reloadTeam}
+        after={() => { onGone?.(); window.setTimeout(reloadTeam, 400); }}
       />
     ),
   });
@@ -310,37 +266,34 @@ function ConfirmButton({
   );
 }
 
-/* ── Добавление по Telegram ID и правка имени ── */
+/* ── Добавление: Telegram ID, имя, роль, PIN сразу (по желанию) ── */
 
 function openAddForm() {
-  openSheet({ title: 'Новый сотрудник', subtitle: 'по Telegram ID', body: <MemberForm /> });
+  openSheet({ title: 'Новый сотрудник', subtitle: 'по Telegram ID', body: <AddForm /> });
 }
 
-function openEditForm(person: StaffMember) {
-  openSheet({ title: 'Имя и должность', subtitle: person.name, body: <MemberForm person={person} /> });
-}
-
-function MemberForm({ person }: { person?: StaffMember }) {
-  const [tid, setTid] = useState(person ? String(person.telegram_id) : '');
-  const [name, setName] = useState(person?.name ?? '');
-  const [title, setTitle] = useState(person?.title ?? '');
+function AddForm() {
+  const [tid, setTid] = useState('');
+  const [name, setName] = useState('');
+  const [title, setTitle] = useState('');
+  const [role, setRole] = useState<'staff' | 'admin'>('staff');
+  const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const [why, setWhy] = useState<string | null>(null);
 
   const idNum = Number(tid);
-  const ready = /^\d{1,15}$/.test(tid) && idNum > 0 && name.trim().length > 0;
+  const ready = /^\d{1,15}$/.test(tid) && idNum > 0 && name.trim().length > 0 && (pin === '' || /^\d{4}$/.test(pin));
 
   const save = async () => {
     if (!ready || busy) return;
     setBusy(true);
     setWhy(null);
     try {
-      // Роль всегда `staff`: вторую владелицу сервер не даст (owner_unique),
-      // а понизить действующую владелицу этим вызовом нельзя.
-      await addTeamMember({ telegram_id: idNum, name: name.trim(), title: title.trim() || null, role: 'staff' });
+      await addTeamMember({ telegram_id: idNum, name: name.trim(), title: title.trim() || null, role });
+      if (pin) await setMemberPin(idNum, pin);
       notify('success');
       closeSheet();
-      toast(person ? 'Карточка обновлена' : `${name.trim()} в команде — PIN задаст сам(а) при первом входе`, 'success');
+      toast(pin ? `${name.trim()} в команде — передайте PIN лично` : `${name.trim()} в команде — PIN задаст сам(а) при первом входе`, 'success');
       reloadTeam();
     } catch (e) {
       cabinetDenied(e);
@@ -353,94 +306,37 @@ function MemberForm({ person }: { person?: StaffMember }) {
 
   return (
     <>
-      {!person && (
-        <>
-          <p className="muted mb-md" style={{ fontSize: 13 }}>
-            Мастер открывает приложение в Telegram → «Кабинет мастера» и видит свой Telegram ID.
-            Впишите его сюда — после этого мастер задаст себе PIN и войдёт.
-          </p>
-          <label className="field">
-            <span className="field-k">Telegram ID</span>
-            <input className="input" inputMode="numeric" value={tid}
-              onChange={(e) => { setTid(e.target.value.replace(/\D/g, '').slice(0, 15)); setWhy(null); }}
-              placeholder="например, 123456789" />
-          </label>
-        </>
-      )}
-
-      <label className="field">
-        <span className="field-k">Имя</span>
-        <input className="input" value={name} maxLength={64}
-          onChange={(e) => { setName(e.target.value); setWhy(null); }} placeholder="Как обращаются клиентки" />
+      <p className="muted mb-md" style={{ fontSize: 14, lineHeight: 1.5 }}>
+        Человек открывает приложение студии и видит свой Telegram ID на экране входа. Впишите его сюда —
+        после этого он войдёт с PIN. Фото, описание и процедуры — в его карточке после добавления.
+      </p>
+      <label className="se-field">
+        <span>Telegram ID</span>
+        <input inputMode="numeric" value={tid} onChange={(e) => { setTid(e.target.value.replace(/\D/g, '').slice(0, 15)); setWhy(null); }} placeholder="например, 123456789" />
       </label>
-
-      <label className="field">
-        <span className="field-k">Должность</span>
-        <input className="input" value={title} maxLength={64}
-          onChange={(e) => setTitle(e.target.value)} placeholder="Мастер по бровям" />
-      </label>
-
-      {why && <p className="form-why" role="alert">{why}</p>}
-
-      <button className="btn btn-primary btn-block mt-md" disabled={!ready || busy} onClick={() => { void save(); }}>
-        {busy ? 'Сохраняем…' : person ? 'Сохранить' : 'Добавить в команду'}
-      </button>
-    </>
-  );
-}
-
-/* ── Какие процедуры ведёт ── */
-
-function openServicesForm(person: StaffMember, services: WireService[]) {
-  openSheet({ title: 'Какие процедуры ведёт', subtitle: person.name, body: <ServicesForm person={person} services={services} /> });
-}
-
-function ServicesForm({ person, services }: { person: StaffMember; services: WireService[] }) {
-  const [slugs, setSlugs] = useState<string[]>(person.services ?? []);
-  const [busy, setBusy] = useState(false);
-  const [why, setWhy] = useState<string | null>(null);
-
-  const toggle = (slug: string) =>
-    setSlugs((prev) => (prev.includes(slug) ? prev.filter((x) => x !== slug) : [...prev, slug]));
-
-  const save = async () => {
-    setBusy(true);
-    setWhy(null);
-    try {
-      await setMemberServices(person.telegram_id, slugs);
-      notify('success');
-      closeSheet();
-      toast(`${person.name}: процедуры сохранены`, 'success');
-      reloadTeam();
-    } catch (e) {
-      cabinetDenied(e);
-      notify('error');
-      setWhy(teamErrorText(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <>
-      {/* По этому списку заявки уходят мастеру: процедура без
-          закреплённого мастера уходит владелице. */}
-      {services.length === 0 && <p className="muted">Каталог не загрузился — откройте ещё раз</p>}
-      <div className="chips-wrap">
-        {services.map((s) => (
-          <button
-            key={s.slug}
-            className={`chip${slugs.includes(s.slug) ? ' chip-gold' : ''}`}
-            aria-pressed={slugs.includes(s.slug)}
-            onClick={() => toggle(s.slug)}
-          >
-            {s.title.ru}
-          </button>
+      <div className="se-two">
+        <label className="se-field">
+          <span>Имя</span>
+          <input value={name} maxLength={64} onChange={(e) => { setName(e.target.value); setWhy(null); }} placeholder="Как обращаются клиентки" />
+        </label>
+        <label className="se-field">
+          <span>Должность</span>
+          <input value={title} maxLength={64} onChange={(e) => setTitle(e.target.value)} placeholder="Мастер по бровям" />
+        </label>
+      </div>
+      <div className="se-field"><span>Роль в кабинете</span></div>
+      <div className="seg" role="radiogroup" aria-label="Роль">
+        {([['staff', 'Мастер'], ['admin', 'Администратор']] as const).map(([v, label]) => (
+          <button key={v} role="radio" aria-checked={role === v} className={`seg-btn${role === v ? ' active' : ''}`} onClick={() => { select(); setRole(v); }}>{label}</button>
         ))}
       </div>
+      <label className="se-field mt-md">
+        <span>PIN сразу (необязательно)</span>
+        <input inputMode="numeric" value={pin} maxLength={4} autoComplete="off" onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="4 цифры — или задаст сам" />
+      </label>
       {why && <p className="form-why" role="alert">{why}</p>}
-      <button className="btn btn-primary btn-block mt-md" disabled={busy || services.length === 0} onClick={() => { void save(); }}>
-        {busy ? 'Сохраняем…' : 'Сохранить'}
+      <button className="btn btn-primary btn-block mt-md" disabled={!ready || busy} onClick={() => { void save(); }}>
+        {busy ? 'Добавляем…' : 'Добавить в команду'}
       </button>
     </>
   );

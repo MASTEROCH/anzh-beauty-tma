@@ -31,15 +31,14 @@ const PIN = '2468';
 
 /* ─── Каталог: берём тот же файл, что и приложение ───────────────────── */
 async function loadSeed() {
-  // Демо на Vercel: каталог собран заранее (tools/build-seed.mjs) — в функции
-  // нет ни исходников, ни esbuild
-  const prebuilt = path.join(ROOT, 'tools/stand-seed.json');
-  if (fs.existsSync(prebuilt)) return JSON.parse(fs.readFileSync(prebuilt, 'utf8'));
-  const { transformSync } = await import('esbuild');
-  const src = fs.readFileSync(path.join(ROOT, 'src/data/services.ts'), 'utf8');
-  const js = transformSync(src, { loader: 'ts', format: 'esm' }).code;
-  const mod = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
-  return mod.services;
+  // Локально — свежие данные из src/data (tools/build-seed.mjs); на Vercel
+  // его нет вместе с esbuild — берём собранный при деплое tools/stand-seed.json
+  try {
+    const { buildSeed } = await import('./build-seed.mjs');
+    return await buildSeed();
+  } catch {
+    return JSON.parse(fs.readFileSync(path.join(ROOT, 'tools/stand-seed.json'), 'utf8'));
+  }
 }
 
 const wire = (s, i) => ({
@@ -68,25 +67,30 @@ const PEOPLE = {
   maria:    { telegram_id: 1002, name: 'Мария Ефименко', title: 'Врач-дерматолог', role: 'staff', first_name: 'Мария' },
   ekaterina:{ telegram_id: 1003, name: 'Екатерина Попова', title: 'Мастер-бровист', role: 'staff', first_name: 'Екатерина' },
   roman:    { telegram_id: 1004, name: 'Роман', title: 'Лазерное удаление', role: 'staff', first_name: 'Роман' },
+  admin:    { telegram_id: 1005, name: 'Дарья', title: 'Администратор', role: 'admin', first_name: 'Дарья' },
   client:   { telegram_id: 5001, name: 'Тест Клиентка', title: null, role: 'client', first_name: 'Тест' },
 };
 
 const db = {
   services: [],
   archived: [],
-  team: [
-    { ...PEOPLE.owner, photo_url: null, services: [] },
-    { ...PEOPLE.maria, photo_url: null, services: ['dermatology', 'biorevit', 'botulinum'] },
-    { ...PEOPLE.ekaterina, photo_url: null, services: [] },
-    { ...PEOPLE.roman, photo_url: null, services: [] },
-  ],
+  team: [],                    // заполняется из data/team.ts при старте (seedTeam)
   pins: {},                    // telegram_id → 'PIN'
+  mustChange: new Set(),       // telegram_id: PIN задала владелица — сменить при входе
   confirmed: new Set(),        // токены с подтверждённым PIN
   bookings: [],
   notes: [],
   health: new Map(),           // telegram_id → анкета здоровья
   consents: new Map(),         // telegram_id → {kind: true}
   quizzes: new Map(),          // telegram_id → {quiz_id: result}
+  chapters: new Map(),         // telegram_id → Set(quiz_id), открытые главами
+  reviews: [],                 // [ПРЕДЛОЖЕНИЕ] отзывы: {id, telegram_id, name, rating, text, service_slug, state, created_at, reply, verified}
+  rewards: new Map(),          // telegram_id → {profile, invite, story, review: 'idle'|'pending'|'done', story_proof, used}
+  referrals: new Map(),        // telegram_id пригласившей → [telegram_id подруг]
+  purchases: new Map(),        // telegram_id → [{product_slug, product_kind, status, paid_at, covers}]
+  favorites: new Map(),        // [ПРЕДЛОЖЕНИЕ] telegram_id → {slugs: [], added: {slug: iso}, updated_at}
+  prefs: new Map(),            // telegram_id → {reminders, review, marketing, favorites, repeat}
+  reminded: new Map(),         // telegram_id → iso последнего напоминания (не чаще раза в неделю)
   /* [ПРЕДЛОЖЕНИЕ] профиль студии: то, что сейчас вшито в data/location.ts */
   studio: {
     name: 'ANZH Cosmetology',
@@ -102,6 +106,8 @@ const db = {
     whatsapp: null,
     hours: { ru: 'Вт–Сб · 09:00–20:00', en: 'Tue–Sat · 09:00–20:00' },
     off_days: [0, 1],
+    /* [ПРЕДЛОЖЕНИЕ] главы паспорта в подарок: за процедуру и за N подруг */
+    passport_rules: { enabled: true, friends_per_chapter: 2 },
   },
   /* [ПРЕДЛОЖЕНИЕ] акции */
   promos: [],
@@ -192,9 +198,9 @@ const me = (p) => ({
   role: p.role,
   staff_name: p.role === 'client' ? null : p.name,
   referral_code: 'DEV123',
-  referral_link: '',
+  referral_link: `https://t.me/anzh_cosmetology_bot?start=ref_${p.telegram_id}`,
   invited_count: 0,
-  notifications: { reminders: true, review: true, marketing: false },
+  notifications: { reminders: true, review: true, marketing: false, favorites: true, repeat: true, ...(db.prefs.get(p.telegram_id) ?? {}) },
   language_code: 'ru',
   can_message: true,
   bot_link: null,
@@ -203,7 +209,7 @@ const me = (p) => ({
   features: { stars: true, health: true },
 });
 
-const isStaff = (p) => p && (p.role === 'owner' || p.role === 'staff');
+const isStaff = (p) => p && (p.role === 'owner' || p.role === 'staff' || p.role === 'admin');
 const isOwner = (p) => p && p.role === 'owner';
 
 /* Простой запас: каждый час 09–19, кроме занятых подтверждёнными */
@@ -224,7 +230,7 @@ const route = (method, pattern, fn) => handlers.push({ method, re: new RegExp(`^
 /* ─── Вход ────────────────────────────────────────────────────────────── */
 route('POST', '/auth/telegram', async ({ res, body }) => {
   const raw = String(body.init_data ?? '');
-  const m = /dev=([a-z]+)/.exec(raw);
+  const m = /dev=([a-z0-9]+)/.exec(raw);
   let who = m && PEOPLE[m[1]] ? m[1] : 'client';
   // Демо: у каждого посетителя браузера своя клиентка (uid с устройства), из
   // Telegram — по его id и имени. Иначе все гости делили бы один чат.
@@ -239,18 +245,35 @@ route('POST', '/auth/telegram', async ({ res, body }) => {
       PEOPLE[who] = { telegram_id: id, name, title: null, role: 'client', first_name: name };
     }
   }
+  // Подруга пришла по ссылке-приглашению (start=ref_<id>) — привязываем один раз
+  const ref = /ref_(\d+)/.exec(raw)?.[1];
+  const meId = PEOPLE[who]?.telegram_id;
+  if (ref && meId && Number(ref) !== meId) {
+    const list = db.referrals.get(Number(ref)) ?? [];
+    if (!list.includes(meId)) { list.push(meId); db.referrals.set(Number(ref), list); }
+  }
   send(res, 200, { token: `tok-${who}`, user: me(PEOPLE[who]) });
 });
 route('GET', '/me', ({ res, person }) => person ? send(res, 200, { user: me(person) }) : err(res, 401, 'no_session'));
-route('PATCH', '/me', async ({ res, person }) => person ? send(res, 200, { user: me(person) }) : err(res, 401, 'no_session'));
+route('PATCH', '/me', async ({ res, person, body }) => {
+  if (!person) return err(res, 401, 'no_session');
+  const n = body?.notifications;
+  if (n && typeof n === 'object') {
+    const cur = db.prefs.get(person.telegram_id) ?? {};
+    for (const k of ['reminders', 'review', 'marketing', 'favorites', 'repeat']) if (typeof n[k] === 'boolean') cur[k] = n[k];
+    db.prefs.set(person.telegram_id, cur);
+  }
+  send(res, 200, { user: me(person) });
+});
 
 /* ─── Сотрудник и PIN ─────────────────────────────────────────────────── */
 route('GET', '/staff/me', ({ res, person, tok }) => {
   if (!person) return err(res, 401, 'no_session');
   if (!isStaff(person)) return err(res, 403, 'forbidden');
   send(res, 200, { staff: {
-    ...db.team.find((t) => t.telegram_id === person.telegram_id),
+    ...memberOut(db.team.find((t) => t.telegram_id === person.telegram_id) ?? { telegram_id: person.telegram_id, name: person.name, title: person.title, role: person.role }),
     pin_set: person.telegram_id in db.pins || true,
+    must_change_pin: db.mustChange.has(person.telegram_id),
     pin_confirmed: db.confirmed.has(tok),
   } });
 });
@@ -264,6 +287,7 @@ route('POST', '/staff/pin/set', ({ res, person, body }) => {
   if (!isStaff(person)) return err(res, 403, 'forbidden');
   if (!/^\d{4}$/.test(String(body.pin))) return err(res, 422, 'bad_pin');
   db.pins[person.telegram_id] = String(body.pin);
+  db.mustChange.delete(person.telegram_id);
   send(res, 200, { updated: true });
 });
 
@@ -279,7 +303,7 @@ route('GET', '/staff/bookings', (ctx) => {
   if (!needPin(ctx)) return;
   const { status, from, to, scope } = ctx.query;
   let list = db.bookings;
-  if (!isOwner(ctx.person) || scope !== 'all') list = list.filter((b) => b.staff_id === ctx.person.telegram_id);
+  if (!(isOwner(ctx.person) || ctx.person.role === 'admin') || scope !== 'all') list = list.filter((b) => b.staff_id === ctx.person.telegram_id);
   if (status) list = list.filter((b) => b.status === status);
   if (from) list = list.filter((b) => b.starts_at >= from);
   if (to) list = list.filter((b) => b.starts_at < to);
@@ -298,7 +322,11 @@ route('PATCH', '/bookings/:id', async (ctx) => {
   if (status === 'declined' && !String(reason ?? '').trim()) return err(ctx.res, 422, 'reason_required');
   b.status = status;
   if (status === 'declined') b.decline_reason = reason;
-  if (status === 'done') b.paid_minor = paid_minor ?? b.total_minor;
+  if (status === 'done') {
+    b.paid_minor = paid_minor ?? b.total_minor;
+    // Скидка за действия — разовая: визит со скидкой проведён — она использована
+    if ((b.discount_percent ?? 0) > 0) rewardsOf(b.telegram_id).used = true;
+  }
   send(ctx.res, 200, { booking: b });
 });
 
@@ -314,7 +342,29 @@ route('GET', '/clients', (ctx) => {
     if (b.starts_at < c.first_visit) c.first_visit = b.starts_at;
     by.set(b.telegram_id, c);
   }
-  send(ctx.res, 200, { clients: [...by.values()] });
+  // [ПРЕДЛОЖЕНИЕ] CRM-сегменты: due — подошёл срок повтора и нет записи;
+  // lapsed — последний проведённый визит > 90 дней назад; new — один визит.
+  const now = Date.now();
+  for (const c of by.values()) {
+    const done = db.bookings.filter((b) => b.telegram_id === c.telegram_id && b.status === 'done');
+    const lastDone = done.reduce((m, b) => Math.max(m, Date.parse(b.starts_at)), 0);
+    c.due = [];
+    for (const b of done) for (const it of b.items) {
+      const n = db.services.find((x) => x.slug === it.slug)?.repeat_after_days;
+      if (!n || Date.parse(b.starts_at) + n * 86_400_000 > now) continue;
+      const later = db.bookings.some((x) => x.telegram_id === c.telegram_id && x.status !== 'declined' && x.status !== 'cancelled'
+        && Date.parse(x.starts_at) > Date.parse(b.starts_at) && x.items.some((i) => i.slug === it.slug));
+      if (!later && !c.due.some((d) => d.slug === it.slug)) c.due.push({ slug: it.slug, title_ru: it.title_ru ?? it.slug, last_at: b.starts_at, every_days: n });
+    }
+    c.segments = [
+      ...(c.due.length ? ['due'] : []),
+      ...(lastDone && now - lastDone > 90 * 86_400_000 ? ['lapsed'] : []),
+      ...(c.visits === 1 ? ['new'] : []),
+    ];
+  }
+  const seg = ctx.query?.segment;
+  const list = [...by.values()].filter((c) => !seg || c.segments.includes(seg));
+  send(ctx.res, 200, { clients: list });
 });
 route('GET', '/clients/:id', (ctx) => {
   if (!needPin(ctx)) return;
@@ -379,16 +429,74 @@ route('DELETE', '/me/health', ({ res, person }) => {
 });
 
 /* ─── Команда ─────────────────────────────────────────────────────────── */
-route('GET', '/team', (ctx) => { if (needPin(ctx)) send(ctx.res, 200, { team: db.team }); });
+/* ─── Команда ────────────────────────────────────────────────────────────
+   [ПРЕДЛОЖЕНИЕ] профиль сотрудника (описание, фото, контакты, видимость на
+   сайте, порядок), роль admin, PIN от владелицы и публичная команда. */
+const BI = (v, d = '') => ({ ru: String(v?.ru ?? d), en: String(v?.en ?? v?.ru ?? d) });
+const memberOut = (m) => ({ ...m, pin_set: m.telegram_id in db.pins || true, must_change_pin: db.mustChange.has(m.telegram_id) });
+const sortTeam = () => db.team.sort((a, b) => (a.profile?.sort ?? 99) - (b.profile?.sort ?? 99));
+route('GET', '/team', (ctx) => { if (needPin(ctx)) send(ctx.res, 200, { team: sortTeam().map(memberOut) }); });
+route('GET', '/team/public', ({ res }) => {
+  const list = sortTeam().filter((m) => m.profile?.visible).map((m) => {
+    const p = m.profile;
+    return {
+      key: p.key ?? `m${m.telegram_id}`, name: p.name, surname: p.surname ?? null, role: p.role, short: p.short ?? null,
+      photo_url: m.photo_url ?? null, focus: p.focus ?? null, cred: p.cred ?? null, does: p.does ?? { ru: [], en: [] },
+      services: m.services ?? [], is_admin: m.role === 'admin',
+      ...(p.contacts_public ? { instagram: p.instagram ?? null, telegram: p.telegram ?? null, phone: p.phone ?? null } : {}),
+    };
+  });
+  send(res, 200, { team: list });
+});
 route('POST', '/team', (ctx) => {
   if (!needPin(ctx) || !isOwner(ctx.person)) return err(ctx.res, 403, 'forbidden');
   const b = ctx.body;
   if (!Number.isInteger(b.telegram_id)) return err(ctx.res, 422, 'bad_telegram_id');
   if (!String(b.name ?? '').trim()) return err(ctx.res, 422, 'bad_name');
+  const role = b.role === 'admin' ? 'admin' : 'staff';
   let m = db.team.find((t) => t.telegram_id === b.telegram_id);
-  if (m) Object.assign(m, { name: b.name, title: b.title ?? null });
-  else { m = { telegram_id: b.telegram_id, name: b.name, title: b.title ?? null, role: 'staff', photo_url: null, services: [] }; db.team.push(m); }
-  send(ctx.res, 200, { staff: m });
+  if (m) Object.assign(m, { name: b.name, title: b.title ?? null, role: m.role === 'owner' ? 'owner' : role });
+  else {
+    m = { telegram_id: b.telegram_id, name: b.name, title: b.title ?? null, role, photo_url: null, services: [],
+      profile: { key: `m${b.telegram_id}`, name: BI({ ru: b.name }), surname: null, role: BI({ ru: b.title ?? '' }), short: null,
+        cred: null, does: { ru: [], en: [] }, instagram: null, telegram: null, phone: null, contacts_public: false,
+        visible: false, sort: db.team.length } };
+    db.team.push(m);
+    // Человек из команды входит по своей подписи Telegram: в демо — по ?as=m<id>
+    PEOPLE[`m${b.telegram_id}`] = { telegram_id: b.telegram_id, name: b.name, title: b.title ?? null, role, first_name: b.name };
+  }
+  send(ctx.res, 200, { staff: memberOut(m) });
+});
+route('PATCH', '/team/:id', (ctx) => {
+  if (!needPin(ctx) || !isOwner(ctx.person)) return err(ctx.res, 403, 'forbidden');
+  const m = db.team.find((t) => t.telegram_id === Number(ctx.params[0]));
+  if (!m) return err(ctx.res, 404, 'not_found');
+  const b = ctx.body;
+  if (b.name !== undefined) { if (!String(b.name).trim()) return err(ctx.res, 422, 'bad_name'); m.name = String(b.name).trim(); }
+  if (b.title !== undefined) m.title = b.title;
+  if (b.role !== undefined && m.role !== 'owner') m.role = b.role === 'admin' ? 'admin' : 'staff';
+  if (b.photo_url !== undefined) {
+    if (b.photo_url !== null && !/^\/photos\/[a-z0-9._\/-]+$/i.test(b.photo_url)) return err(ctx.res, 422, 'bad_photo_url');
+    m.photo_url = b.photo_url;
+  }
+  if (b.profile) m.profile = { ...m.profile, ...b.profile };
+  const who = Object.values(PEOPLE).find((x) => x.telegram_id === m.telegram_id);
+  if (who) Object.assign(who, { name: m.name, title: m.title, role: m.role, first_name: m.name });
+  send(ctx.res, 200, { staff: memberOut(m) });
+});
+route('PUT', '/team/order', (ctx) => {
+  if (!needPin(ctx) || !isOwner(ctx.person)) return err(ctx.res, 403, 'forbidden');
+  (ctx.body.order ?? []).forEach((id, i) => { const m = db.team.find((t) => t.telegram_id === Number(id)); if (m) m.profile = { ...m.profile, sort: i }; });
+  send(ctx.res, 200, { team: sortTeam().map(memberOut) });
+});
+route('POST', '/team/:id/pin/set', (ctx) => {
+  if (!needPin(ctx) || !isOwner(ctx.person)) return err(ctx.res, 403, 'forbidden');
+  const id = Number(ctx.params[0]);
+  if (!db.team.some((t) => t.telegram_id === id)) return err(ctx.res, 404, 'not_found');
+  if (!/^\d{4}$/.test(String(ctx.body.pin))) return err(ctx.res, 422, 'bad_pin', 'PIN — ровно 4 цифры');
+  db.pins[id] = String(ctx.body.pin);
+  if (id !== ctx.person.telegram_id) db.mustChange.add(id);
+  send(ctx.res, 200, { updated: true, must_change_pin: id !== ctx.person.telegram_id });
 });
 route('DELETE', '/team/:id', (ctx) => {
   if (!needPin(ctx) || !isOwner(ctx.person)) return err(ctx.res, 403, 'forbidden');
@@ -430,7 +538,8 @@ route('PATCH', '/services/:slug', (ctx) => {
       if (`${f}_${lang}` in p) (s[f] ??= {})[lang] = p[`${f}_${lang}`];
     }
   }
-  for (const f of ['price_minor', 'currency', 'price_from', 'duration_min', 'days', 'includes', 'contraindications', 'photo_url', 'sort']) {
+  if ('repeat_after_days' in p && p.repeat_after_days !== null && !(Number.isInteger(p.repeat_after_days) && p.repeat_after_days >= 7 && p.repeat_after_days <= 730)) return err(ctx.res, 422, 'bad_repeat', 'Повтор — от 7 до 730 дней');
+  for (const f of ['price_minor', 'currency', 'price_from', 'duration_min', 'days', 'includes', 'contraindications', 'photo_url', 'sort', 'repeat_after_days']) {
     if (f in p) s[f] = p[f];
   }
   send(ctx.res, 200, { service: s });
@@ -446,7 +555,7 @@ route('POST', '/services', (ctx) => {
     description: { ru: b.description_ru ?? null, en: b.description_en ?? null },
     price_minor: b.price_minor ?? null, currency: b.currency ?? null, price_from: !!b.price_from,
     stars_amount: null, duration_min: b.duration_min ?? null, days: b.days ?? null,
-    includes: b.includes ?? [], contraindications: b.contraindications ?? [], photo_url: b.photo_url ?? null,
+    includes: b.includes ?? [], contraindications: b.contraindications ?? [], photo_url: b.photo_url ?? null, repeat_after_days: b.repeat_after_days ?? null,
     sort: b.sort ?? db.services.length,
   };
   db.services.push(s);
@@ -466,12 +575,14 @@ route('POST', '/services/:slug/restore', (ctx) => {
   db.services.push(...db.archived.splice(i, 1));
   send(ctx.res, 200, { restored: ctx.params[0] });
 });
-route('POST', '/services/quote', ({ res, body }) => {
+route('POST', '/services/quote', ({ res, body, person }) => {
   const rows = (body.slugs ?? []).map((sl) => db.services.find((x) => x.slug === sl)).filter(Boolean);
   const sub = rows.reduce((n, s) => n + (s.price_minor ?? 0), 0);
+  const pct = person ? rewardsOut(person.telegram_id).percent : 0;
+  const disc = Math.round(sub * pct / 100);
   send(res, 200, { quote: {
     items: rows.map((s) => ({ slug: s.slug, title_ru: s.title.ru, title_en: s.title.en, price_minor: s.price_minor, currency: s.currency, duration_min: s.duration_min })),
-    subtotal_minor: sub, discount_percent: 0, discount_minor: 0, total_minor: sub,
+    subtotal_minor: sub, discount_percent: pct, discount_minor: disc, total_minor: sub - disc,
     currency: rows[0]?.currency ?? 'GEL', duration_min: rows.reduce((n, s) => n + (s.duration_min ?? 0), 0),
   } });
 });
@@ -488,8 +599,8 @@ route('POST', '/bookings', ({ res, person, body }) => {
     id: `b${db.bookings.length + 1}`, telegram_id: person.telegram_id, client_name: person.first_name,
     staff_id: body.staff_id ?? PEOPLE.owner.telegram_id, staff_name: null, starts_at: body.starts_at,
     duration_min: rows.reduce((n, s) => n + (s.duration_min ?? 0), 0), status: 'pending',
-    total_minor: rows.reduce((n, s) => n + (s.price_minor ?? 0), 0), paid_minor: null,
-    currency: rows[0]?.currency ?? 'GEL', discount_percent: 0, client_note: body.note ?? null, decline_reason: null,
+    total_minor: Math.round(rows.reduce((n, s) => n + (s.price_minor ?? 0), 0) * (100 - rewardsOut(person.telegram_id).percent) / 100), paid_minor: null,
+    currency: rows[0]?.currency ?? 'GEL', discount_percent: rewardsOut(person.telegram_id).percent, client_note: body.note ?? null, decline_reason: null,
     created_at: new Date().toISOString(),
     items: rows.map((s) => ({ slug: s.slug, title_ru: s.title.ru, title_en: s.title.en, price_minor: s.price_minor })),
   };
@@ -697,6 +808,120 @@ route('PATCH', '/studio', (ctx) => {
   send(ctx.res, 200, { studio: db.studio });
 });
 
+/* ─── [ПРЕДЛОЖЕНИЕ] Отзывы — только в приложении, на сервере ────────────
+   Пишет любая клиентка с сессией; «был на приёме» — если у неё есть проведённый
+   визит. Публикует владелица (модерация). Награда — за сам отзыв, при ЛЮБОЙ
+   оценке: награда за высокие звёзды покупает оценки и делает их нечестными. */
+const doneVisits = (tid) => db.bookings.filter((b) => b.telegram_id === tid && b.status === 'done').length;
+const reviewOut = (r) => ({ id: r.id, name: r.name, rating: r.rating, text: r.text, service_slug: r.service_slug ?? null, created_at: r.created_at, reply: r.reply ?? null, verified: !!r.verified, publish_consent: r.consent !== false });
+route('GET', '/reviews', ({ res }) => {
+  const list = db.reviews.filter((r) => r.state === 'published').sort((a, b) => b.created_at.localeCompare(a.created_at));
+  const avg = list.length ? list.reduce((n, r) => n + r.rating, 0) / list.length : null;
+  send(res, 200, { reviews: list.map(reviewOut), count: list.length, avg: avg === null ? null : Math.round(avg * 10) / 10 });
+});
+route('POST', '/reviews', ({ res, person, body }) => {
+  if (!person) return err(res, 401, 'no_session');
+  const rating = Number(body.rating);
+  const text = String(body.text ?? '').trim();
+  if (!(rating >= 1 && rating <= 5 && Number.isInteger(rating))) return err(res, 422, 'bad_rating', 'Оценка — от 1 до 5 звёзд');
+  if (text.length < 10) return err(res, 422, 'short_text', 'Напишите пару предложений — от 10 знаков');
+  // Без согласия отзыв не публикуется никогда — его видит только студия; скидка за него та же
+  if (db.reviews.some((x) => x.telegram_id === person.telegram_id && Date.now() - Date.parse(x.created_at) < 60_000)) return err(res, 429, 'too_often', 'Отзыв уже отправлен — спасибо!');
+  const r = { id: `r${Date.now().toString(36)}`, telegram_id: person.telegram_id, name: person.first_name ?? 'Клиентка', rating, text: text.slice(0, 1200),
+    service_slug: body.service_slug ?? null, consent: body.publish_consent === true, state: 'new', created_at: new Date().toISOString(), reply: null, verified: doneVisits(person.telegram_id) > 0 };
+  db.reviews.push(r);
+  rewardsOf(person.telegram_id).review = 'done';
+  send(res, 201, { review: reviewOut(r), rewards: rewardsOut(person.telegram_id) });
+});
+route('GET', '/staff/reviews', (ctx) => {
+  if (!needPin(ctx) || !isOwner(ctx.person)) return err(ctx.res, 403, 'forbidden');
+  send(ctx.res, 200, { reviews: db.reviews.slice().reverse().map((r) => ({ ...reviewOut(r), state: r.state })) });
+});
+route('PATCH', '/reviews/:id', (ctx) => {
+  if (!needPin(ctx) || !isOwner(ctx.person)) return err(ctx.res, 403, 'forbidden');
+  const r = db.reviews.find((x) => x.id === ctx.params[0]);
+  if (!r) return err(ctx.res, 404, 'not_found');
+  if (ctx.body.state === 'published' && r.consent === false) return err(ctx.res, 409, 'no_consent', 'Клиентка не дала согласия на публикацию');
+  if (['published', 'hidden', 'new'].includes(ctx.body.state)) r.state = ctx.body.state;
+  if (ctx.body.reply !== undefined) r.reply = String(ctx.body.reply ?? '').slice(0, 600) || null;
+  send(ctx.res, 200, { review: { ...reviewOut(r), state: r.state } });
+});
+
+/* ─── [ПРЕДЛОЖЕНИЕ] Скидки за действия: разово, −5% за каждое, до −20% ────
+   profile — пройден Skin Profile (сервер видит результат) · invite — подруга
+   открыла приложение по ссылке · story — сторис с отметкой (проверяет
+   администратор) · review — оставлен отзыв. Скидка — на следующую процедуру,
+   её считает сервер в quote; после проведённого визита — использована. */
+const ACTIONS = ['profile', 'invite', 'story', 'review'];
+const PER_ACTION = 5;
+function rewardsOf(tid) {
+  if (!db.rewards.has(tid)) db.rewards.set(tid, { profile: 'idle', invite: 'idle', story: 'idle', review: 'idle', story_proof: null, used: false });
+  const r = db.rewards.get(tid);
+  if (db.quizzes.get(tid)?.profile) r.profile = 'done';
+  if ((db.referrals.get(tid) ?? []).length > 0) r.invite = 'done';
+  return r;
+}
+function rewardsOut(tid) {
+  const r = rewardsOf(tid);
+  const done = ACTIONS.filter((a) => r[a] === 'done').length;
+  return { actions: Object.fromEntries(ACTIONS.map((a) => [a, r[a]])), per_action: PER_ACTION, percent: r.used ? 0 : done * PER_ACTION, max_percent: ACTIONS.length * PER_ACTION, used: r.used };
+}
+route('GET', '/me/rewards', ({ res, person }) => person ? send(res, 200, { rewards: rewardsOut(person.telegram_id) }) : err(res, 401, 'no_session'));
+route('POST', '/me/rewards/story', ({ res, person, body }) => {
+  if (!person) return err(res, 401, 'no_session');
+  const proof = String(body.proof ?? '').trim();
+  if (proof.length < 3) return err(res, 422, 'bad_proof', 'Пришлите ссылку на сторис или ник');
+  const r = rewardsOf(person.telegram_id);
+  if (r.story === 'done') return err(res, 409, 'already_done');
+  r.story = 'pending'; r.story_proof = proof; r.story_at = new Date().toISOString(); r.story_name = person.first_name;
+  send(res, 200, { rewards: rewardsOut(person.telegram_id) });
+});
+route('GET', '/staff/rewards/pending', (ctx) => {
+  if (!needPin(ctx) || !(isOwner(ctx.person) || ctx.person.role === 'admin')) return err(ctx.res, 403, 'forbidden');
+  const list = [...db.rewards.entries()].filter(([, r]) => r.story === 'pending').map(([tid, r]) => ({
+    client_id: tid, name: r.story_name ?? Object.values(PEOPLE).find((x) => x.telegram_id === tid)?.first_name ?? `Клиентка ${tid}`, action: 'story', proof: r.story_proof, sent_at: r.story_at,
+  }));
+  send(ctx.res, 200, { pending: list });
+});
+route('POST', '/staff/rewards/:id/:verdict', (ctx) => {
+  if (!needPin(ctx) || !(isOwner(ctx.person) || ctx.person.role === 'admin')) return err(ctx.res, 403, 'forbidden');
+  const r = rewardsOf(Number(ctx.params[0]));
+  r.story = ctx.params[1] === 'approve' ? 'done' : 'idle';
+  send(ctx.res, 200, { rewards: rewardsOut(Number(ctx.params[0])) });
+});
+
+/* ─── [ПРЕДЛОЖЕНИЕ] Главы паспорта ──────────────────────────────────────
+   доступно = проведённых процедур + ⌊подруг с проведённой процедурой / N⌋ − открытых */
+const PAID_QUIZ = new Set(['skintype', 'aging', 'sensitivity', 'glow', 'homecare', 'morphotype']);
+function passportOf(id) {
+  const rules = db.studio.passport_rules ?? { enabled: false, friends_per_chapter: 2 };
+  const doneBy = (tid) => db.bookings.filter((b) => b.telegram_id === tid && b.status === 'done').length;
+  const visits = doneBy(id);
+  const friends = (db.referrals.get(id) ?? []).filter((f) => doneBy(f) > 0).length;
+  const unlocked = [...(db.chapters.get(id) ?? new Set())];
+  const n = Math.max(1, Number(rules.friends_per_chapter) || 2);
+  const earned = rules.enabled ? visits + Math.floor(friends / n) : 0;
+  return { enabled: !!rules.enabled, credits: Math.max(0, earned - unlocked.length), unlocked, visits_done: visits, friends_done: friends, friends_per_chapter: n };
+}
+route('GET', '/me/passport', ({ res, person }) => person ? send(res, 200, { passport: passportOf(person.telegram_id) }) : err(res, 401, 'no_session'));
+route('POST', '/me/passport/unlock', ({ res, person, body }) => {
+  if (!person) return err(res, 401, 'no_session');
+  const q = String(body.quiz_id ?? '');
+  if (!PAID_QUIZ.has(q)) return err(res, 422, 'not_paid_quiz');
+  const p = passportOf(person.telegram_id);
+  if (p.unlocked.includes(q)) return err(res, 409, 'already_open');
+  if (p.credits < 1) return err(res, 409, 'no_credits', 'Пока нечем открыть главу');
+  db.chapters.set(person.telegram_id, new Set([...p.unlocked, q]));
+  send(res, 200, { passport: passportOf(person.telegram_id) });
+});
+/* Демо: привязать подругу к пригласившей (в бою это делает бот по start=ref_<id>) */
+route('POST', '/dev/referral', ({ res, body }) => {
+  const list = db.referrals.get(Number(body.inviter)) ?? [];
+  list.push(Number(body.friend));
+  db.referrals.set(Number(body.inviter), list);
+  send(res, 200, { ok: true });
+});
+
 /* ─── [ПРЕДЛОЖЕНИЕ] Акции ─────────────────────────────────────────────── */
 route('GET', '/promos', ({ res, person }) => {
   const now = new Date().toISOString();
@@ -735,6 +960,132 @@ route('GET', '/uploads-file/:name', ({ res, params }) => {
 });
 
 /* ─── Сервер ──────────────────────────────────────────────────────────── */
+
+/* ─── [ПРЕДЛОЖЕНИЕ] Закладки и напоминания в боте ──────────────────────────
+   «Хотели сделать»: процедура в закладках ≥ 3 дней, записи на неё нет, у
+   мастера есть окно в ближайшие 3 дня → одно сообщение с этим окном.
+   «Пора повторить»: прошло repeat_after_days после проведённого визита,
+   новой записи на процедуру нет → сообщение с ближайшим окном.
+   Не чаще раза в неделю на человека; выключается в настройках; без права
+   писать (can_message=false) не шлём. Шлёт сервер (cron раз в час в часы
+   студии); здесь — прогон «что ушло бы» для проверки. */
+route('GET', '/me/favorites', ({ res, person }) => {
+  if (!person) return err(res, 401, 'no_session');
+  const f = db.favorites.get(person.telegram_id);
+  send(res, 200, { slugs: f?.slugs ?? [], updated_at: f?.updated_at ?? null });
+});
+route('PUT', '/me/favorites', ({ res, person, body }) => {
+  if (!person) return err(res, 401, 'no_session');
+  if (!Array.isArray(body?.slugs)) return err(res, 422, 'bad_slugs');
+  const known = new Set(db.services.map((x) => x.slug));
+  const slugs = [...new Set(body.slugs.filter((x) => typeof x === 'string' && known.has(x)))].slice(0, 50);
+  const prev = db.favorites.get(person.telegram_id) ?? { slugs: [], added: {} };
+  const now = new Date().toISOString();
+  const added = {};
+  for (const sl of slugs) added[sl] = prev.added?.[sl] ?? now;
+  db.favorites.set(person.telegram_id, { slugs, added, updated_at: now });
+  send(res, 200, { slugs, updated_at: now });
+});
+
+const DAY = 86_400_000;
+const tbilisiDate = (t) => new Date(t + 4 * 3600_000).toISOString().slice(0, 10);
+function firstWindow(fromMs, staffId, days = 3) {
+  for (let d = 0; d <= days; d++) {
+    const ds = tbilisiDate(fromMs + d * DAY);
+    const s = slotsFor(ds, staffId, 60).find((x) => Date.parse(x.starts_at) > fromMs + 2 * 3600_000);
+    if (s) return s;
+  }
+  return null;
+}
+const svcTitle = (slug) => db.services.find((x) => x.slug === slug)?.title?.ru ?? slug;
+const whenEn = (iso) => new Date(iso).toLocaleString('en-US', { timeZone: 'Asia/Tbilisi', weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const svcTitleEn = (slug) => db.services.find((x) => x.slug === slug)?.title?.en || svcTitle(slug);
+const whenRu = (iso) => new Date(iso).toLocaleString('ru-RU', { timeZone: 'Asia/Tbilisi', weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const deepLink = (slug, iso) => {
+  const t = new Date(Date.parse(iso) + 4 * 3600_000).toISOString();
+  return `https://t.me/anzh_cosmetology_bot/app?startapp=book_${slug}_${t.slice(0, 10).replace(/-/g, '')}${t.slice(11, 16).replace(':', '')}`;
+};
+const hasOpenBooking = (tid, slug, afterMs = 0) => db.bookings.some((b) => b.telegram_id === tid && ['pending', 'confirmed'].includes(b.status)
+  && Date.parse(b.starts_at) > afterMs && b.items.some((i) => i.slug === slug));
+
+/** Кому что сейчас ушло бы. nowMs можно сдвинуть — проверка «через N дней». */
+function remindersPlan(nowMs, { ignoreWeekly = false, ignoreAge = false } = {}) {
+  const out = [];
+  const people = new Set([...db.favorites.keys(), ...db.bookings.filter((b) => b.status === 'done').map((b) => b.telegram_id)]);
+  for (const tid of people) {
+    const prefs = { favorites: true, repeat: true, ...(db.prefs.get(tid) ?? {}) };
+    const last = db.reminded.get(tid);
+    if (!ignoreWeekly && last && nowMs - Date.parse(last) < 7 * DAY) continue;
+    const name = Object.values(PEOPLE).find((x) => x.telegram_id === tid)?.first_name ?? db.bookings.find((b) => b.telegram_id === tid)?.client_name ?? `Клиентка ${tid}`;
+    let msg = null;
+    // Повтор важнее закладки: это продолжение лечения, а не желание
+    if (prefs.repeat) {
+      for (const b of db.bookings.filter((x) => x.telegram_id === tid && x.status === 'done').sort((a, c) => c.starts_at.localeCompare(a.starts_at))) {
+        for (const it of b.items) {
+          const svc = db.services.find((x) => x.slug === it.slug);
+          const n = svc?.repeat_after_days;
+          if (!n) continue;
+          const due = Date.parse(b.starts_at) + n * DAY;
+          if (due > nowMs || hasOpenBooking(tid, it.slug, Date.parse(b.starts_at))) continue;
+          const w = firstWindow(nowMs, b.staff_id);
+          if (!w) continue;
+          msg = { kind: 'repeat_due', slug: it.slug, slot: w.starts_at,
+            text_ru: `${name}, прошло ${Math.round((nowMs - Date.parse(b.starts_at)) / DAY)} дн. после процедуры «${svcTitle(it.slug)}» — пора повторить. Ближайшее окно у мастера: ${whenRu(w.starts_at)}.`,
+            text_en: `${name}, it’s been ${Math.round((nowMs - Date.parse(b.starts_at)) / DAY)} days since “${svcTitleEn(it.slug)}” — time to repeat. Next free slot: ${whenEn(w.starts_at)}.`,
+            button: 'Записаться', link: deepLink(it.slug, w.starts_at) };
+          break;
+        }
+        if (msg) break;
+      }
+    }
+    if (!msg && prefs.favorites) {
+      const f = db.favorites.get(tid);
+      for (const slug of f?.slugs ?? []) {
+        const age = nowMs - Date.parse(f.added?.[slug] ?? f.updated_at);
+        if (!ignoreAge && age < 3 * DAY) continue;
+        if (hasOpenBooking(tid, slug)) continue;
+        const w = firstWindow(nowMs, PEOPLE.owner.telegram_id);
+        if (!w) continue;
+        msg = { kind: 'favorite_window', slug, slot: w.starts_at,
+          text_ru: `${name}, вы хотели «${svcTitle(slug)}» — у Анжелики есть окно: ${whenRu(w.starts_at)}. Записаться можно в один тап.`,
+          text_en: `${name}, you saved “${svcTitleEn(slug)}” — Anjelika has a free slot: ${whenEn(w.starts_at)}. Book in one tap.`,
+          button: 'Записаться', link: deepLink(slug, w.starts_at) };
+        break;
+      }
+    }
+    if (msg) out.push({ telegram_id: tid, name, ...msg });
+  }
+  return out;
+}
+route('POST', '/dev/reminders/run', ({ res, body }) => {
+  const shift = Number(body?.shift_days) || 0;
+  const nowMs = Date.now() + shift * DAY;
+  const list = remindersPlan(nowMs, { ignoreWeekly: !!body?.ignore_weekly, ignoreAge: !!body?.ignore_age });
+  if (!body?.dry) for (const r of list) db.reminded.set(r.telegram_id, new Date(nowMs).toISOString());
+  send(res, 200, { now: new Date(nowMs).toISOString(), sent: list });
+});
+
+
+/* ─── Покупки разборов (стенд/демо) ───────────────────────────────────────
+   GET /me/purchases — как у боевого сервера. POST /dev/purchase — только
+   демо: записывает покупку без Telegram-счёта, чтобы в прототипе можно было
+   пройти разбор целиком (боевая сборка эту ручку не зовёт). */
+route('GET', '/me/purchases', ({ res, person }) => person
+  ? send(res, 200, { purchases: db.purchases.get(person.telegram_id) ?? [] })
+  : err(res, 401, 'no_session'));
+route('POST', '/dev/purchase', ({ res, person, body }) => {
+  if (!person) return err(res, 401, 'no_session');
+  const slug = String(body?.product_slug ?? '');
+  if (!/^[a-z0-9-]{2,40}$/.test(slug)) return err(res, 422, 'bad_product');
+  const list = db.purchases.get(person.telegram_id) ?? [];
+  if (!list.some((x) => x.product_slug === slug && x.status === 'paid')) {
+    const covers = Array.isArray(body?.covers) ? body.covers.filter((x) => typeof x === 'string').slice(0, 10) : [slug];
+    list.push({ product_slug: slug, product_kind: slug === 'bundle' ? 'bundle' : 'analysis', status: 'paid', paid_at: new Date().toISOString(), covers });
+  }
+  db.purchases.set(person.telegram_id, list);
+  send(res, 200, { purchases: list });
+});
+
 export async function handle(req, res) {
   const url = new URL(req.url, 'http://x');
   const p = url.pathname.replace(/^\/api\/v1/, '') || '/';
@@ -757,7 +1108,34 @@ export async function handle(req, res) {
   err(res, 404, 'not_found', `нет ручки ${req.method} ${p}`);
 }
 
-db.services = (await loadSeed()).map(wire);
+const SEED = await loadSeed();
+/* Демо: несколько отзывов-примеров, чтобы блок не был пустым на показе.
+   Помечены как пример в имени — в бою отзывы пишут только клиентки. */
+db.reviews.push(
+  { id: 'rdemo1', telegram_id: 0, name: 'Пример · Нино', rating: 5, text: 'Делала губы у Анжелики — аккуратно, естественно, без боли. Всё объяснила до процедуры и написала, как ухаживать после.', service_slug: 'lip-filler', state: 'published', created_at: '2026-10-02T10:00:00.000Z', reply: null, verified: true },
+  { id: 'rdemo2', telegram_id: 0, name: 'Пример · Мария', rating: 5, text: 'Атмосфера в студии очень уютная, встретили с кофе. Биоревитализация — кожа стала свежее уже через неделю.', service_slug: 'biorevit', state: 'published', created_at: '2026-09-20T10:00:00.000Z', reply: 'Спасибо, Мария! Ждём на второй сеанс курса.', verified: true },
+  { id: 'rdemo3', telegram_id: 0, name: 'Пример · Софи', rating: 4, text: 'Хороший результат по скулам, но пришлось подождать минут 15. Анжелика — профессионал, вернусь.', service_slug: 'contour-plastic', state: 'published', created_at: '2026-09-05T10:00:00.000Z', reply: null, verified: true },
+  { id: 'rdemo4', telegram_id: 0, name: 'Пример · Тамара', rating: 5, text: 'Ботокс на лоб сделали за 20 минут, ничего не болело. Через две недели — естественный результат, мимика осталась.', service_slug: 'botulinum', state: 'published', created_at: '2026-08-28T10:00:00.000Z', reply: null, verified: true },
+  { id: 'rdemo5', telegram_id: 0, name: 'Пример · Ольга', rating: 5, text: 'Чистка лица — лучшая в Батуми. Кожа ровная, без покраснения на следующий день. Анжелика подсказала домашний уход.', service_slug: 'deep-cleansing', state: 'published', created_at: '2026-08-15T10:00:00.000Z', reply: 'Ольга, спасибо! Через месяц — следующая чистка.', verified: true },
+  { id: 'rdemo6', telegram_id: 0, name: 'Пример · Ани', rating: 5, text: 'Мезотерапия курсом — кожа стала плотнее и свежее. Всё по делу, ничего лишнего не навязывали.', service_slug: 'mesotherapy', state: 'published', created_at: '2026-08-02T10:00:00.000Z', reply: null, verified: true },
+  { id: 'rdemo7', telegram_id: 0, name: 'Пример · Екатерина', rating: 5, text: 'Нити на овал. Боялась, но Анжелика всё объяснила, результат видно сразу. Очень аккуратная работа.', service_slug: 'mono-threads', state: 'published', created_at: '2026-07-21T10:00:00.000Z', reply: null, verified: true },
+  { id: 'rdemo8', telegram_id: 0, name: 'Пример · Лиза', rating: 5, text: 'Растворила неудачный филлер из другой клиники и потом сделала губы заново. Наконец-то естественно.', service_slug: 'filler-dissolve', state: 'published', created_at: '2026-07-09T10:00:00.000Z', reply: null, verified: true },
+  { id: 'rdemo9', telegram_id: 0, name: 'Пример · Наталья', rating: 5, text: 'Коллагеностимулятор — через месяц кожа подтянулась. Уютно, вовремя, без очередей.', service_slug: 'collagen-stimulators', state: 'published', created_at: '2026-06-30T10:00:00.000Z', reply: null, verified: true },
+  { id: 'rdemo10', telegram_id: 0, name: 'Пример · Майя', rating: 5, text: 'Хожу на биоревитализацию второй курс. Анжелика помнит всё про мою кожу и каждый раз объясняет, что делаем.', service_slug: 'biorevit', state: 'published', created_at: '2026-06-12T10:00:00.000Z', reply: null, verified: true },
+);
+db.services = (Array.isArray(SEED) ? SEED : SEED.services).map(wire);
+/* Команда — из data/team.ts; ключ профиля → человек стенда */
+const KEY_TO_PERSON = { anzhelika: 'owner', mariya: 'maria', ekaterina: 'ekaterina', roman: 'roman', darya: 'admin' };
+db.team = (Array.isArray(SEED) ? [] : SEED.team).map((t) => {
+  const who = PEOPLE[KEY_TO_PERSON[t.key]];
+  if (!who) return null;
+  return {
+    telegram_id: who.telegram_id, name: who.name, title: who.title, role: who.role,
+    photo_url: t.photo_url, services: t.services,
+    profile: { key: t.key, name: t.name, surname: t.surname, role: t.role, short: t.short, focus: t.focus, cred: t.cred, does: t.does,
+      instagram: null, telegram: null, phone: null, contacts_public: false, visible: t.visible, sort: t.sort },
+  };
+}).filter(Boolean);
 seedBookings();
 
 // Запуск руками (node tools/dev-stand.mjs) — свой порт; импорт из функции Vercel — только handle

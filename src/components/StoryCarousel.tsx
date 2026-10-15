@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useLang } from '../lib/i18n';
+import { useLang, tr } from '../lib/i18n';
 
 // Сторис-карусель по механике EPOCH (VenueHero). Ключевые решения оттуда,
 // проверенные на бою:
@@ -118,8 +118,8 @@ export function StoryCarousel({ stories }: { stories: Story[] }) {
         <p className="story-text">{en ? story.textEn ?? story.text : story.text}</p>
       </div>
 
-      <button className="story-tap prev" onClick={() => go(-1)} aria-label="Предыдущий кадр" />
-      <button className="story-tap next" onClick={() => go(1)} aria-label="Следующий кадр" />
+      <button className="story-tap prev" onClick={() => go(-1)} aria-label={tr('Предыдущий кадр', 'Previous slide')} />
+      <button className="story-tap next" onClick={() => go(1)} aria-label={tr('Следующий кадр', 'Next slide')} />
 
       <div className="story-dots">
         {stories.map((_, i) => (
@@ -127,7 +127,7 @@ export function StoryCarousel({ stories }: { stories: Story[] }) {
             key={i}
             className={`story-dot ${i === index ? 'active' : ''}`}
             onClick={() => { setIndex(i); setProgress(0); }}
-            aria-label={`Кадр ${i + 1}`}
+            aria-label={tr(`Кадр ${i + 1}`, `Slide ${i + 1}`)}
           />
         ))}
       </div>

@@ -6,7 +6,7 @@ import { telegramUrl, instagramUrl, phoneUrl, whatsappUrl } from '../data/locati
 import { useStudio } from '../lib/studioProfile';
 import { respond, explainProcedure, clinicOpen, nextOpening, type AiAction } from '../lib/ai';
 import { liveServices } from '../lib/catalog';
-import { isBookable } from '../data/services';
+import { isBookable, sTitle } from '../data/services';
 import { useLang } from '../lib/i18n';
 import { useClientChat } from '../lib/clientChat';
 import { ChatThread, ChatComposer } from './ChatThread';
@@ -28,8 +28,14 @@ type Who = 'admin' | 'ai';
 interface Msg { id: number; role: 'user' | 'ai'; text: string; actions?: AiAction[] }
 let uid = 0;
 
-const GREETING =
-  'Привет 💛 Я ANZH — помощник студии. Расскажу, что делает каждая процедура, сколько она длится и стоит, и отвечу на частые вопросы. Если нужен человек — переключитесь на «Администратор».';
+const GREETING = {
+  ru: 'Привет 💛 Я ANZH — помощник студии. Расскажу, что делает каждая процедура, сколько она длится и стоит, и отвечу на частые вопросы. Если нужен человек — переключитесь на «Администратор».',
+  en: 'Hi 💛 I’m ANZH, the studio assistant. I’ll explain what each treatment does, how long it takes and what it costs, and answer common questions. Need a person? Switch to “Admin”.',
+};
+const FAQ = {
+  ru: ['Сколько стоит?', 'Где вы находитесь?', 'Можно отменить запись?', 'Есть ли противопоказания?'],
+  en: ['How much is it?', 'Where are you?', 'Can I cancel a booking?', 'Any contraindications?'],
+};
 
 export function ChatPanel({
   open, request, onClose, onBook, onOpenService, onOpenCatalog, onOpenPlan, onOpenPassport,
@@ -45,9 +51,10 @@ export function ChatPanel({
   onOpenPassport: () => void;
 }) {
   const lang = useLang();
+  const ru = lang !== 'en';
   const studio = useStudio();
   const [who, setWho] = useState<Who>('ai');
-  const [msgs, setMsgs] = useState<Msg[]>([{ id: ++uid, role: 'ai', text: GREETING }]);
+  const [msgs, setMsgs] = useState<Msg[]>(() => [{ id: ++uid, role: 'ai', text: GREETING[lang === 'en' ? 'en' : 'ru'] }]);
   const [value, setValue] = useState('');
   const [typing, setTyping] = useState(false);
   const box = useRef<HTMLDivElement>(null);
@@ -130,21 +137,21 @@ export function ChatPanel({
   return (
     <>
       <div className={`ai-chat-overlay cp-overlay${leaving ? ' cp-out' : ''}`} onClick={onClose} />
-      <div className={`ai-chat-panel cp${leaving ? ' cp-out' : ''}`} role="dialog" aria-label="Чат со студией">
+      <div className={`ai-chat-panel cp${leaving ? ' cp-out' : ''}`} role="dialog" aria-label={ru ? 'Чат со студией' : 'Chat with the studio'}>
         <div className="cp-head">
-          <div className="cp-title">Чат</div>
-          <button className="ai-chat-close" onClick={onClose} aria-label="Закрыть">
+          <div className="cp-title">{ru ? 'Чат' : 'Chat'}</div>
+          <button className="ai-chat-close" onClick={onClose} aria-label={ru ? 'Закрыть' : 'Close'}>
             <Icon name="x" size={18} strokeWidth={2.4} />
           </button>
         </div>
 
-        <div className="cp-seg seg" role="tablist" aria-label="С кем говорить">
+        <div className="cp-seg seg" role="tablist" aria-label={ru ? 'С кем говорить' : 'Who to talk to'}>
           <button
             role="tab" aria-selected={who === 'admin'}
             className={`seg-btn${who === 'admin' ? ' active' : ''}`}
             onClick={() => { if (who !== 'admin') { select(); setWho('admin'); } }}
           >
-            <Icon name="user" size={15} strokeWidth={2} /> Администратор
+            <Icon name="user" size={15} strokeWidth={2} /> {ru ? 'Администратор' : 'Admin'}
           </button>
           <button
             role="tab" aria-selected={who === 'ai'}
@@ -160,16 +167,16 @@ export function ChatPanel({
             <div className="cp-who">
               <span className="cp-ava" aria-hidden><Icon name="user" size={20} strokeWidth={1.7} /></span>
               <div className="cp-who-body">
-                <div className="cp-who-name">Администратор студии</div>
+                <div className="cp-who-name">{ru ? 'Администратор студии' : 'Studio admin'}</div>
                 <div className={`cp-status ${openNow ? 'on' : 'off'}`}>
                   <span className="cp-dot" />
-                  {openNow ? 'сейчас на связи' : nextOpening()} · {studio.hours[lang === 'en' ? 'en' : 'ru']}
+                  {openNow ? (ru ? 'сейчас на связи' : 'online now') : nextOpening()} · {studio.hours[lang === 'en' ? 'en' : 'ru']}
                 </div>
               </div>
             </div>
 
             {/* Другие каналы — компактным рядом: основной разговор теперь здесь */}
-            <div className="cp-chips" aria-label="Другие способы связи">
+            <div className="cp-chips" aria-label={ru ? 'Другие способы связи' : 'Other ways to reach us'}>
               <button className="cp-chip" onClick={() => { tap(); openTelegram(telegramUrl(draft || undefined)); }}>
                 <Icon name="send" size={15} strokeWidth={1.9} /> Telegram
               </button>
@@ -180,7 +187,7 @@ export function ChatPanel({
               )}
               {phone && (
                 <button className="cp-chip" onClick={() => { tap(); openExternal(phone); }}>
-                  <Icon name="phone" size={15} strokeWidth={1.9} /> Позвонить
+                  <Icon name="phone" size={15} strokeWidth={1.9} /> {ru ? 'Позвонить' : 'Call'}
                 </button>
               )}
               {ig && (
@@ -192,9 +199,9 @@ export function ChatPanel({
 
             {chat.enabled ? (
               <>
-                {chat.offline && chat.loaded && <div className="cp-hint cp-hint--warn" role="status">Нет связи — сообщения дойдут, когда появится интернет</div>}
+                {chat.offline && chat.loaded && <div className="cp-hint cp-hint--warn" role="status">{ru ? 'Нет связи — сообщения дойдут, когда появится интернет' : 'Offline — messages will go out when you’re back online'}</div>}
                 {!chat.loaded
-                  ? <div className="ct"><div className="cp-hint">Загружаем переписку…</div></div>
+                  ? <div className="ct"><div className="cp-hint">{ru ? 'Загружаем переписку…' : 'Loading the conversation…'}</div></div>
                   : (
                     <ChatThread
                       msgs={chat.msgs}
@@ -203,8 +210,8 @@ export function ChatPanel({
                       empty={(
                         <div className="cp-empty">
                           <Icon name="message" size={26} strokeWidth={1.6} />
-                          <b>Напишите администратору</b>
-                          <span>Запись, перенос, как добраться, вопросы по визиту. Можно приложить фото или видео. Ответ придёт сюда{openNow ? '' : `: ${nextOpening()}`}.</span>
+                          <b>{ru ? 'Напишите администратору' : 'Message the admin'}</b>
+                          <span>{ru ? 'Запись, перенос, как добраться, вопросы по визиту. Можно приложить фото или видео. Ответ придёт сюда' : 'Booking, rescheduling, directions, questions about your visit. You can attach a photo or video. The reply comes here'}{openNow ? '' : `: ${nextOpening()}`}.</span>
                         </div>
                       )}
                     />
@@ -213,15 +220,15 @@ export function ChatPanel({
                   draft={draft}
                   setDraft={setDraft}
                   onSend={(text, media) => chat.send(text, media)}
-                  placeholder="Сообщение…"
-                  label="Сообщение администратору"
+                  placeholder={ru ? 'Сообщение…' : 'Message…'}
+                  label={ru ? 'Сообщение администратору' : 'Message to the admin'}
                 />
               </>
             ) : (
               <div className="cp-guest">
                 <Icon name="message" size={26} strokeWidth={1.6} />
-                <b>Чат работает внутри Telegram</b>
-                <span>Откройте приложение из Telegram — и переписка с администратором будет прямо здесь. Пока можно написать в любом из каналов выше.</span>
+                <b>{ru ? 'Чат работает внутри Telegram' : 'The chat works inside Telegram'}</b>
+                <span>{ru ? 'Откройте приложение из Telegram — и переписка с администратором будет прямо здесь. Пока можно написать в любом из каналов выше.' : 'Open the app from Telegram and your conversation with the admin will be right here. For now, write in any channel above.'}</span>
               </div>
             )}
           </div>
@@ -237,7 +244,7 @@ export function ChatPanel({
                         <button key={a.label} className={`ai-msg-action${a.kind === 'handoff' ? ' handoff' : ''}`} onClick={() => run(a)}>
                           {a.kind === 'handoff' && <Icon name="user" size={13} strokeWidth={2} />}
                           {a.kind === 'book' && <Icon name="calendar" size={13} strokeWidth={2} />}
-                          {a.kind === 'handoff' ? 'Написать администратору' : a.label}
+                          {a.kind === 'handoff' ? (ru ? 'Написать администратору' : 'Message the admin') : a.label}
                         </button>
                       ))}
                     </div>
@@ -245,7 +252,7 @@ export function ChatPanel({
                 </div>
               ))}
               {typing && (
-                <div className="ai-typing" aria-label="печатает">
+                <div className="ai-typing" aria-label={ru ? 'печатает' : 'typing'}>
                   <div className="ai-typing-dot" /><div className="ai-typing-dot" /><div className="ai-typing-dot" />
                 </div>
               )}
@@ -253,16 +260,16 @@ export function ChatPanel({
 
             <div className="cp-ask">
               {procs.length > 0 && (
-                <div className="cp-procs" aria-label="Что делает процедура">
+                <div className="cp-procs" aria-label={ru ? 'Что делает процедура' : 'What a treatment does'}>
                   {procs.map((s) => (
-                    <button key={s.id} className="cp-pill" disabled={typing} onClick={() => { tap(); ask(`Что такое «${s.title}»?`, () => explainProcedure(s.id)); }}>
-                      {s.title}
+                    <button key={s.id} className="cp-pill" disabled={typing} onClick={() => { tap(); ask(ru ? `Что такое «${s.title}»?` : `What is “${sTitle(s, 'en')}”?`, () => explainProcedure(s.id)); }}>
+                      {sTitle(s, ru ? 'ru' : 'en')}
                     </button>
                   ))}
                 </div>
               )}
               <div className="cp-procs cp-faq">
-                {['Сколько стоит?', 'Где вы находитесь?', 'Можно отменить запись?', 'Есть ли противопоказания?'].map((f) => (
+                {FAQ[ru ? 'ru' : 'en'].map((f) => (
                   <button key={f} className="cp-pill cp-pill--q" disabled={typing} onClick={() => { tap(); ask(f); }}>{f}</button>
                 ))}
               </div>
@@ -274,13 +281,13 @@ export function ChatPanel({
                 className="ai-input"
                 type="text"
                 enterKeyHint="send"
-                placeholder="Спросите про процедуру…"
+                placeholder={ru ? 'Спросите про процедуру…' : 'Ask about a treatment…'}
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 disabled={typing}
-                aria-label="Вопрос помощнику"
+                aria-label={ru ? 'Вопрос помощнику' : 'Question for the assistant'}
               />
-              <button className="ai-send-btn" type="submit" disabled={!value.trim() || typing} aria-label="Отправить">
+              <button className="ai-send-btn" type="submit" disabled={!value.trim() || typing} aria-label={ru ? 'Отправить' : 'Send'}>
                 <Icon name="arrow-up-right" size={18} strokeWidth={2.4} />
               </button>
             </form>

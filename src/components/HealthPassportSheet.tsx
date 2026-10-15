@@ -3,7 +3,7 @@ import { Icon } from './Icon';
 import { openSheet, closeSheet, toast } from '../lib/ui';
 import { QuizRunner } from './QuizRunner';
 import { FREE_QUIZ } from '../data/quizzes';
-import { useLang, type Lang } from '../lib/i18n';
+import { useLang, type Lang, tr } from '../lib/i18n';
 import { LegalLink } from './LegalFooter';
 import { ApiError, useSession } from '../lib/session';
 import { refreshMe, useMe } from '../lib/api';
@@ -38,7 +38,7 @@ const COPY = {
   consentTitle: { ru: 'Согласие на данные о здоровье', en: 'Health data consent' },
   why: {
     ru: 'Зачем: чтобы Анжелика учла противопоказания перед процедурой. В приложении анкету видит только Анжелика, каждый просмотр записывается.',
-    en: 'Purpose: so Anzhelika can check contraindications before a procedure. In the app, only Anzhelika sees it; every view is logged.',
+    en: 'Purpose: so Anjelika can check contraindications before a procedure. In the app, only Anjelika sees it; every view is logged.',
   },
   where: {
     ru: 'Храним в ЕС (Ирландия) до отзыва, но не дольше [УТОЧНИТЬ: срок].',
@@ -57,7 +57,7 @@ const COPY = {
   },
   refuseOk: {
     ru: 'Без согласия анкета не сохранится, а запись работает как обычно — противопоказания Анжелика уточнит на приёме.',
-    en: 'Without consent the questionnaire is not saved, and booking works as usual — Anzhelika will check contraindications at the appointment.',
+    en: 'Without consent the questionnaire is not saved, and booking works as usual — Anjelika will check contraindications at the appointment.',
   },
   noVersion: {
     ru: 'Согласие пока нельзя дать: текст согласия ещё не утверждён. Записаться можно и без анкеты.',
@@ -207,7 +207,7 @@ function HealthForm({
   const openQuiz = () =>
     openSheet({
       title: 'ANZH Skin Intelligence',
-      subtitle: `Skin Profile · ${FREE_QUIZ.questions.length} вопросов · бесплатно`,
+      subtitle: tr(`Skin Profile · ${FREE_QUIZ.questions.length} вопросов · бесплатно`, `Skin Profile · ${FREE_QUIZ.questions.length} questions · free`),
       body: <QuizRunner quiz={FREE_QUIZ} onBook={onBook ?? (() => closeSheet())} />,
     });
 

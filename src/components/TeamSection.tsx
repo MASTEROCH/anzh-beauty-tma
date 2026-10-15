@@ -8,7 +8,7 @@ import { useStudio } from '../lib/studioProfile';
 import { findService, sTitle } from '../data/services';
 import { servicePrice } from '../lib/money';
 import { Icon } from './Icon';
-import { teamPhoto, teamFocus, teamShort, TEAM, TEAM_BIO, MASTER_SERVICES, type TeamMember } from '../data/team';
+import { useTeamView, type TeamView } from '../lib/teamLive';
 
 /** "Who you'll meet" (K15): round portraits, names without surnames, roles.
     A member whose portrait may not be shown is not drawn (data/team.ts).
@@ -33,20 +33,17 @@ export function TeamSection({
 }) {
   const ru = lang === 'ru';
   const studio = useStudio();
-  const team = TEAM.flatMap((m) => {
-    const p = teamPhoto(m);
-    return p ? [{ m, p }] : [];
-  });
+  const team = useTeamView();
   if (team.length === 0) return null;
+  const shortOf = (m: TeamView) => (m.short ?? m.role)[lang];
 
-  const openMember = (m: TeamMember) => {
-    const photo = teamPhoto(m);
-    if (!photo) return;
+  const openMember = (m: TeamView) => {
     tap();
-    const bio = TEAM_BIO[m.id];
+    const photo = m.photo;
+    const bio = { cred: m.cred, does: m.does };
     /* Только то, что реально на витрине: услуга без цены или длительности
        туда не попала, и строка о ней вела бы на пустой экран. */
-    const services = MASTER_SERVICES[m.id]
+    const services = m.services
       .map((id) => findService(id))
       .filter((s): s is NonNullable<typeof s> => !!s);
     const full = m.surname ? `${m.name[lang]} ${m.surname[lang]}` : m.name[lang];
@@ -56,22 +53,28 @@ export function TeamSection({
       subtitle: m.role[lang],
       body: (
         <div className="member">
-          <img
-            className="member-photo"
-            src={asset(photo.src)}
-            width={photo.w}
-            height={photo.h}
-            style={{ objectPosition: `${teamFocus(m).x}% ${teamFocus(m).y}%` }}
-            alt={`${full} — ${m.role[lang]}`}
-            decoding="async"
-          />
+          {photo ? (
+            <img
+              className="member-photo"
+              src={asset(photo.src)}
+              width={photo.w}
+              height={photo.h}
+              style={{ objectPosition: `${m.focus.x}% ${m.focus.y}%` }}
+              alt={`${full} — ${m.role[lang]}`}
+              decoding="async"
+            />
+          ) : <div className="member-photo member-photo--ini" aria-hidden>{m.name[lang].slice(0, 1)}</div>}
 
           {bio.cred && <p className="member-cred">{bio.cred[lang]}</p>}
 
-          <div className="eyebrow sub-head">{ru ? 'чем занимается' : 'what they do'}</div>
-          <ul className="info-list">
-            {bio.does[lang].map((line) => <li key={line}>{line}</li>)}
-          </ul>
+          {bio.does[lang].length > 0 && (
+            <>
+              <div className="eyebrow sub-head">{ru ? 'чем занимается' : 'what they do'}</div>
+              <ul className="info-list">
+                {bio.does[lang].map((line) => <li key={line}>{line}</li>)}
+              </ul>
+            </>
+          )}
 
           {services.length > 0 && (
             <>
@@ -116,13 +119,19 @@ export function TeamSection({
                 {ru ? 'Написать студии' : 'Message the studio'}
               </button>
             )}
-            {studio.instagram && (
+            {/* Личные контакты — только если владелица разрешила их показывать */}
+            {m.telegram && (
+              <button className="btn btn-secondary btn-block" onClick={() => { tap(); openExternal(`https://t.me/${m.telegram}`); }}>
+                <Icon name="send" size={15} strokeWidth={2} /> @{m.telegram}
+              </button>
+            )}
+            {(m.instagram || studio.instagram) && (
               <button
                 className="btn btn-secondary btn-block"
-                onClick={() => { tap(); openExternal(instagramUrl()); }}
+                onClick={() => { tap(); openExternal(instagramUrl(m.instagram ?? studio.instagram)); }}
               >
-                <Icon name="globe" size={15} strokeWidth={2} />
-                @{studio.instagram}
+                <Icon name="camera" size={15} strokeWidth={2} />
+                @{m.instagram ?? studio.instagram}
               </button>
             )}
           </div>
@@ -140,21 +149,23 @@ export function TeamSection({
         </div>
       </div>
       <ul className="team-strip" aria-label={t('team.label', lang)}>
-        {team.map(({ m, p }) => (
-          <li key={m.id} className="team-card" data-member={m.id}>
+        {team.map((m) => (
+          <li key={m.key} className="team-card" data-member={m.key}>
             <button className="team-open" onClick={() => openMember(m)} aria-label={`${m.name[lang]} — ${m.role[lang]}`}>
-              <img
-                className="team-photo"
-                src={asset(p.src)}
-                width={p.w}
-                height={p.h}
-                style={{ objectPosition: `${teamFocus(m).x}% ${teamFocus(m).y}%` }}
-                loading="lazy"
-                decoding="async"
-                alt=""
-              />
+              {m.photo ? (
+                <img
+                  className="team-photo"
+                  src={asset(m.photo.src)}
+                  width={m.photo.w}
+                  height={m.photo.h}
+                  style={{ objectPosition: `${m.focus.x}% ${m.focus.y}%` }}
+                  loading="lazy"
+                  decoding="async"
+                  alt=""
+                />
+              ) : <span className="team-photo team-photo--ini" aria-hidden>{m.name[lang].slice(0, 1)}</span>}
               <span className="team-name">{m.name[lang]}</span>
-              <span className="team-role">{teamShort(m, lang)}</span>
+              <span className="team-role">{shortOf(m)}</span>
             </button>
           </li>
         ))}

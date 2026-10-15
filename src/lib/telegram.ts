@@ -27,6 +27,7 @@ interface TgWebApp {
   /** Подписанная строка. Вне Telegram — пустая */
   initData?: string;
   initDataUnsafe?: {
+    start_param?: string;
     user?: {
       id: number;
       first_name: string;
@@ -54,11 +55,39 @@ interface TgWebApp {
   requestWriteAccess?: (cb?: (allowed: boolean) => void) => void;
   onEvent?: (evt: string, cb: () => void) => void;
   offEvent?: (evt: string, cb: () => void) => void;
+  /** Bot API 7.8+: открывает редактор сторис с готовым медиа */
+  shareToStory?: (mediaUrl: string, params?: { text?: string; widget_link?: { url: string; name?: string } }) => void;
 }
 
 function webApp(): TgWebApp | undefined {
   if (typeof window === 'undefined') return undefined;
   return (window as unknown as { Telegram?: { WebApp?: TgWebApp } }).Telegram?.WebApp;
+}
+
+/* ── Сторис ── Telegram 7.8+ сам открывает редактор с нашим медиа; проверить,
+   что сторис вышла, он не даёт — поэтому скидку за неё подтверждает студия. */
+export function canShareStory(): boolean {
+  const w = webApp();
+  return !!w?.shareToStory && !!w.isVersionAtLeast?.('7.8') && !!rawInitData();
+}
+export function shareStory(mediaUrl: string, text: string, link?: { url: string; name?: string }): boolean {
+  const w = webApp();
+  if (!w?.shareToStory) return false;
+  try { w.shareToStory(mediaUrl, { text, widget_link: link }); return true; } catch { return false; }
+}
+
+/* ── Куда открыть приложение (ссылка из напоминания бота) ──
+   Только НАВИГАЦИЯ: «book_<slug>_<YYYYMMDDHHMM>» открывает запись на эту
+   процедуру и время. Ни личности, ни скидок, ни приглашений отсюда не
+   берём — это решает сервер по подписанной initData (см. ниже). В браузере
+   (демо) тот же параметр читается из ?startapp=. */
+export interface NavTarget { kind: 'book'; slug: string; dateISO?: string; time?: string }
+export function navStartParam(): NavTarget | null {
+  let raw = webApp()?.initDataUnsafe?.start_param ?? '';
+  if (!raw && typeof location !== 'undefined') raw = new URLSearchParams(location.search).get('startapp') ?? '';
+  const m = /^book_([a-z0-9-]{2,60})(?:_(\d{4})(\d{2})(\d{2})(?:(\d{2})(\d{2}))?)?$/.exec(raw);
+  if (!m) return null;
+  return { kind: 'book', slug: m[1], dateISO: m[2] ? `${m[2]}-${m[3]}-${m[4]}` : undefined, time: m[5] ? `${m[5]}:${m[6]}` : undefined };
 }
 
 /* ── Кто открыл приложение ── */
@@ -101,7 +130,8 @@ export function rawInitData(): string | null {
      Telegram здесь не подделывается — стенд её просто не проверяет. */
   if (import.meta.env.DEV && typeof location !== 'undefined') {
     const as = new URLSearchParams(location.search).get('as');
-    if (as && /^[a-z]+$/.test(as)) return `dev=${as}`;
+    if (as && /^[a-z0-9]+$/.test(as)) return `dev=${as}`;
+    if (location.pathname.replace(/\/+$/, '') === '/studio') return 'dev=owner';
   }
   const value = webApp()?.initData;
   if (typeof value === 'string' && value.length > 0) return value;
@@ -111,7 +141,9 @@ export function rawInitData(): string | null {
      production-сборке ветки нет: условие — литерал false. */
   if (import.meta.env.VITE_DEMO === '1' && typeof location !== 'undefined') {
     const as = new URLSearchParams(location.search).get('as');
-    if (as && /^[a-z]+$/.test(as) && as !== 'client') return `dev=${as}`;
+    if (as && /^[a-z0-9]+$/.test(as) && as !== 'client') return `dev=${as}`;
+    // Приложение студии (/studio) без ?as — входит владелица: демо кабинета
+    if (!as && location.pathname.replace(/\/+$/, '') === '/studio') return 'dev=owner';
     let uid = '';
     try { uid = localStorage.getItem('anzh_demo_uid') ?? ''; } catch { /* приватное окно */ }
     if (!/^[a-z0-9]{8,32}$/.test(uid)) {
@@ -294,7 +326,43 @@ function applyKeyboardInset() {
 }
 
 /** Вызывать один раз при монтировании. Повторный вызов безвреден. */
+/* Краевой свайп iOS (канон ROCH, ~/.claude/roch/snippets/edge-swipe-guard.js):
+   движение ВПРАВО от левого края — системное «назад», для страницы это
+   «закрыть», и приложение исчезает посреди ввода. Гасим только его: левый
+   край, горизонталь, вправо. Правый край не трогаем — с него начинают
+   смахивание строки влево (закладки, процедуры, допы к визиту). Ленты,
+   которые сами листаются по горизонтали, тоже не трогаем. */
+function guardEdgeSwipe() {
+  const EDGE = 24;
+  let st: { x: number; y: number } | null = null;
+  const scrollableX = (el: Element | null) => {
+    for (let n = el; n && n !== document.body; n = n.parentElement) {
+      if (n.scrollWidth - n.clientWidth > 4) {
+        const ov = getComputedStyle(n).overflowX;
+        if (ov === 'auto' || ov === 'scroll') return true;
+      }
+    }
+    return false;
+  };
+  document.addEventListener('touchstart', (e) => {
+    st = null;
+    if (e.touches.length !== 1) return;
+    const t = e.touches[0];
+    if (t.clientX > EDGE || scrollableX(e.target as Element)) return;
+    st = { x: t.clientX, y: t.clientY };
+  }, { passive: true });
+  document.addEventListener('touchmove', (e) => {
+    if (!st || e.touches.length !== 1) return;
+    const t = e.touches[0];
+    const dx = t.clientX - st.x, dy = t.clientY - st.y;
+    if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+    if (dx > 0 && Math.abs(dx) > Math.abs(dy) && e.cancelable) e.preventDefault();
+    st = null;
+  }, { passive: false });
+}
+
 export function initTelegram() {
+  guardEdgeSwipe();
   // Клавиатуру меряем ВСЕГДА, даже вне Telegram: это свойство браузера,
   // а не клиента. Подписка идёт до раннего выхода ниже — иначе обычный
   // Android-браузер остался бы без неё.

@@ -178,7 +178,7 @@ const DICT: Record<string, Entry> = {
   'service.pickTime':  { ru: 'Выбрать время', en: 'Pick a time' },
   // booking
   'booking.eyebrow':   { ru: 'запись', en: 'booking' },
-  'booking.title':     { ru: 'Выбор времени', en: 'Choose a time' },
+  'booking.title':     { ru: 'Время', en: 'Time' },
   'booking.step.service': { ru: 'Услуга', en: 'Service' },
   'booking.step.date':    { ru: 'Дата / слот', en: 'Date / slot' },
   'booking.step.confirm': { ru: 'Подтверждение', en: 'Confirm' },
@@ -246,3 +246,6 @@ export function pts(n: number, lang: Lang = current): string {
 export function procs(n: number, lang: Lang = current): string {
   return lang === 'ru' ? pluralRu(n, 'процедура', 'процедуры', 'процедур') : n === 1 ? 'treatment' : 'treatments';
 }
+
+/** Строка на языке интерфейса — для подписей и aria-label, которым не нужен словарь */
+export const tr = (ru: string, en: string): string => (getLang() === 'en' ? en : ru);

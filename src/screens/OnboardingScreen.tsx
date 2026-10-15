@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon, type IconName } from '../components/Icon';
-import { LiveAnzhelika } from '../components/LiveAvatar';
+import { LiveAnjelika } from '../components/LiveAvatar';
 import { getTgUser } from '../lib/telegram';
 import { setGender, useGender, type Gender, g as gg } from '../lib/gender';
 import { useLang, type Lang } from '../lib/i18n';
@@ -78,7 +78,7 @@ const BENEFITS: Benefit[] = [
     title: 'Запись в 1 тап',
     sub: 'Без звонков и переписок. Выбираешь слот — Анжелика подтверждает.',
     titleEn: 'Book in one tap',
-    subEn: 'No calls or long chats. Pick a slot — Anzhelika confirms it.',
+    subEn: 'No calls or long chats. Pick a slot — Anjelika confirms it.',
     accent: 'gold',
   },
   /* Здесь стоял пункт про баллы за визит: за визит баллы не начисляются,
@@ -106,7 +106,7 @@ const BENEFITS: Benefit[] = [
     title: 'AI-консультант 24/7',
     sub: 'Подскажет по процедурам и ценам; противопоказания проверяет Анжелика.',
     titleEn: 'AI assistant 24/7',
-    subEn: 'Answers about treatments and prices; Anzhelika checks contraindications.',
+    subEn: 'Answers about treatments and prices; Anjelika checks contraindications.',
     accent: 'gold',
     ai: true,
   },
@@ -305,7 +305,7 @@ function WelcomeSlide({ firstName, lang }: { firstName?: string; lang: Lang }) {
       <div className="onb-welcome">
         <div className="onb-avatar-wrap">
           <span className="onb-avatar-glow" aria-hidden />
-          <LiveAnzhelika className="onb-avatar" />
+          <LiveAnjelika className="onb-avatar" />
           <span className="onb-avatar-badge">
             <Icon name="check" size={14} strokeWidth={2.4} />
           </span>
@@ -314,7 +314,7 @@ function WelcomeSlide({ firstName, lang }: { firstName?: string; lang: Lang }) {
         <h1 className="onb-title">
           {ru
             ? (firstName ? <>{firstName}, привет —<br />я <span className="onb-name-accent">Анжелика</span></> : <>Привет, я <span className="onb-name-accent">Анжелика</span></>)
-            : (firstName ? <>Hi {firstName} —<br />I’m <span className="onb-name-accent">Anzhelika</span></> : <>Hi, I’m <span className="onb-name-accent">Anzhelika</span></>)}
+            : (firstName ? <>Hi {firstName} —<br />I’m <span className="onb-name-accent">Anjelika</span></> : <>Hi, I’m <span className="onb-name-accent">Anjelika</span></>)}
         </h1>
         {/* Здесь стояли стаж, число процедур, рейтинг и число отзывов —
             цифры-заготовки, не подтверждённые Анжеликой. Решение
@@ -324,8 +324,8 @@ function WelcomeSlide({ firstName, lang }: { firstName?: string; lang: Lang }) {
         </p>
         <p className="onb-text">
           {ru
-            ? <>{AI_ASSISTANT ? 'Это твой цифровой кабинет: запись, паспорт кожи и личный AI-ассистент.' : 'Это твой цифровой кабинет: запись ко мне и паспорт кожи.'} Я провожу тебя за минуту.</>
-            : <>{AI_ASSISTANT ? 'Your personal space: booking, skin passport and an AI assistant.' : 'Your personal space: booking with me and your skin passport.'} I’ll show you around in a minute.</>}
+            ? 'Здесь ты записываешься ко мне в пару касаний, а всё о твоей коже хранится в одном месте. Покажу, как тут всё устроено, — это минута.'
+            : 'Book with me in a couple of taps and keep everything about your skin in one place. I’ll show you around — it takes a minute.'}
         </p>
         <div className="onb-meta-row">
           <span className="onb-meta-chip">
@@ -450,7 +450,7 @@ function HowItWorksSlide({ gender, ru }: { gender: Gender; ru: boolean }) {
     { num: 3, title: `Приходи ${gg('готовой', 'готовым', gender)}`, sub: 'Нажми Start у бота — тогда он сможет писать тебе о записях.' },
   ] : [
     { num: 1, title: 'Pick a treatment', sub: 'A catalogue with prices and descriptions.' },
-    { num: 2, title: 'Tap a time that suits you', sub: 'Your request goes to Anzhelika to confirm.' },
+    { num: 2, title: 'Tap a time that suits you', sub: 'Your request goes to Anjelika to confirm.' },
     { num: 3, title: 'Come in ready', sub: 'Press Start in the bot so it can message you about your bookings.' },
   ];
   return (
@@ -507,7 +507,7 @@ function SignupSlide({
       <p className="onb-text onb-text-sm">
         {ru
           ? 'Анжелика ведёт клиентов по инстаграму — так она узнает, что это ты, и подтянет твою историю процедур.'
-          : 'Anzhelika keeps in touch with clients on Instagram — this way she’ll know it’s you and see your treatment history.'}
+          : 'Anjelika keeps in touch with clients on Instagram — this way she’ll know it’s you and see your treatment history.'}
       </p>
 
       {/* Здесь был блок стартового бонуса баллами: баллы на запуск скрыты. */}

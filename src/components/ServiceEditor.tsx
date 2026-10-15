@@ -239,6 +239,10 @@ function ServiceForm({ existing }: { existing?: WireService }) {
     existing ? (existing.price_minor != null ? minorToInput(existing.price_minor) : '') : '80',
   );
   const [priceFrom, setPriceFrom] = useState<boolean>(existing?.price_from === true);
+  // Повтор: пусто = бот не напоминает (клиника интервалов не дала — не выдумываем)
+  const [repeatText, setRepeatText] = useState<string>(existing?.repeat_after_days != null ? String(existing.repeat_after_days) : '');
+  const repeatDays = repeatText.trim() === '' ? null : Math.round(Number(repeatText));
+  const repeatBad = repeatDays !== null && !(repeatDays >= 7 && repeatDays <= 730);
   // The row's currency; a new row — lari, shown on the chips. Another ISO code of an
   // existing row (set through the API) is kept as is: the chips are not shown for it.
   const [currency, setCurrency] = useState<string | null>(existing ? existing.currency || null : 'GEL');
@@ -315,6 +319,7 @@ function ServiceForm({ existing }: { existing?: WireService }) {
         if (!same(includes, existing.includes ?? [])) patch.includes = includes;
         if (!same(contra, existing.contraindications ?? [])) patch.contraindications = contra;
         if (photo !== (existing.photo_url ?? null)) patch.photo_url = photo;
+        if (!repeatBad && repeatDays !== (existing.repeat_after_days ?? null)) patch.repeat_after_days = repeatDays;
         // Пустая правка — 422 `empty_patch`: не шлём, просто закрываем — и так и говорим (K13, F9).
         const changed = Object.keys(patch).length > 0;
         if (changed) {
@@ -344,6 +349,7 @@ function ServiceForm({ existing }: { existing?: WireService }) {
           ...(includes.length ? { includes } : {}),
           ...(contra.length ? { contraindications: contra } : {}),
           ...(photo ? { photo_url: photo } : {}),
+          ...(!repeatBad && repeatDays !== null ? { repeat_after_days: repeatDays } : {}),
         }, intent.current);
         refreshServices();
         applyOwnerEdit(created.slug, created);
@@ -482,6 +488,19 @@ function ServiceForm({ existing }: { existing?: WireService }) {
             <small>Итог врач называет после осмотра: клиентка увидит «от 400 ₾» и пометку про осмотр</small>
           </span>
         </label>
+
+        {!training && (
+          <label className="se-field se-repeat">
+            <span>Напомнить о повторе через, дней</span>
+            <input type="number" inputMode="numeric" value={repeatText} placeholder="не напоминать"
+              onChange={(e) => setRepeatText(e.target.value)} aria-invalid={repeatBad || undefined} />
+            <small className={repeatBad ? 'form-why' : 'faint'}>
+              {repeatBad
+                ? 'От 7 до 730 дней — или оставьте пустым'
+                : 'Бот напишет клиентке через столько дней после процедуры и предложит свободные окна. Например, ботокс — 120, чистка — 30.'}
+            </small>
+          </label>
+        )}
 
         {askCurrency && (
           <div className="se-field">

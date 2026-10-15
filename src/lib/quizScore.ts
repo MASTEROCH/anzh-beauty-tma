@@ -153,7 +153,7 @@ export function scoreQuiz(quiz: Quiz, answers: Answer[]): ScoredResult | null {
       const jaw = answers[16];
       if (jaw === 1 || jaw === 3) {
         const ru = 'Замечено: привычка сжимать челюсть или бруксизм — признак гипертонуса жевательных мышц. С этим работают ботулинотерапией по показаниям; решение — после осмотра у Анжелики.';
-        const en = 'Noted: jaw clenching or bruxism is a sign of masseter hypertonus. It is treated with botulinum therapy when indicated; the decision comes after an exam with Anzhelika.';
+        const en = 'Noted: jaw clenching or bruxism is a sign of masseter hypertonus. It is treated with botulinum therapy when indicated; the decision comes after an exam with Anjelika.';
         return { ...out, note: out.note ? `${out.note}\n\n${ru}` : ru, noteEn: out.noteEn ? `${out.noteEn}\n\n${en}` : en };
       }
       return out;

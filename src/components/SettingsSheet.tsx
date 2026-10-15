@@ -15,7 +15,6 @@ import { useWriteAccess } from '../lib/writeAccess';
 interface Props {
   lang: Lang;
   onLang: (l: Lang) => void;
-  onStudio?: () => void;
 }
 
 /* Тексты «Моих данных» — ui-lines Законника (data.always,
@@ -120,7 +119,7 @@ function errorText(e: unknown, lang: Lang, deleting?: { role: string | undefined
   return ru ? 'Не получилось — попробуй ещё раз.' : 'Something went wrong — try again.';
 }
 
-export function SettingsSheet({ onLang, onStudio }: Props) {
+export function SettingsSheet({ onLang }: Props) {
   const lang = useLang();
   const [deleted, setDeleted] = useState(false);
   const [langSyncing, setLangSyncing] = useState(false);
@@ -171,17 +170,6 @@ export function SettingsSheet({ onLang, onStudio }: Props) {
 
       <NotificationsBlock lang={lang} />
 
-      {/* Кабинет мастера */}
-      {onStudio && (
-        <button className="set-row set-row-studio" onClick={onStudio}>
-          <span className="set-row-icon"><Icon name="lotus" size={16} strokeWidth={1.8} /></span>
-          <span className="set-row-label">
-            Кабинет мастера
-            <span className="set-row-sub">Заявки, расписание, база клиентов</span>
-          </span>
-          <Icon name="chevron-right" size={18} strokeWidth={2} style={{ color: 'var(--text-hint)' }} />
-        </button>
-      )}
 
       <MyDataBlock lang={lang} onDeleted={() => setDeleted(true)} />
 
@@ -266,7 +254,7 @@ function NotificationsBlock({ lang }: { lang: Lang }) {
   const signedIn = session.status === 'user' && !!me;
   const writeAccess = useWriteAccess(signedIn ? me?.can_message : undefined);
 
-  const toggle = async (pref: 'reminders') => {
+  const toggle = async (pref: 'reminders' | 'favorites' | 'repeat') => {
     if (!me || saving) return;
     const next = !(me.notifications?.[pref] === true);
     setSaving(true);
@@ -296,7 +284,7 @@ function NotificationsBlock({ lang }: { lang: Lang }) {
               data-notif={n.pref}
               onClick={() => void toggle(n.pref)}
             >
-              <span className="set-row-icon"><Icon name="clock" size={16} strokeWidth={1.8} /></span>
+              <span className="set-row-icon"><Icon name={n.icon ?? 'clock'} size={16} strokeWidth={1.8} /></span>
               <span className="set-row-label">
                 {n.label[lang]}
                 <span className="set-row-sub">{n.sub[lang]}</span>
@@ -305,7 +293,7 @@ function NotificationsBlock({ lang }: { lang: Lang }) {
             </button>
           ) : (
             <div key={n.kind} className="set-row" style={{ cursor: 'default' }}>
-              <span className="set-row-icon"><Icon name="clock" size={16} strokeWidth={1.8} /></span>
+              <span className="set-row-icon"><Icon name={n.icon ?? 'clock'} size={16} strokeWidth={1.8} /></span>
               <span className="set-row-label">
                 {n.label[lang]}
                 <span className="set-row-sub">{session.status === 'guest' ? COPY.notifGuest[lang] : n.sub[lang]}</span>

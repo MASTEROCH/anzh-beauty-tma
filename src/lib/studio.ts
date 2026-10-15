@@ -292,8 +292,9 @@ subscribeCabinet(() => {
 
 function queryOf(kind: ListKind) {
   // Роль — из ответа сервера (GET /staff/me), тем же выражением, что у него:
-  // `scope=all` действует только для owner. Мастеру его не шлём вовсе.
-  const scope = cabinetState().me?.role === 'owner' ? 'all' as const : undefined;
+  // `scope=all` — владелице и администратору (видят записи всех мастеров). Мастеру его не шлём вовсе.
+  const role = cabinetState().me?.role;
+  const scope = role === 'owner' || role === 'admin' ? 'all' as const : undefined;
   if (kind === 'queue') return { status: 'pending' as const, scope };
   // Границы — полночь САЛОНА: «сегодня и завтра» салона, а не телефона.
   const today = salonTodayISO();

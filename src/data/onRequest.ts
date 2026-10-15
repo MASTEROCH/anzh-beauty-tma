@@ -35,7 +35,7 @@ export interface OnRequestService {
 
 const EKATERINA = { ru: 'Екатерина · бровист', en: 'Ekaterina · brow artist' };
 const ROMAN = { ru: 'Роман · лазер', en: 'Roman · laser' };
-const ANZHELIKA = { ru: 'Анжелика · врач-косметолог', en: 'Anzhelika · cosmetologist' };
+const ANZHELIKA = { ru: 'Анжелика · врач-косметолог', en: 'Anjelika · cosmetologist' };
 const MARIYA = { ru: 'Мария · врач-дерматолог', en: 'Mariya · dermatologist' };
 
 export const ON_REQUEST: readonly OnRequestService[] = [

@@ -19,8 +19,17 @@ export function useHeaderHeight() {
 
     const measure = () => {
       const header = document.querySelector('.header');
-      const h = header ? Math.round(header.getBoundingClientRect().height) : 0;
-      if (h > 0) root.style.setProperty('--header-h', `${h}px`);
+      if (!header) return;
+      /* --header-h — высота (по ней центрируются HUD и «выйти»);
+         --header-bottom — низ шапки относительно .app: над шапкой бывает
+         отступ (safe area Telegram), и вуаль по высоте вставала на 5–8 px
+         выше настоящего края — второй «стык» поверх фото (кадр Роча 16.10).
+         Дробная часть не округляется: 0.5 px давали видимую полоску. */
+      const app = header.closest('.app') ?? document.body;
+      const r = header.getBoundingClientRect();
+      const bottom = r.bottom - app.getBoundingClientRect().top;
+      if (r.height > 0) root.style.setProperty('--header-h', `${r.height.toFixed(2)}px`);
+      if (bottom > 0) root.style.setProperty('--header-bottom', `${bottom.toFixed(2)}px`);
     };
 
     measure();

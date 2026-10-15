@@ -197,16 +197,28 @@ export interface Access {
   manageTeam: boolean;
   /** Отзывы на модерации — GET /staff/reviews у сервера только владелице */
   moderateReviews: boolean;
+  /** Переписка с клиентками — владелица и администратор */
+  chats: boolean;
+  /** Вкладка «Деньги/Доход»: у администратора своей выручки нет */
+  money: boolean;
 }
 
 export function accessOf(me: StaffMe | null): Access {
+  /* Три роли (Роч 15.10):
+     · владелица — всё: все записи, вся касса, студия, команда, анкеты;
+     · администратор — все записи и клиентки, переписка с клиентками;
+       без денег студии и без настроек (цены, команда, «о студии»);
+     · мастер — свои записи, свои клиентки, свой доход. */
   const owner = me?.role === 'owner';
+  const admin = me?.role === 'admin';
   return {
     seeAllMoney: owner,
-    seeAllAppointments: owner,
+    seeAllAppointments: owner || admin,
     editPrices: owner,
     manageTeam: owner,
     moderateReviews: owner,
+    chats: owner || admin,
+    money: !admin,
   };
 }
 

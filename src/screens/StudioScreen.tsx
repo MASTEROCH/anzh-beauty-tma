@@ -1,16 +1,20 @@
+import { StudioExport } from '../components/StudioExport';
+import { openAddToCalendar } from '../components/AddToCalendar';
+import { eventOfVisit } from '../lib/calendarStaff';
 import { useEffect, useMemo, useState } from 'react';
-import { durationLabel } from '../lib/plural';
+import { durationLabel, plural } from '../lib/plural';
 import { Icon, type IconName } from '../components/Icon';
 import { StudioAsk } from '../components/StudioAsk';
 import { ClientStrip, clientNameOf, openClientCard } from '../components/ClientCardView';
 import { MoneyBoard } from '../components/MoneyBoard';
 import { StudioProcedures } from '../components/StudioProcedures';
 import { StudioAbout } from '../components/StudioAbout';
-import { QuestQueue } from '../components/QuestQueue';
 import { PromoStudio } from '../components/PromoStudio';
 import { StudioTeam } from '../components/StudioTeam';
+import { StudioPassportRules } from '../components/StudioPassportRules';
 import { StudioPromos } from '../components/StudioPromos';
 import { StudioReviews } from '../components/StudioReviews';
+import { StoryQueue } from '../components/StoryQueue';
 import { useStaffInbox } from '../lib/staffInbox';
 import { StudioChats } from '../components/StudioChats';
 import { ClientRevenue } from '../components/ClientRevenue';
@@ -28,7 +32,7 @@ import {
   useLiveServices, useArchivedServices, loadLiveServices, applyService,
   decideVisit, decisionErrorText, loadErrorText,
   pendingOf, dayOf, shiftSummary, noShowInsight, revenueByCategory, topServices,
-  formatMoney, formatShort, minorToInput, parseMoneyInput, revenueMinor, visitTitle, salonTodayISO, STATUS_WORD,
+  formatMoney, formatShort, minorToInput, parseMoneyInput, revenueMinor, visitTitle, salonTodayISO, STATUS_WORD, serviceBySlug,
   byCurrency, formatMoneyParts, currencyTitle,
   type Visit, type ListState, type CategorySlice,
 } from '../lib/studio';
@@ -50,7 +54,7 @@ import { addDaysISO } from '../lib/appointments';
    «Студией» — она только у владелицы: ни одной её ручки сервер мастеру
    не откроет. */
 type Tab = 'requests' | 'day' | 'clients' | 'money' | 'studio';
-type StudioTab = 'price' | 'team' | 'about' | 'promo' | 'reviews' | 'stories';
+type StudioTab = 'price' | 'team' | 'about' | 'promo' | 'reviews' | 'stories' | 'export';
 type ClientsTab = 'base' | 'money' | 'chats';
 
 /* ВТОРОЙ РЯД (решение ночи 24.09): чаты, акции, сторис, отзывы и задания
@@ -58,6 +62,18 @@ type ClientsTab = 'base' | 'money' | 'chats';
    не даст. Код не удалён: включить — поднять флаг, когда появятся ручки.
    «Предложить другое время» тоже скрыто: статуса `offered` в проводе нет. */
 const SECOND_ROW = false;
+
+const SEGMENTS: Array<['all' | 'due' | 'lapsed' | 'new', string]> = [
+  ['all', 'Все'], ['due', 'Пора вернуть'], ['lapsed', 'Давно не была'], ['new', 'Новые'],
+];
+const daysAgo = (iso?: string | null) => (iso ? Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 86_400_000)) : 0);
+/** Причина одной строкой: зачем писать этой клиентке сегодня */
+function segmentWhy(c: ClientSummary): string | null {
+  const d = c.due?.[0];
+  if (d) return `пора повторить: ${serviceBySlug(d.slug)?.title.ru ?? d.title_ru ?? d.slug} — была ${daysAgo(d.last_at)} дн. назад`;
+  if (c.segments?.includes('lapsed')) return `не была ${daysAgo(c.last_visit)} дн.`;
+  return null;
+}
 
 export function StudioScreen({ onExit }: { onExit: () => void }) {
   const cab = useCabinet();
@@ -96,13 +112,19 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
   const day = useStaffList('day', open);
   const history = useStaffList('history', needHistory);
   const clients = useClientsList(open);
+  const [segment, setSegment] = useState<'all' | 'due' | 'lapsed' | 'new'>('all');
   useLiveServices();
   // Живые входящие: держим соединение весь кабинет, чтобы новое сообщение
   // клиентки было видно на любой вкладке (счётчик + всплывающая строка)
-  const inbox = useStaffInbox(open);
+  const inbox = useStaffInbox(open && can.chats);
+  /* Владелица — ещё и мастер: «Мои» оставляет только её записи. Админу —
+     чтобы видеть записи всех и не путать со своими (своих у неё нет). */
+  const [mine, setMine] = useState(false);
+  const ownOnly = mine && can.seeAllAppointments;
 
-  const pending = useMemo(() => pendingOf(queue.visits), [queue.visits]);
-  const today = useMemo(() => dayOf(day.visits), [day.visits]);
+  const myId = me?.telegram_id;
+  const pending = useMemo(() => pendingOf(queue.visits).filter((v) => !ownOnly || v.staffId === myId), [queue.visits, ownOnly, myId]);
+  const today = useMemo(() => dayOf(day.visits).filter((v) => !ownOnly || v.staffId === myId), [day.visits, ownOnly, myId]);
   const summaries = useMemo(() => {
     const m = new Map<number, ClientSummary>();
     for (const c of clients.list) m.set(c.telegram_id, c);
@@ -193,6 +215,11 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
         title: 'Процедура прошла',
         subtitle: `${v.clientName} · ${visitTitle(v)}`,
         body: <CompleteForm visit={v} summary={summaries.get(v.clientId)} />,
+        actions: (
+          <button className="btn btn-secondary btn-block" onClick={() => openAddToCalendar([eventOfVisit(v)], 'ru', `anzh-${v.dateISO}-${v.slot.replace(':', '')}.ics`)}>
+            <Icon name="calendar" size={16} strokeWidth={1.9} /> В календарь
+          </button>
+        ),
       });
       return;
     }
@@ -210,6 +237,9 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
           <>
             <button className="btn btn-primary btn-block" onClick={() => { closeSheet(); void accept(v); }}>Принять</button>
             <button className="btn btn-secondary btn-block" onClick={() => declineSheet(v)}>Отклонить</button>
+            <button className="btn btn-secondary btn-block studio-decline" onClick={() => openAddToCalendar([eventOfVisit(v)], 'ru', `anzh-${v.dateISO}.ics`)}>
+              <Icon name="calendar" size={16} strokeWidth={1.9} /> В календарь
+            </button>
           </>
         ),
       });
@@ -233,7 +263,7 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
     <div className="screen studio">
       <header className="header">
         <div className="header-lede">
-          <div className="eyebrow">{me?.role === 'owner' ? 'кабинет · владелица' : 'кабинет мастера'}</div>
+          <div className="eyebrow">{me?.role === 'owner' ? 'кабинет · владелица' : me?.role === 'admin' ? 'кабинет · администратор' : 'кабинет мастера'}</div>
           <div className="header-title">{me?.name ?? 'Кабинет'}</div>
         </div>
       </header>
@@ -241,6 +271,15 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
       {/* Контекст дня — только в заявках и в расписании. */}
       {(tab === 'requests' || tab === 'day') && (
         <>
+          {can.seeAllAppointments && me?.role === 'owner' && (
+            <div className="studio-sub mine-switch" role="radiogroup" aria-label="Чьи записи">
+              {([[false, 'Все мастера'], [true, 'Мои']] as Array<[boolean, string]>).map(([v, label]) => (
+                <button key={label} role="radio" aria-checked={mine === v} className={`chip${mine === v ? ' chip-gold' : ''}`} onClick={() => setMine(v)}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
           <NextUp today={today} />
           <StudioAsk queue={queue.visits} day={day.visits} history={history.visits} />
         </>
@@ -248,8 +287,8 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
 
       {tab === 'requests' && (
         <section className="section" style={{ paddingTop: 10 }}>
-          {/* Задания на проверку — второй ряд: скидки за них сервер не даёт */}
-          {SECOND_ROW && can.manageTeam && <QuestQueue />}
+          {/* Сторис на проверку — скидка −5 % за действие (владелица и администратор) */}
+          {(can.manageTeam || can.chats) && <StoryQueue />}
 
           <ListNotice state={queue} kind="queue" />
           {queue.loaded && !queue.error && pending.length === 0 && (
@@ -301,7 +340,15 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
 
       {tab === 'day' && (
         <section className="section" style={{ paddingTop: 10 }}>
-          <div className="eyebrow mb-sm">сегодня · {today.length} {today.length === 1 ? 'запись' : 'записей'}</div>
+          <div className="row row-between mb-sm" style={{ alignItems: 'center' }}>
+            <div className="eyebrow">сегодня · {today.length} {today.length === 1 ? 'запись' : 'записей'}</div>
+            {today.some((v) => v.status === 'confirmed' || v.status === 'pending') && (
+              <button className="section-link" onClick={() => openAddToCalendar(
+                today.filter((v) => v.status === 'confirmed' || v.status === 'pending').map(eventOfVisit), 'ru', `anzh-day-${today[0]?.dateISO ?? 'today'}.ics`)}>
+                <Icon name="calendar" size={13} strokeWidth={2} /> весь день в календарь
+              </button>
+            )}
+          </div>
           <ListNotice state={day} kind="day" />
           {day.loaded && !day.error && today.length === 0 && (
             <div className="card" style={{ padding: 24, textAlign: 'center' }}>
@@ -339,8 +386,8 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
           <div className="studio-sub">
             {([
               ['base', 'База'],
-              ['money', 'По выручке'],
-              ['chats', 'Переписка'],
+              ...(can.money ? [['money', 'По выручке']] : []),
+              ...(can.chats ? [['chats', 'Переписка']] : []),
             ] as Array<[ClientsTab, string]>)
               .map(([id, label]) => (
                 <button
@@ -366,6 +413,21 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
           {clientsTab === 'base' && (
             <>
               <div className="eyebrow mb-sm">база · {clients.list.length} человек</div>
+              {/* CRM-срезы: кого вернуть сегодня. Считает сервер (интервал
+                  повтора — в карточке процедуры), здесь только фильтр. */}
+              {clients.list.some((c) => (c.segments ?? []).length > 0) && (
+                <div className="rv-filters mb-sm">
+                  {SEGMENTS.map(([id, label]) => {
+                    const n = id === 'all' ? clients.list.length : clients.list.filter((c) => c.segments?.includes(id)).length;
+                    if (id !== 'all' && n === 0) return null;
+                    return (
+                      <button key={id} className={`chip${segment === id ? ' chip-gold' : ''}`} onClick={() => setSegment(id)}>
+                        {label}<span className="chip-count">{n}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               {clients.loading && !clients.loaded && (
                 <div className="card empty-state"><div className="empty-sub">Загружаем клиенток…</div></div>
               )}
@@ -387,17 +449,19 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
                 </div>
               )}
               <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                {clients.list.map((c) => {
+                {clients.list.filter((c) => segment === 'all' || c.segments?.includes(segment)).map((c) => {
                   const name = clientNameOf(c);
+                  const why = segmentWhy(c);
                   return (
                     <button key={c.telegram_id} className="studio-day-row" onClick={() => openClientCard({ clientId: c.telegram_id, name })}>
                       <div className="studio-client-av">{name.replace(/^@/, '').slice(0, 1).toUpperCase()}</div>
                       <div className="studio-day-body">
                         <div className="studio-day-name">{name}</div>
                         <div className="studio-day-svc">
-                          {c.username ? `@${c.username}` : 'без ника'} · {c.visits ?? 0} визитов
+                          {c.username ? `@${c.username}` : 'без ника'} · {c.visits ?? 0} {plural(c.visits ?? 0, 'визит', 'визита', 'визитов')}
                           {(c.no_shows ?? 0) > 0 && <span className="studio-warn"> · {c.no_shows} неявк.</span>}
                         </div>
+                        {why && <div className="studio-client-why">{why}</div>}
                       </div>
                       {/* No sum in the list (K13, F4; John's decision): the server's spent_minor adds up
                           every currency of her visits under one sign — lari and dollars mixed (B1-B forbids
@@ -473,7 +537,9 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
           {([
             ...(can.editPrices ? [['price', 'Процедуры']] : []),
             ...(can.manageTeam ? [['team', 'Команда'], ['about', 'О студии']] : []),
-            ...(SECOND_ROW ? [['promo', 'Акции'], ['reviews', 'Отзывы'], ['stories', 'Сторис']] : []),
+            ...(can.moderateReviews ? [['reviews', 'Отзывы']] : []),
+            ...(can.seeAllMoney ? [['export', 'Выгрузка']] : []),
+            ...(SECOND_ROW ? [['promo', 'Акции'], ['stories', 'Сторис']] : []),
           ] as Array<[StudioTab, string]>).map(([id, label]) => (
             <button
               key={id}
@@ -503,12 +569,13 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
         <section className="section section-tight"><StudioPromos /></section>
       )}
 
-      {SECOND_ROW && tab === 'studio' && studioTab === 'reviews' && (
+      {tab === 'studio' && studioTab === 'reviews' && can.moderateReviews && (
         <section className="section section-tight"><StudioReviews /></section>
       )}
 
       {tab === 'studio' && studioTab === 'price' && can.editPrices && <StudioProcedures />}
-      {tab === 'studio' && studioTab === 'about' && can.manageTeam && <StudioAbout />}
+      {tab === 'studio' && studioTab === 'export' && can.seeAllMoney && <StudioExport />}
+      {tab === 'studio' && studioTab === 'about' && can.manageTeam && <><StudioAbout /><StudioPassportRules /></>}
     </div>
 
       {/* «Выйти» в правом верхнем углу. Выход закрывает кабинет: следующий
@@ -527,7 +594,7 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
           ['requests', 'Заявки', 'message', pending.length],
           ['day', 'День', 'calendar', today.length],
           ['clients', 'Клиенты', 'user', inbox.unread],
-          ['money', can.seeAllMoney ? 'Деньги' : 'Доход', 'star', 0],
+          ...(can.money ? [['money', can.seeAllMoney ? 'Деньги' : 'Доход', 'star', 0]] : []),
           ...(can.manageTeam ? [['studio', 'Студия', 'menu', 0]] : []),
         ] as Array<[Tab, string, IconName, number]>).map(([id, label, icon, count]) => (
           <button
@@ -722,7 +789,7 @@ function CurrencyMoney({ list, currency, titled }: { list: Visit[]; currency: st
                   </div>
                   <div className="history-body">
                     <div className="history-name">{t.title}</div>
-                    <div className="history-when">{t.count} визитов</div>
+                    <div className="history-when">{t.count} {plural(t.count, 'визит', 'визита', 'визитов')}</div>
                   </div>
                   <div className="history-amount">{formatMoney(t.sum, currency)}</div>
                 </div>

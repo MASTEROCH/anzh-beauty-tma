@@ -12,7 +12,8 @@ import { useMe } from '../lib/api';
 import { useWriteAccess } from '../lib/writeAccess';
 import { SCHEDULE_COPY, canKeyOf, type WriteAccessContext } from '../lib/writeAccessCopy';
 import { FROM_SENTENCE } from '../lib/money';
-import { downloadIcs } from '../lib/ics';
+import { eventOfAppointment } from '../lib/ics';
+import { openAddToCalendar } from '../components/AddToCalendar';
 import { findService, sTitle } from '../data/services';
 import { useLang } from '../lib/i18n';
 
@@ -224,13 +225,8 @@ export function ConfirmScreen({ onDone, onAccount }: { onDone: () => void; onAcc
           <button
             className="btn btn-secondary btn-block mb-sm"
             onClick={() => {
-              const ok = downloadIcs(appt, lang);
-              toast(
-                ok
-                  ? (ru ? 'Визит добавлен в календарь' : 'Added to your calendar')
-                  : (ru ? 'Календарь не открылся — время есть в кабинете' : 'Calendar blocked — the time is in your account'),
-                ok ? 'success' : 'info',
-              );
+              const e = eventOfAppointment(appt, lang);
+              openAddToCalendar(e ? [e] : [], lang, `anzh-${appt.dateISO}.ics`);
             }}
           >
             <Icon name="calendar" size={16} strokeWidth={1.9} /> {ru ? 'Добавить в календарь' : 'Add to calendar'}

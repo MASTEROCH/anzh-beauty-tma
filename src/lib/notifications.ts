@@ -26,7 +26,7 @@ import type { Lang } from './i18n';
 import { sessionState } from './session';
 import { currentMe, updateMe } from './api';
 
-export type NotifKind = 'client_24h' | 'master_30min';
+export type NotifKind = 'client_24h' | 'master_30min' | 'favorite_window' | 'repeat_due';
 
 /* ── Язык уведомлений бота ── */
 
@@ -69,7 +69,8 @@ export function botLangName(code: string | null | undefined, ui: Lang): string {
     включает и выключает эту строку. */
 export const NOTIF_ROWS: Array<{
   kind: NotifKind;
-  pref: 'reminders';
+  pref: 'reminders' | 'favorites' | 'repeat';
+  icon?: 'clock' | 'heart' | 'sparkles';
   label: { ru: string; en: string };
   sub: { ru: string; en: string };
 }> = [
@@ -78,6 +79,23 @@ export const NOTIF_ROWS: Array<{
     pref: 'reminders',
     label: { ru: 'Напоминание за 24 часа', en: 'Reminder 24h before' },
     sub: { ru: 'Сообщение от бота в Telegram', en: 'A message from the bot in Telegram' },
+  },
+  /* [ПРЕДЛОЖЕНИЕ БЭКЕНДУ] Роч 15.10: бот напоминает о процедурах из закладок,
+     когда у мастера есть окно, и о повторной процедуре, когда подошёл срок
+     (интервал задаёт владелица в карточке процедуры). Не чаще раза в неделю. */
+  {
+    kind: 'favorite_window',
+    pref: 'favorites',
+    icon: 'heart',
+    label: { ru: 'Окна для процедур из закладок', en: 'Slots for saved treatments' },
+    sub: { ru: 'Когда у Анжелики есть время на то, что вы отметили', en: 'When Anjelika has time for what you saved' },
+  },
+  {
+    kind: 'repeat_due',
+    pref: 'repeat',
+    icon: 'sparkles',
+    label: { ru: 'Пора повторить процедуру', en: 'Time to repeat a treatment' },
+    sub: { ru: 'Когда подошёл срок — со свободными окнами', en: 'When it is due — with free slots' },
   },
 ];
 

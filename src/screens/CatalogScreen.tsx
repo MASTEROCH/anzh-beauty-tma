@@ -11,7 +11,7 @@ import { catalogNote, useCatalog } from '../lib/catalog';
 import { SECOND_PRICE_NOTE, servicePrice, serviceSecondPrice } from '../lib/money';
 import { toast } from '../lib/ui';
 import { Icon } from '../components/Icon';
-import { useLang, t } from '../lib/i18n';
+import { useLang, t, tr } from '../lib/i18n';
 
 const NBSP = String.fromCharCode(0xa0);
 
@@ -201,7 +201,7 @@ export function CatalogScreen({
                     ? { backgroundImage: `url(${servicePhoto(s.id)})` }
                     : { ['--tile-phase' as string]: `-${tilePhase(s.id)}s` }),
                 }}
-                aria-label={`Открыть ${s.title}`}
+                aria-label={tr(`Открыть ${s.title}`, `Open ${sTitle(s, 'en')}`)}
               >
                 {/* Значок поверх фотографии убран: он повторял то, что и так
                     видно на снимке, и отъедал угол кадра. Иконка остаётся
@@ -238,7 +238,7 @@ export function CatalogScreen({
               <button
                 className="fav-btn"
                 aria-pressed={isFav}
-                aria-label={isFav ? 'Убрать из избранного' : 'В избранное'}
+                aria-label={isFav ? tr('Убрать из избранного', 'Remove from bookmarks') : tr('В избранное', 'Add to bookmarks')}
                 onClick={() => {
                   onToggleFavorite(s.id);
                   toast(isFav ? 'Убрала из избранного' : 'Добавила в избранное', 'success');

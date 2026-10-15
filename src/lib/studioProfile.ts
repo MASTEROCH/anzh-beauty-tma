@@ -43,6 +43,9 @@ export function fromWire(w: StudioWire): StudioProfile {
     whatsapp: nz(w.whatsapp),
     hours: bi(w.hours, d.hours),
     offDays: Array.isArray(w.off_days) ? w.off_days.filter((n) => Number.isInteger(n) && n >= 0 && n <= 6) : d.offDays,
+    passportRules: w.passport_rules
+      ? { enabled: !!w.passport_rules.enabled, friendsPerChapter: Math.max(1, Number(w.passport_rules.friends_per_chapter) || 2) }
+      : d.passportRules,
   };
 }
 

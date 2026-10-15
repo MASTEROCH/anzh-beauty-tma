@@ -359,7 +359,7 @@ export const services: Service[] = [
     short: 'Лицо, зона вокруг глаз, кожа головы · курс от 3 сеансов',
     shortEn: 'Face, eye area, scalp · a course of 3+ sessions',
     description: 'Всегда курсом — минимум 3 сеанса. Препарат и число сеансов Анжелика подбирает на осмотре под задачу: лицо, зона вокруг глаз или кожа головы. Цена — за один сеанс.',
-    descriptionEn: 'Always as a course — at least 3 sessions. Anzhelika picks the product and the number of sessions at the exam for your goal: face, eye area or scalp. The price is per session.',
+    descriptionEn: 'Always as a course — at least 3 sessions. Anjelika picks the product and the number of sessions at the exam for your goal: face, eye area or scalp. The price is per session.',
     duration: 30,
     priceMinor: 25000,
     currency: 'GEL',

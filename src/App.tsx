@@ -1,4 +1,7 @@
-import { useEffect, useState } from 'react';
+import { navStartParam, type NavTarget } from './lib/telegram';
+import { getFavorites, putFavorites } from './lib/api/favorites';
+import { maybeAskFavoriteNotify } from './components/FavoriteNotify';
+import { useEffect, useRef, useState } from 'react';
 import { BottomNav } from './components/BottomNav';
 import { AiChatBubble } from './components/AiChatBubble';
 import { ChatPanel } from './components/ChatPanel';
@@ -273,6 +276,25 @@ export function App() {
     try { localStorage.setItem(FAV_KEY, JSON.stringify([...favorites])); } catch { /* ignore */ }
   }, [favorites]);
 
+  /* Закладки на сервере (Роч 15.10: бот напоминает «есть окно на вашу
+     процедуру»). Первый ответ сервера — правда, если там уже что-то есть;
+     пусто на сервере — переносим туда то, что было в телефоне. Дальше
+     каждое изменение уходит целиком, с задержкой — серия сердечек = один запрос. */
+  const favSynced = useRef(false);
+  useEffect(() => {
+    if (!me || favSynced.current) return;
+    getFavorites().then((srv) => {
+      favSynced.current = true;
+      if (srv.length > 0) setFavorites(new Set(srv));
+      else if (favorites.size > 0) void putFavorites([...favorites]).catch(() => { /* повторим при следующем изменении */ });
+    }, () => { /* нет ручки — закладки живут в телефоне */ });
+  }, [me]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!favSynced.current) return;
+    const t = window.setTimeout(() => { void putFavorites([...favorites]).catch(() => { /* офлайн — уйдёт следующим */ }); }, 600);
+    return () => window.clearTimeout(t);
+  }, [favorites]);
+
   /* K13 (F2): favorites outlive a release (KEPT_KEYS) and may hold ids of the prototype's
      demo rows, now archived — "Saved: N" with no visible heart. On a FRESH server showcase
      the list is cut to what is on it. Not on the bundle or the cache (they may lag behind the
@@ -336,13 +358,27 @@ export function App() {
     setScreen('booking');
   };
 
+  /* Ссылка из напоминания бота («есть окно на вашу процедуру») открывает
+     запись сразу на этой процедуре и времени — один тап до заявки. */
+  const [bookPreset, setBookPreset] = useState<NavTarget | null>(null);
+  useEffect(() => {
+    const t = navStartParam();
+    if (!t) return;
+    setServiceId(t.slug);
+    setBookPreset(t);
+    setScreen('booking');
+  }, []);
+
   const toggleFavorite = (id: string) => {
+    const adding = !favorites.has(id);
     setFavorites((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
+    // Первое сердечко — момент, когда понятно, ЗАЧЕМ боту писать человеку
+    if (adding) maybeAskFavoriteNotify(me?.can_message, lang);
   };
 
   const handleLang = (l: Lang, quiet = false) => {
@@ -399,7 +435,9 @@ export function App() {
       {screen === 'booking' && (
         <BookingScreen
           initialServiceId={serviceId}
-          onConfirm={() => setScreen('confirm')}
+          initialDateISO={bookPreset?.dateISO}
+          initialTime={bookPreset?.time}
+          onConfirm={() => { setBookPreset(null); setScreen('confirm'); }}
           onChooseService={() => setScreen('catalog')}
           client={client}
           onClientChange={(patch) => setClient((c) => ({ ...c, ...patch }))}
@@ -413,7 +451,6 @@ export function App() {
           onCatalog={() => setScreen('catalog')}
         />
       )}
-      {screen === 'studio' && <StudioScreen onExit={() => setScreen('account')} />}
       {screen === 'confirm' && (
         <ConfirmScreen onDone={() => setScreen('profile')} onAccount={() => setScreen('account')} />
       )}
@@ -427,7 +464,10 @@ export function App() {
           onAwardPoints={(p) => setLoyaltyPoints((x) => x + p)}
           client={client}
           onPlan={() => setScreen('plan')}
-          onStudio={() => setScreen('studio')}
+          favorites={favorites}
+          onToggleFavorite={toggleFavorite}
+          onCatalog={() => setScreen('catalog')}
+          onOpenProfile={() => { try { sessionStorage.setItem('anzh_open_quiz', 'profile'); } catch { /* ok */ } setScreen('anzh'); }}
         />
       )}
       {screen === 'anzh' && <AnzhScreen onBook={(id) => openBooking(id)} />}

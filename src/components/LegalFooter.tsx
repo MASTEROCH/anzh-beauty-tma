@@ -1,3 +1,4 @@
+import { tr } from '../lib/i18n';
 import { Fragment, type ReactNode } from 'react';
 import { useStudio } from '../lib/studioProfile';
 import { openExternal } from '../lib/telegram';
@@ -148,7 +149,7 @@ export function LegalFooter({ lang }: { lang: Lang }) {
       <p className="legal-note">{APP_NOT_A_DIAGNOSIS[lang]}</p>
 
       <p className="legal-copy">
-        © {year} ANZH Cosmetology · Батуми · {studio.instagram ? `@${studio.instagram}` : ''}
+        © {year} ANZH Cosmetology · {tr('Батуми', 'Batumi')} · {studio.instagram ? `@${studio.instagram}` : ''}
       </p>
     </footer>
   );

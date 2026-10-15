@@ -11,7 +11,7 @@ export type IconName =
   | 'send' | 'mic' | 'message' | 'globe' | 'pin' | 'clock' | 'gift' | 'crown' | 'shield-check'
   | 'plus' | 'minus' | 'info' | 'warning' | 'flower' | 'lash' | 'stethoscope'
   | 'play' | 'volume' | 'volume-off'
-  | 'graduation' | 'layers' | 'cannula' | 'trash' | 'image' | 'upload' | 'edit' | 'tag' | 'grip' | 'menu' | 'phone' | 'camera' | 'chat-ai' | 'paperclip' | 'check-double';
+  | 'graduation' | 'layers' | 'cannula' | 'trash' | 'image' | 'upload' | 'edit' | 'tag' | 'grip' | 'menu' | 'phone' | 'camera' | 'chat-ai' | 'paperclip' | 'check-double' | 'bell';
 
 interface Props {
   name: IconName;
@@ -90,6 +90,12 @@ const PATHS: Record<IconName, React.ReactNode> = {
   'volume': <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4v-5zM15.5 9a4 4 0 010 6M18 6.5a7.5 7.5 0 010 11" />,
   'volume-off': <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4v-5zM16 9.5l5 5M21 9.5l-5 5" />,
   'check': <path d="M5 12l5 5L19 7" />,
+  'bell': (
+    <>
+      <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+    </>
+  ),
   'star': <path d="M12 3l2.6 6 6.4.6-4.8 4.4 1.4 6.4L12 17.3 6.4 20.4l1.4-6.4L3 9.6l6.4-.6L12 3z" />,
   'heart': <path d="M12 21s-7-4.5-7-10a4.5 4.5 0 0 1 7-3.5A4.5 4.5 0 0 1 19 11c0 5.5-7 10-7 10z" />,
   'heart-filled': <path d="M12 21s-7-4.5-7-10a4.5 4.5 0 0 1 7-3.5A4.5 4.5 0 0 1 19 11c0 5.5-7 10-7 10z" fill="currentColor" />,

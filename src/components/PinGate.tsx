@@ -41,6 +41,9 @@ export function PinGate({ onUnlock, embedded = false }: { onUnlock: () => void; 
   const done = useRef(false);
 
   const [changing, setChanging] = useState(false);
+  /* PIN задала владелица (временный) — после входа просим придумать свой,
+     и только потом открываем кабинет */
+  const [forced, setForced] = useState(false);
 
   // Спросить сервер один раз на показ (одно обещание на двойной маунт).
   useEffect(() => {
@@ -70,6 +73,22 @@ export function PinGate({ onUnlock, embedded = false }: { onUnlock: () => void; 
     if (cab.phase === 'open') finish();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cab.phase]);
+
+  /* Временный PIN от владелицы: экран смены держим и после «Войти», когда
+     сервер уже подтвердил вход (фаза open), — иначе кабинет открылся бы
+     с чужим PIN. После смены перечитываем профиль: флаг снимется. */
+  // И после перезагрузки: вход уже подтверждён, а свой PIN ещё не задан
+  if ((forced || (cab.phase === 'open' && cab.me?.must_change_pin)) && cab.me) {
+    return (
+      <div>
+        <div className="pin-who"><b>{cab.me.name}</b><span>новый PIN</span></div>
+        <p className="gate-hint" style={{ marginBottom: 12 }}>
+          Анжелика задала вам временный PIN. Придумайте свой — временный перестанет работать.
+        </p>
+        <ChangePinForm forced onDone={() => { void checkCabinet().then(() => { setForced(false); finish(); }); }} role={cab.me.role} />
+      </div>
+    );
+  }
 
   if (session.status === 'guest') {
     const why = session.reason === 'outside_telegram'
@@ -136,9 +155,17 @@ export function PinGate({ onUnlock, embedded = false }: { onUnlock: () => void; 
     : null;
   const head = (
     <>
-      <p className="muted mb-md" style={{ fontSize: 13 }}>
-        {me.name} · {me.title ?? (me.role === 'owner' ? 'владелица' : 'мастер')}
-      </p>
+      {embedded ? (
+        /* Отдельное приложение студии: кто входит — крупно, по центру */
+        <div className="pin-who">
+          <b>{me.name}</b>
+          <span>{me.title ?? (me.role === 'owner' ? 'владелица' : me.role === 'admin' ? 'администратор' : 'мастер')}</span>
+        </div>
+      ) : (
+        <p className="muted mb-md" style={{ fontSize: 13 }}>
+          {me.name} · {me.title ?? (me.role === 'owner' ? 'владелица' : 'мастер')}
+        </p>
+      )}
       {switched}
     </>
   );
@@ -164,7 +191,7 @@ export function PinGate({ onUnlock, embedded = false }: { onUnlock: () => void; 
   return (
     <div>
       {head}
-      <EnterPin onDone={finish} role={me.role} />
+      <EnterPin onDone={() => (me.must_change_pin ? setForced(true) : finish())} role={me.role} />
       <button className="btn btn-quiet btn-block mt-md" onClick={() => { tap(); setChanging(true); }}>
         Сменить PIN
       </button>
@@ -336,7 +363,7 @@ function SetupPin({ onDone, role }: { onDone: () => void; role: StaffRole }) {
   );
 }
 
-function ChangePinForm({ onDone, role }: { onDone: () => void; role: StaffRole }) {
+function ChangePinForm({ onDone, role, forced = false }: { onDone: () => void; role: StaffRole; forced?: boolean }) {
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [again, setAgain] = useState('');
@@ -357,7 +384,7 @@ function ChangePinForm({ onDone, role }: { onDone: () => void; role: StaffRole }
       await changePin(current, next);
       setCurrent(''); setNext(''); setAgain('');
       notify('success');
-      toast('PIN изменён — войдите новым', 'success');
+      toast(forced ? 'Ваш PIN сохранён' : 'PIN изменён — войдите новым', 'success');
       onDone();
     } catch (e) {
       block(e);
@@ -370,12 +397,14 @@ function ChangePinForm({ onDone, role }: { onDone: () => void; role: StaffRole }
 
   return (
     <>
-      <button className="gate-back row" onClick={() => { tap(); onDone(); }}>
-        <Icon name="chevron-left" size={16} strokeWidth={2.2} />
-        <span>Назад к вводу PIN</span>
-      </button>
+      {!forced && (
+        <button className="gate-back row" onClick={() => { tap(); onDone(); }}>
+          <Icon name="chevron-left" size={16} strokeWidth={2.2} />
+          <span>Назад к вводу PIN</span>
+        </button>
+      )}
       <label className="field">
-        <span className="field-k">Текущий PIN</span>
+        <span className="field-k">{forced ? 'Временный PIN от Анжелики' : 'Текущий PIN'}</span>
         <input className="input" type="password" inputMode="numeric" autoComplete="off"
           value={current} onChange={(e) => { setCurrent(digits(e.target.value, PIN_MAX)); setWhy(null); }} />
       </label>

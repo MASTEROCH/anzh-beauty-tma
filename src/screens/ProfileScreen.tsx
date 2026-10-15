@@ -5,11 +5,12 @@ import { StudioMap } from '../components/StudioMap';
 import { LegalFooter } from '../components/LegalFooter';
 import { AboutDoctor } from '../components/AboutDoctor';
 import { Gallery } from '../components/Gallery';
+import { ReviewsBlock } from '../components/ReviewsBlock';
 import { StudioCover, StudioSection } from '../components/StudioCover';
 import { TeamSection } from '../components/TeamSection';
 import { Icon } from '../components/Icon';
 import { ScrollMarquee } from '../components/ScrollMarquee';
-import { t } from '../lib/i18n';
+import { t, tr } from '../lib/i18n';
 import { asset } from '../lib/asset';
 import { instagramUrl } from '../data/location';
 import { useStudio } from '../lib/studioProfile';
@@ -120,7 +121,7 @@ export function ProfileScreen({
           <p className="hero-eyebrow">{ru ? 'Студия косметологии · Батуми' : 'Cosmetology studio · Batumi'}</p>
           <p className="hero-lead">
             {ru
-              ? 'Анжелика — врач-косметолог и владелица. Принимает сама.'
+              ? 'Анжелика — врач-косметолог и владелица. Ведёт приём сама.'
               : 'Anjelika — doctor, cosmetologist and owner. She sees you herself.'}
           </p>
           {studio.instagram && (
@@ -153,7 +154,7 @@ export function ProfileScreen({
           настоящие отзывы, из которых его можно посчитать. */}
 
       {PROFILE_TEXTS_SHOWN && (
-      <ScrollMarquee label="Регалии" testid="profile-trust">
+      <ScrollMarquee label={tr('Регалии', 'Credentials')} testid="profile-trust">
         {TRUST_KEYS.map((key) => (
           <span key={key} className="chip chip-gold" style={{ cursor: 'default' }}>
             {t(key, lang)}
@@ -223,40 +224,8 @@ export function ProfileScreen({
       </section>
       )}
 
-      {/* Отзывы скрыты, пока нет настоящих: прежние три были выдуманы
-          (ЗАПРОС-ДАННЫХ §7). Блок вернётся сам, когда в данных появятся
-          отзывы, — вместе с ним и кнопки «оставить отзыв / сторис». */}
-      {reviews.length > 0 && (
-      <section className="section section-tight">
-        <div className="section-head">
-          <div>
-            <div className="eyebrow">{t('profile.reviews.eyebrow', lang)}</div>
-            <h2 className="section-title">{t('profile.reviews.title', lang)}</h2>
-          </div>
-          <button className="section-link" onClick={showAllReviews} style={{ background: 'none', border: 0 }}>
-            {reviews.length} →
-          </button>
-        </div>
-        {/* Лента листается ПАЛЬЦЕМ, а не едет сама.
-
-            Была бегущая строка с продублированным набором карточек: она
-            обрезала отзывы с обоих краёв, уезжала из-под пальца и не
-            давала дочитать длинный текст — его увозило на середине
-            предложения. Для отзыва это прямой вред: его читают, а не
-            разглядывают. Обычная горизонтальная прокрутка со снапом
-            оставляет управление человеку. */}
-        <div className="reviews-row" aria-label="Отзывы">
-          {reviews.map((r, i) => (
-            <article key={i} className="card review-card" onClick={showAllReviews}>
-              <div className="review-stars">{'★'.repeat(r.stars)}</div>
-              <p className="review-text">{r.text}</p>
-              <div className="review-author">{r.author} · {r.role[lang]}</div>
-            </article>
-          ))}
-        </div>
-
-      </section>
-      )}
+      {/* Отзывы — живые, из приложения (сервер): пишут клиентки, публикует владелица */}
+      <ReviewsBlock lang={lang} />
 
       <section className="section section-tight">
         <div className="section-head">

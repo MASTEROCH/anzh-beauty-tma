@@ -21,7 +21,7 @@
 
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { isTelegram } from './telegram';
-import { ApiError, newIdempotencyKey, serverMessage, sessionState, subscribeSession, useSession } from './session';
+import { ApiError, apiRequest, newIdempotencyKey, serverMessage, sessionState, subscribeSession, useSession } from './session';
 import { refreshMe, useMe } from './api';
 import { createInvoice, getPurchases, type ProductKind, type ServerPurchase } from './api/payments';
 
@@ -74,7 +74,18 @@ export function starsToUsd(stars: number): string {
 
 interface TgWebAppPayments {
   openInvoice?: (url: string, cb: (status: string) => void) => void;
+  initData?: string;
 }
+
+/* ДЕМО-ОПЛАТА — только сборка прототипа (VITE_DEMO=1) и dev со стендом.
+   Вне Telegram окна счёта нет, и без этого до вопросов и результата разбора
+   в демо не дойти (Роч 15.10: «где кнопка запуска разбора?»). Покупку
+   записывает демо-сервер (POST /dev/purchase), доступ всё равно берётся из
+   GET /me/purchases — тот же путь, что у настоящей. В боевой сборке оба
+   флага ложны и ветка вырезается при сборке; внутри настоящего Telegram
+   (есть подписанная initData) демо-оплаты нет и в прототипе. */
+const DEMO_PAY = import.meta.env.DEV || import.meta.env.VITE_DEMO === '1';
+export const isDemoPay = (): boolean => DEMO_PAY && !webApp()?.initData;
 
 function webApp(): TgWebAppPayments | undefined {
   if (typeof window === 'undefined') return undefined;
@@ -102,7 +113,7 @@ export type PayAvailability = 'ready' | 'outside_telegram' | 'checking' | 'no_se
 export function usePayAvailability(): PayAvailability {
   const session = useSession();
   const { me, loading } = useMe();
-  if (!canPayWithStars()) return 'outside_telegram';
+  if (!canPayWithStars() && !isDemoPay()) return 'outside_telegram';
   if (session.status === 'pending') return 'checking';
   if (session.status === 'guest') return 'no_session';
   if (!me) return loading ? 'checking' : 'no_session';
@@ -333,6 +344,13 @@ export async function payWithStars(productSlug: string, opts: PayOptions): Promi
   const tg = webApp();
   // Сервер спрашиваем ТОЛЬКО когда есть кому открыть счёт: в браузере счёт
   // выписывать бессмысленно, и никакого 'paid' без денег — даже понарошку.
+  if (isDemoPay()) {
+    try {
+      await apiRequest('POST', '/dev/purchase', { body: { product_slug: productSlug, covers: opts.bundleIncludes ?? [productSlug] } });
+      const list = await refreshPurchases();
+      return list && list.some((x) => x.productId === productSlug && x.status === 'paid') ? 'paid' : 'unconfirmed';
+    } catch { return 'unavailable'; }
+  }
   if (!canPayWithStars() || !tg?.openInvoice) return 'unavailable';
 
   let link: string;

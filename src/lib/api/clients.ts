@@ -32,6 +32,10 @@ export interface ClientSummary {
    */
   spent_minor?: number;
   currency?: string | null;
+  /** [ПРЕДЛОЖЕНИЕ] CRM-сегменты: due — пора повторить, lapsed — > 90 дней без визита, new — один визит */
+  segments?: Array<'due' | 'lapsed' | 'new'>;
+  /** Что пора повторить: процедура, когда была, интервал */
+  due?: Array<{ slug: string; title_ru?: string; last_at: string; every_days: number }>;
   first_visit?: string | null;
   last_visit?: string | null;
 }

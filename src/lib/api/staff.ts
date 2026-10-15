@@ -17,7 +17,8 @@ import { apiRequest } from '../session';
 
 // ── Сотрудник и PIN ─────────────────────────────────────────────────────────
 
-export type StaffRole = 'staff' | 'owner';
+/** owner — владелица; admin — администратор студии [ПРЕДЛОЖЕНИЕ БЭКЕНДУ]; staff — мастер. */
+export type StaffRole = 'staff' | 'owner' | 'admin';
 
 /** Схема `StaffMember`. Ни PIN, ни его хэш сервер не отдаёт никогда. */
 export interface StaffMember {
@@ -28,6 +29,57 @@ export interface StaffMember {
   photo_url?: string | null;
   /** Какие процедуры ведёт — slug. */
   services?: string[];
+  /** [ПРЕДЛОЖЕНИЕ] профиль для витрины «О нас → Команда» и карточки мастера */
+  profile?: MemberProfile;
+  /** [ПРЕДЛОЖЕНИЕ] PIN задала владелица — человеку предложат сменить при входе */
+  must_change_pin?: boolean;
+}
+
+export interface Bi { ru: string; en: string }
+
+/** [ПРЕДЛОЖЕНИЕ БЭКЕНДУ] Как человек выглядит для клиенток. Правит владелица. */
+export interface MemberProfile {
+  /** Ключ для данных приложения (anzhelika, mariya…); у новых — m<telegram_id> */
+  key?: string;
+  name: Bi;
+  surname?: Bi | null;
+  /** Должность на сайте: «Косметолог, владелица» */
+  role: Bi;
+  /** Короткая подпись под кружком: «Косметолог» */
+  short?: Bi | null;
+  /** Где в кадре лицо, % от левого/верхнего края */
+  focus?: { x: number; y: number } | null;
+  /** Регалии одной строкой */
+  cred?: Bi | null;
+  /** Чем занимается — пункты */
+  does: { ru: string[]; en: string[] };
+  instagram?: string | null;
+  telegram?: string | null;
+  phone?: string | null;
+  /** Показывать контакты клиенткам в карточке */
+  contacts_public?: boolean;
+  /** Показывать человека в «Команде» на сайте */
+  visible: boolean;
+  /** Порядок в «Команде» */
+  sort: number;
+}
+
+/** Публичная карточка — GET /team/public (без пропуска, только видимые). */
+export interface PublicMember {
+  key: string;
+  name: Bi;
+  surname?: Bi | null;
+  role: Bi;
+  short?: Bi | null;
+  photo_url?: string | null;
+  focus?: { x: number; y: number } | null;
+  cred?: Bi | null;
+  does?: { ru: string[]; en: string[] };
+  services?: string[];
+  is_admin?: boolean;
+  instagram?: string | null;
+  telegram?: string | null;
+  phone?: string | null;
 }
 
 /** GET /staff/me → `{staff}`: сотрудник плюс состояние PIN в ЭТОЙ сессии. */
@@ -195,6 +247,37 @@ export function setMemberServices(telegramId: number, slugs: string[]): Promise<
 }
 
 /** POST /team/{telegramId}/pin/reset — стереть PIN мастера. Себе — 422 `self_reset`. */
+export interface MemberPatch {
+  name?: string;
+  title?: string | null;
+  role?: 'staff' | 'admin';
+  photo_url?: string | null;
+  profile?: Partial<MemberProfile>;
+}
+
+/** [ПРЕДЛОЖЕНИЕ] PATCH /team/{id} — профиль, роль, фото. Только владелица с PIN. */
+export async function patchTeamMember(telegramId: number, patch: MemberPatch): Promise<StaffMember> {
+  const r = await apiRequest<{ staff: StaffMember }>('PATCH', `/team/${telegramId}`, { body: patch });
+  return r.staff;
+}
+
+/** [ПРЕДЛОЖЕНИЕ] POST /team/{id}/pin/set — владелица задаёт PIN (4 цифры); человек сменит его при входе. */
+export function setMemberPin(telegramId: number, pin: string): Promise<{ updated: true; must_change_pin: boolean }> {
+  return apiRequest('POST', `/team/${telegramId}/pin/set`, { body: { pin } });
+}
+
+/** [ПРЕДЛОЖЕНИЕ] PUT /team/order — порядок в «Команде» на сайте. */
+export async function setTeamOrder(order: number[]): Promise<StaffMember[]> {
+  const r = await apiRequest<{ team: StaffMember[] }>('PUT', '/team/order', { body: { order } });
+  return r.team;
+}
+
+/** [ПРЕДЛОЖЕНИЕ] GET /team/public — команда для витрины, без пропуска. */
+export async function getPublicTeam(signal?: AbortSignal): Promise<PublicMember[]> {
+  const r = await apiRequest<{ team: PublicMember[] }>('GET', '/team/public', { auth: 'none', signal });
+  return Array.isArray(r?.team) ? r.team : [];
+}
+
 export function resetMemberPin(telegramId: number): Promise<{ reset: true }> {
   return apiRequest('POST', `/team/${telegramId}/pin/reset`);
 }
@@ -224,6 +307,8 @@ export interface WireService {
   contraindications?: string[];
   photo_url?: string | null;
   sort?: number;
+  /** [ПРЕДЛОЖЕНИЕ] через сколько дней после визита бот напомнит о повторе; null — не напоминать */
+  repeat_after_days?: number | null;
 }
 
 /** Схема `ServicePatch`: только присланные поля, `null` стирает. */
@@ -243,6 +328,7 @@ export interface ServicePatch {
   contraindications?: string[];
   photo_url?: string | null;
   sort?: number;
+  repeat_after_days?: number | null;
 }
 
 /** Схема `ServiceCreate`. */

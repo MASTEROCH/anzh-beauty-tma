@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { t, type Lang } from '../lib/i18n';
 import { asset } from '../lib/asset';
-import { closeSheet, openLightbox, openSheet } from '../lib/ui';
+import { closeSheet, openLightboxSet, openSheet } from '../lib/ui';
 import { tap } from '../lib/haptics';
 import { STUDIO_COVER, STUDIO_PHOTOS, STUDIO_STRIP, type StudioShot } from '../data/studio';
 
@@ -263,7 +263,11 @@ export function StudioCover({ lang }: { lang: Lang }) {
   );
 }
 
-const openShot = (s: StudioShot, lang: Lang) => openLightbox(asset(s.src), s.caption[lang], { alt: s.caption[lang] });
+/* Все фото студии — одним набором: из любого кадра листаются соседние */
+const openShot = (s: StudioShot, lang: Lang) => {
+  const set = STUDIO_PHOTOS.some((x) => x.id === s.id) ? STUDIO_PHOTOS : [s];
+  openLightboxSet(set.map((x) => ({ src: asset(x.src), caption: x.caption[lang], alt: x.caption[lang] })), Math.max(0, set.findIndex((x) => x.id === s.id)));
+};
 
 function ShotThumb({ s, lang, className }: { s: StudioShot; lang: Lang; className: string }) {
   return (

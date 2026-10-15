@@ -12,7 +12,9 @@ type ToastEntry = { id: number; text: string; kind?: 'info' | 'success' };
 
 /** `note` — a second line under the caption (who did the work, consent, "results vary");
     `alt` — the image's text alternative when it differs from the caption. */
-export type LightboxContent = { src: string; caption?: string; note?: string; alt?: string } | null;
+export type LightboxItem = { src: string; caption?: string; note?: string; alt?: string };
+/** `items` + `index` — набор: в просмотре листается свайпом и стрелками (Роч 15.10). */
+export type LightboxContent = (LightboxItem & { items?: LightboxItem[]; index?: number }) | null;
 
 const toastListeners = new Set<(t: ToastEntry[]) => void>();
 const sheetListeners = new Set<(s: SheetContent) => void>();
@@ -68,6 +70,13 @@ export function useSheet() {
 
 export function openLightbox(src: string, caption?: string, extra?: { note?: string; alt?: string }) {
   lightbox = { src, caption, ...extra };
+  lightboxListeners.forEach((l) => l(lightbox));
+}
+
+/** Открыть фото из ряда: соседние листаются свайпом, стрелками и клавишами ← →. */
+export function openLightboxSet(items: LightboxItem[], index: number) {
+  if (!items[index]) return;
+  lightbox = { ...items[index], items, index };
   lightboxListeners.forEach((l) => l(lightbox));
 }
 

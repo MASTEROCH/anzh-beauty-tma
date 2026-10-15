@@ -1,3 +1,10 @@
+import { JourneyHero } from '../components/JourneyHero';
+import { nextStep } from '../lib/journey';
+import { useRewards } from '../lib/rewardsLive';
+import { openWriteReview } from '../components/WriteReview';
+import { Bookmarks } from '../components/Bookmarks';
+import { openAddToCalendar } from '../components/AddToCalendar';
+import { eventOfAppointment } from '../lib/ics';
 import { useMemo } from 'react';
 import { googleMapsUrl, studioAddress, telegramUrl } from '../data/location';
 import { openExternal, openTelegram } from '../lib/telegram';
@@ -5,8 +12,7 @@ import { closeSheet, openSheet, toast } from '../lib/ui';
 import { Icon } from '../components/Icon';
 import { SettingsSheet } from '../components/SettingsSheet';
 import { HealthPassportSheet } from '../components/HealthPassportSheet';
-import { PinGate } from '../components/PinGate';
-import { t } from '../lib/i18n';
+import { t, tr } from '../lib/i18n';
 import { findService, sTitle, servicePhoto } from '../data/services';
 import {
   apptDuration, apptPaidLabel, apptPriceLabel, apptServiceIds, apptTitle, cancelAppointment, formatLongDate, formatMonthShort,
@@ -81,7 +87,10 @@ export function AccountScreen({
   onAwardPoints,
   client,
   onPlan,
-  onStudio,
+  favorites,
+  onToggleFavorite,
+  onCatalog,
+  onOpenProfile,
 }: {
   onBook: () => void;
   /** Повторная запись на конкретную процедуру — из отклонённой заявки */
@@ -92,8 +101,13 @@ export function AccountScreen({
   onAwardPoints: (p: number) => void;
   client: ClientProfile;
   onPlan: () => void;
-  onStudio: () => void;
+  favorites: Set<string>;
+  onToggleFavorite: (id: string) => void;
+  onCatalog: () => void;
+  onOpenProfile: () => void;
 }) {
+  const healthPassport = useHealthPassport();
+  const rewards = useRewards();
   // Баллы скрыты (второй ряд); перенос — сообщением Анжелике (статуса
   // «перенос» на сервере нет).
   void points; void onAwardPoints;
@@ -127,20 +141,11 @@ export function AccountScreen({
     openSheet({
       title: t('settings.title', lang),
       subtitle: 'ANZH Cosmetology',
-      /* Вход в кабинет — только сотрудникам. Клиентка видела строку
-         «Кабинет мастера», нажимала, и пускало её ровно в отказ «вы не
-         сотрудник»: кнопка, которая заведомо ведёт в тупик. Роль приходит
-         от сервера (`GET /me`), а не из токена, поэтому гость и клиентка её
-         не увидят, а сотрудница — увидит сразу после входа. */
-      body: <SettingsSheet lang={lang} onLang={onLang} onStudio={me?.role === 'owner' || me?.role === 'staff' ? openStudioGate : undefined} />,
+      /* Входа в кабинет здесь нет (Роч 15.10): кабинет — отдельное
+         приложение по адресу /studio (второй Mini App того же бота). */
+      body: <SettingsSheet lang={lang} onLang={onLang} />,
     });
 
-  const openStudioGate = () =>
-    openSheet({
-      title: 'Кабинет мастера',
-      subtitle: 'Анжелика и мастера студии',
-      body: <PinGate onUnlock={onStudio} />,
-    });
 
   /* Ссылка приглашения — ТОЛЬКО готовая строка сервера (Me.referral_link).
      Собирать её из telegram_id нельзя: это внутренний ключ человека, и
@@ -204,6 +209,14 @@ export function AccountScreen({
       ),
       actions: (
         <>
+          {canCancel && (
+            <button className="btn btn-primary btn-block" onClick={() => {
+              const e = eventOfAppointment(a, lang);
+              openAddToCalendar(e ? [e] : [], lang, `anzh-${a.dateISO}.ics`);
+            }}>
+              <Icon name="calendar" size={16} strokeWidth={1.9} /> {ru ? 'В календарь' : 'Add to calendar'}
+            </button>
+          )}
           <button
             className="btn btn-secondary btn-block"
             onClick={() => openTelegram(telegramUrl())}
@@ -282,22 +295,39 @@ export function AccountScreen({
           <div className="eyebrow">{t('account.title', lang)}</div>
           <div className="header-title">{userName}</div>
         </div>
-        <button className="chip" onClick={showSettings} aria-label="Настройки">
+        <button className="chip" onClick={showSettings} aria-label={tr('Настройки', 'Settings')}>
           <Icon name="settings" size={14} strokeWidth={1.8} /> {t('settings.title', lang)}
         </button>
       </header>
 
-      <section className="account-hero">
-        <h1 className="account-hello">
-          {t('account.hello', lang)}{userName ? `, ${userName}` : ''}{' '}
-          <Icon name="heart-filled" size={22} strokeWidth={0} style={{ color: 'var(--brand-gold)', verticalAlign: '-2px' }} />
-        </h1>
-        {history.length > 0 && (
-          <div className="account-sub">
-            {history.length} {t('account.procs', lang)}
-          </div>
-        )}
-      </section>
+      {/* Проводник вместо «Привет ♥»: где человек на пути и что дальше — одной кнопкой */}
+      <JourneyHero
+        name={userName}
+        lang={lang}
+        step={nextStep({
+          guest: session.status === 'guest',
+          upcoming,
+          historyCount: history.length,
+          lastDone: history[0],
+          profileDone: !!healthPassport.quizAt,
+          reviewDone: rewards?.actions.review === 'done',
+          favorites: [...favorites],
+        })}
+        act={{
+          onProfile: onOpenProfile,
+          onBook: (slug) => (slug ? onBookAgain(slug) : onBook()),
+          onOpenVisit: showAppointment,
+          onCalendar: (ap) => { const e = eventOfAppointment(ap, lang); openAddToCalendar(e ? [e] : [], lang, `anzh-${ap.dateISO}.ics`); },
+          onReview: () => openWriteReview(lang, history[0]?.serviceId),
+          onPlan,
+          onCatalog,
+        }}
+      />
+      {history.length > 0 && (
+        <div className="account-sub" style={{ textAlign: 'center', marginBottom: 6 }}>
+          {history.length} {t('account.procs', lang)}
+        </div>
+      )}
 
       {referralLink && (
         <section className="section section-flush" data-testid="invite">
@@ -381,8 +411,17 @@ export function AccountScreen({
           </div>
         ) : upcoming.length > 0 ? (
           <>
-            <div className="eyebrow mb-sm">
-              {upcoming.length > 1 ? `${ru ? 'записи' : 'bookings'} · ${upcoming.length}` : t('account.next', lang)}
+            <div className="row row-between mb-sm" style={{ alignItems: 'center' }}>
+              <div className="eyebrow">
+                {upcoming.length > 1 ? `${ru ? 'записи' : 'bookings'} · ${upcoming.length}` : t('account.next', lang)}
+              </div>
+              {/* Все будущие визиты — одним файлом, одной командой */}
+              <button className="section-link" onClick={() => {
+                const evs = upcoming.map((x) => eventOfAppointment(x, lang)).filter((x): x is NonNullable<typeof x> => !!x);
+                openAddToCalendar(evs, lang, 'anzh-visits.ics');
+              }}>
+                <Icon name="calendar" size={13} strokeWidth={2} /> {upcoming.length > 1 ? (ru ? 'все в календарь' : 'all to calendar') : (ru ? 'в календарь' : 'to calendar')}
+              </button>
             </div>
             <div className="col" style={{ gap: 10 }}>
               {upcoming.map((a) => {
@@ -414,6 +453,8 @@ export function AccountScreen({
           </div>
         ) : null}
       </section>
+
+      <Bookmarks favorites={favorites} lang={lang} onBook={onBookAgain} onToggle={onToggleFavorite} onPlan={onPlan} onCatalog={onCatalog} />
 
       <section className="section">
         <button className="plan-cta" onClick={onPlan}>

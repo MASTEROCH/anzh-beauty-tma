@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Icon } from '../components/Icon';
 import { toast } from '../lib/ui';
 import { sTitle, sShort } from '../data/services';
-import { useLang, t } from '../lib/i18n';
+import { useLang, t, tr } from '../lib/i18n';
 import { buildPlan, courseNotes, planMessage } from '../lib/plan';
 import { formatLongDate, formatMonthShort } from '../lib/appointments';
 import { useCatalog } from '../lib/catalog';
@@ -39,7 +39,7 @@ export function PlanScreen({
     return (
       <div className="screen">
         <header className="header">
-          <button className="header-back" onClick={onBack} aria-label="Назад">
+          <button className="header-back" onClick={onBack} aria-label={tr('Назад', 'Back')}>
             <Icon name="chevron-left" size={20} strokeWidth={2} />
           </button>
           <div className="header-title">{ru ? 'План процедур' : 'Treatment plan'}</div>
@@ -68,7 +68,7 @@ export function PlanScreen({
   return (
     <div className="screen has-cta">
       <header className="header">
-        <button className="header-back" onClick={onBack} aria-label="Назад">
+        <button className="header-back" onClick={onBack} aria-label={tr('Назад', 'Back')}>
           <Icon name="chevron-left" size={20} strokeWidth={2} />
         </button>
         <div className="header-lede">

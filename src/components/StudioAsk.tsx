@@ -147,7 +147,7 @@ export function StudioAsk({ queue, day, history }: { queue: Visit[]; day: Visit[
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') ask(q); }}
-          placeholder="Какие записи сегодня? Расскажи про клиентку"
+          placeholder="Спросите про записи"
         />
         <button className={`studio-ask-mic${recording ? ' on' : ''}`} onClick={voice} aria-label="Спросить голосом">
           <Icon name="mic" size={17} strokeWidth={2} />
@@ -172,7 +172,7 @@ export function StudioAsk({ queue, day, history }: { queue: Visit[]; day: Visit[
         </div>
       )}
       {/* «Сегодня» — день САЛОНА, как все даты визитов в кабинете (ЦФ1) */}
-      <div className="faint" style={{ fontSize: 11, marginTop: 8 }}>
+      <div className="faint" style={{ fontSize: 12, marginTop: 8 }}>
         Сегодня {formatShort(salonTodayISO())} · отвечает по вашим записям
       </div>
     </div>

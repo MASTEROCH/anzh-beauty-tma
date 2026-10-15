@@ -1,9 +1,15 @@
+import { useEffect } from 'react';
 import { openSheet, closeSheet, toast } from '../lib/ui';
 import { Icon } from '../components/Icon';
 import { QuizRunner } from '../components/QuizRunner';
 import { Paywall, BuyButton, QuizIntro, BUNDLE_OWNED } from '../components/Paywall';
+import { ChaptersCard, ChapterOffer } from '../components/PassportChapters';
+import { openStarsInfo } from '../components/StarsInfo';
+import { PriceDrop } from '../components/PriceDrop';
+import { RewardsCard } from '../components/RewardsCard';
+import { usePassport, chapterOpen } from '../lib/passportChapters';
 import { StarPrice } from '../components/StarPrice';
-import { useLang } from '../lib/i18n';
+import { useLang, tr } from '../lib/i18n';
 import { FREE_QUIZ, PAID_QUIZZES, BUNDLE, quizWhy, quizStep, type Quiz } from '../data/quizzes';
 import { usePurchases, usePurchasesState, refreshPurchases, hasAccess, coversAll, owns } from '../lib/payments';
 import { useHealthPassport } from '../lib/healthPassport';
@@ -24,6 +30,9 @@ export function AnzhScreen({ onBook }: { onBook: (id: string) => void }) {
   const purchasesState = usePurchasesState();
   const passport = useHealthPassport();
   const results = useQuizResults();
+  // Главы, открытые подарком (за процедуры и подруг) — доступ наравне с покупкой
+  const pass = usePassport();
+  const access = (id: string) => hasAccess(purchases, id) || chapterOpen(pass, id);
   const hasResult = (id: string) => results.some((r) => r.quizId === id);
 
   /* Цена — прайсовая. Скидки за задания (отзыв, подруга, сторис) на
@@ -49,13 +58,20 @@ export function AnzhScreen({ onBook }: { onBook: (id: string) => void }) {
      до каждого пути, где показывают результат (здесь, анкета, кабинет). */
   const runQuiz = (quiz: Quiz) =>
     openSheet({
-      title: quiz.title,
-      subtitle: `${quiz.questions.length} вопросов · ${quiz.minutes} мин`,
+      title: tr(quiz.title, quiz.titleEn ?? quiz.title),
+      subtitle: tr(`${quiz.questions.length} вопросов · ${quiz.minutes} мин`, `${quiz.questions.length} questions · ${quiz.minutes} min`),
       body: <QuizRunner quiz={quiz} onBook={onBook} />,
     });
 
+  // Пришли из проводника «Паспорта» («Пройти Skin Profile») — сразу открыть разбор
+  useEffect(() => {
+    let want: string | null = null;
+    try { want = sessionStorage.getItem('anzh_open_quiz'); sessionStorage.removeItem('anzh_open_quiz'); } catch { /* ok */ }
+    if (want === 'profile') { const t = window.setTimeout(() => showQuiz(FREE_QUIZ), 350); return () => window.clearTimeout(t); }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const showQuiz = (quiz: Quiz) => {
-    const bought = hasAccess(purchases, quiz.id);
+    const bought = access(quiz.id);
     const free = quiz.stars === 0;
     const passed = quiz.id === 'profile' ? !!passport.quizAt : hasResult(quiz.id);
 
@@ -95,6 +111,7 @@ export function AnzhScreen({ onBook }: { onBook: (id: string) => void }) {
           onBought={() => runQuiz(quiz)}
           onOpenBundle={() => { closeSheet(); setTimeout(showBundle, 220); }}
           ownsBundle={ownsBundle}
+          chapter={<ChapterOffer pass={pass} quizId={quiz.id} ru={ru} onOpened={() => { closeSheet(); setTimeout(() => runQuiz(quiz), 220); }} />}
         />
       ),
     });
@@ -120,7 +137,7 @@ export function AnzhScreen({ onBook }: { onBook: (id: string) => void }) {
   };
 
   const openQuiz = (quiz: Quiz) => {
-    const bought = hasAccess(purchases, quiz.id);
+    const bought = access(quiz.id);
     // Платный и не купленный (по серверу) — всегда пейвол: результат в памяти
     // не открывает разбор после возврата покупки. Купленный и пройденный
     // ведёт к результату: показывать там цену — значит предлагать купить то,
@@ -132,21 +149,22 @@ export function AnzhScreen({ onBook }: { onBook: (id: string) => void }) {
 
   const showBundle = () =>
     openSheet({
-      title: BUNDLE.title,
+      title: ru ? BUNDLE.title : 'All six analyses',
       subtitle: ru ? 'Шесть по цене четырёх' : 'Six for the price of four',
       body: (
         <>
           <p className="muted" style={{ lineHeight: 1.65 }} data-bundle-lede>
-            Шесть разборов закрывают кожу целиком: тип, чувствительность, качество, домашний
-            уход, стратегию старения и морфотип — в том порядке, в котором их и стоит проходить.
-            {offerBundle && <> По отдельности — {BUNDLE.fullStars}★, вместе — {bundlePrice}★.</>}
+            {ru
+              ? 'Шесть разборов закрывают кожу целиком: тип, чувствительность, качество, домашний уход, стратегию старения и морфотип — в том порядке, в котором их и стоит проходить.'
+              : 'Six analyses cover your skin completely: type, sensitivity, quality, home care, ageing strategy and morphotype — in the order they’re best taken.'}
+            {offerBundle && (ru ? <> По отдельности — {BUNDLE.fullStars}★, вместе — {bundlePrice}★.</> : <> Separately — {BUNDLE.fullStars}★, together — {bundlePrice}★.</>)}
           </p>
-          <div className="eyebrow sub-head">что входит</div>
+          <div className="eyebrow sub-head">{ru ? 'что входит' : 'what’s included'}</div>
           <div className="col" style={{ gap: 6 }}>
             {PAID_QUIZZES.map((q) => (
               <div key={q.id} className="bundle-row">
                 <Icon name={q.icon} size={15} strokeWidth={1.8} />
-                <span className="bundle-row-title">{q.title}</span>
+                <span className="bundle-row-title">{ru ? q.title : q.titleEn ?? q.title}</span>
                 <span className="bundle-row-price">{q.stars}★</span>
               </div>
             ))}
@@ -154,11 +172,11 @@ export function AnzhScreen({ onBook }: { onBook: (id: string) => void }) {
           {offerBundle && (
             <>
               <div className="bundle-total">
-                <span>По отдельности</span>
+                <span>{ru ? 'По отдельности' : 'Separately'}</span>
                 <span className="bundle-strike">{BUNDLE.fullStars}★</span>
               </div>
               <div className="bundle-total accent">
-                <span>Вместе</span>
+                <span>{ru ? 'Вместе' : 'Together'}</span>
                 <StarPrice stars={bundlePrice} size="md" />
               </div>
             </>
@@ -167,7 +185,7 @@ export function AnzhScreen({ onBook }: { onBook: (id: string) => void }) {
       ),
       actions: hasBundle ? (
         <button className="btn btn-primary btn-block" onClick={() => { closeSheet(); setTimeout(() => runQuiz(PAID_QUIZZES[0]), 200); }}>
-          Открыть — уже куплено
+          {ru ? 'Открыть — уже куплено' : 'Open — already purchased'}
         </button>
       ) : ownsBundle ? (
         <>
@@ -184,6 +202,8 @@ export function AnzhScreen({ onBook }: { onBook: (id: string) => void }) {
           stars={bundlePrice}
           unlocks={ru ? 'Все шесть разборов' : 'All six analyses'}
           onOpen={() => runQuiz(PAID_QUIZZES[0])}
+          cta={{ ru: 'Открыть все 6 разборов', en: 'Unlock all 6 analyses' }}
+          meta={ru ? 'Доступ навсегда · начнём с типа кожи' : 'Lifetime access · we start with skin type'}
         />
       ),
     });
@@ -199,9 +219,10 @@ export function AnzhScreen({ onBook }: { onBook: (id: string) => void }) {
 
       <header className="header">
         <img src="/brand/anzh-logo.svg" alt="ANZH" style={{ height: 22 }} />
-        <span className="chip chip-gold">
+        {/* Не надпись, а вход: что такое звёзды, курс и пополнение в Telegram */}
+        <button className="chip chip-gold" onClick={() => openStarsInfo(ru ? 'ru' : 'en')} aria-label={ru ? 'Что такое Telegram Stars и как пополнить' : 'What Telegram Stars are and how to top up'}>
           <Icon name="star" size={12} strokeWidth={2} fill="current" /> Stars
-        </span>
+        </button>
       </header>
 
       <div className="anzh-lede">
@@ -235,8 +256,11 @@ export function AnzhScreen({ onBook }: { onBook: (id: string) => void }) {
           : <Icon name="chevron-right" size={20} strokeWidth={2} className="review-cta-arrow" />}
       </button>
 
-      {/* Здесь был шильдик заданий «скидку надо заслужить»: задания и скидки
-          за них на разборы на запуск скрыты. */}
+      {/* Главы в подарок: за процедуры и за подруг (Роч 15.10) */}
+      {pass && <ChaptersCard pass={pass} ru={ru} />}
+
+      {/* Скидки за действия — разовые, по −5 % (из ANZH.store, Роч 15.10) */}
+      <RewardsCard lang={ru ? 'ru' : 'en'} onProfile={() => showQuiz(FREE_QUIZ)} />
 
       {/* Ошибка ≠ пустота: не удалось проверить покупки — говорим прямо, а не
           рисуем всё «не куплено» (человек мог уже заплатить). */}
@@ -268,7 +292,7 @@ export function AnzhScreen({ onBook }: { onBook: (id: string) => void }) {
 
         <div className="col quiz-order" style={{ gap: 10 }}>
           {PAID_QUIZZES.map((q, i) => {
-            const bought = hasAccess(purchases, q.id);
+            const bought = access(q.id);
             const price = priceFor(q);
             const step = quizStep(q.id);
             const why = quizWhy(q.id);
@@ -327,8 +351,8 @@ export function AnzhScreen({ onBook }: { onBook: (id: string) => void }) {
         </div>
         {offerBundle && (
           <div className="bundle-cta-price">
-            <span className="bundle-strike">{BUNDLE.fullStars}★</span>
-            <StarPrice stars={bundlePrice} size="lg" className="bundle-now" />
+            {/* Скидка видна в самой цене: старая зачёркивается и падает (price-drop) */}
+            <PriceDrop oldStars={BUNDLE.fullStars} newStars={bundlePrice} />
           </div>
         )}
       </button>

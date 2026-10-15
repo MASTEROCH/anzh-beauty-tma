@@ -36,6 +36,8 @@ export interface StudioProfile {
   whatsapp: string | null;
   hours: Bi;
   offDays: number[];
+  /** Главы паспорта в подарок: включены ли и сколько подруг за главу */
+  passportRules?: { enabled: boolean; friendsPerChapter: number };
 }
 
 /* 🚨 КООРДИНАТЫ. Были 41.6462404, 41.6323794 — это центроид дома по

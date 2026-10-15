@@ -42,6 +42,8 @@ export interface StudioWire {
   hours: Bilingual;
   /** Выходные: 0 — воскресенье … 6 — суббота. */
   off_days?: number[];
+  /** [ПРЕДЛОЖЕНИЕ] главы паспорта в подарок */
+  passport_rules?: { enabled: boolean; friends_per_chapter: number };
 }
 
 export type StudioPatch = Partial<StudioWire>;
