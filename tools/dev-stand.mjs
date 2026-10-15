@@ -168,7 +168,21 @@ const readRaw = (req) => new Promise((ok) => {
 });
 
 const tokenOf = (req) => (req.headers.authorization ?? '').replace(/^Bearer /, '') || null;
-const personOf = (tok) => (tok && tok.startsWith('tok-') ? PEOPLE[tok.slice(4)] ?? null : null);
+/* Демо на Vercel: экземпляров функции несколько, и память у каждого своя.
+   Гость из токена `tok-c<uid>` / `tok-tg<id>` восстанавливается на любом из
+   них одинаково — иначе вход на одном экземпляре давал 401 на другом. */
+function personOf(tok) {
+  if (!tok || !tok.startsWith('tok-')) return null;
+  const key = tok.slice(4);
+  if (PEOPLE[key]) return PEOPLE[key];
+  const c = /^c([a-z0-9]{6,32})$/.exec(key);
+  const t = /^tg(\d{1,15})$/.exec(key);
+  if (!c && !t) return null;
+  const id = t ? Number(t[1]) : 700000 + (parseInt(c[1].slice(0, 6), 36) % 299999);
+  const name = t ? 'Клиентка' : `Гость ${String(id).slice(-4)}`;
+  PEOPLE[key] = { telegram_id: id, name, title: null, role: 'client', first_name: name };
+  return PEOPLE[key];
+}
 
 const me = (p) => ({
   telegram_id: p.telegram_id,
