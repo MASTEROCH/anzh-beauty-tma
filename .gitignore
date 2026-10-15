@@ -1,0 +1,25 @@
+node_modules
+dist
+dist-ssr
+*.local
+.DS_Store
+.vite
+*.log
+test-results/
+playwright-report/
+.vercel
+
+# Agent work notes, not code
+_work/
+
+# Secrets: every .env file stays on the machine (.env, .env.generated, …).
+# The example holds names only and IS tracked — its exception must come AFTER the rule
+# (the last matching line wins; before 14.10 `.env*` at the bottom silently overrode it).
+.env
+.env.*
+!.env.example
+
+# Fingerprint of the last env transfer to Vercel (tools/env-push.sh)
+tools/.env-push.sha
+
+.vercel

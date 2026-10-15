@@ -1,0 +1,28 @@
+{
+  "name": "beauty-tma-prototype",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "node tools/check-share-links.mjs && vite build",
+    "preview": "vite preview",
+    "test": "playwright test --grep-invert @probe",
+    "test:probe": "playwright test tests/probe.spec.ts",
+    "check-share-links": "node tools/check-share-links.mjs"
+  },
+  "dependencies": {
+    "postgres": "^3.4.5",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^4.4.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.7.0",
+    "vite": "^6.3.0"
+  }
+}

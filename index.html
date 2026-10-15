@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#061417" />
+  <link rel="icon" type="image/png" href="/favicon-32.png" />
+  <title>ANZH Cosmetology · Beauty TMA</title>
+  <!-- Шрифты — свои (public/fonts), не с Google: адрес человека не уходит
+       третьей стороне. Кириллица и латиница Inter нужны на первом кадре. -->
+  <link rel="preload" href="/fonts/inter-cyrillic.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="/fonts/fonts.css" />
+  <!-- Telegram Mini App SDK. Absent outside Telegram — lib/telegram.ts no-ops. -->
+  <script src="https://telegram.org/js/telegram-web-app.js?57"></script>
+</head>
+<body>
+  <!-- Liquid Glass · SVG displacement filter (iOS-26/27 refraction).
+       Chromium bends the backdrop through this; Safari/iOS-TMA ignores url()
+       and falls back to the frosted lens (--lg-frost). Both read premium. -->
+  <svg width="0" height="0" style="position:absolute;pointer-events:none" aria-hidden="true">
+    <filter id="lgDisplace" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+      <feTurbulence type="turbulence" baseFrequency="0.012 0.014" numOctaves="2" seed="7" result="noise" />
+      <feGaussianBlur in="noise" stdDeviation="1.6" result="soft" />
+      <feDisplacementMap in="SourceGraphic" in2="soft" scale="26" xChannelSelector="R" yChannelSelector="G" />
+    </filter>
+  </svg>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+</html>
