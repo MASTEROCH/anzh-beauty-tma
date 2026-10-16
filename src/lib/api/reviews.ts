@@ -12,6 +12,15 @@ import type { RewardsWire } from './rewards';
 export interface ReviewWire {
   id: string;
   name: string;
+  /** [ПРЕДЛОЖЕНИЕ] имя латиницей для английского интерфейса */
+  name_en?: string | null;
+  /** Демо-пример (стенд): подпись «Пример ·» */
+  demo?: boolean;
+  /** [ПРЕДЛОЖЕНИЕ] язык оригинала и переводы на языки приложения (переводит сервер) */
+  lang?: 'ru' | 'en';
+  translations?: Partial<Record<'ru' | 'en', string>>;
+  reply_lang?: 'ru' | 'en' | null;
+  reply_translations?: Partial<Record<'ru' | 'en', string>>;
   rating: number;
   text: string;
   service_slug?: string | null;
@@ -42,4 +51,21 @@ export async function getStaffReviews(): Promise<ReviewWire[]> {
 export async function patchReview(id: string, patch: { state?: 'published' | 'hidden'; reply?: string | null }): Promise<ReviewWire> {
   const r = await apiRequest<{ review: ReviewWire }>('PATCH', `/reviews/${encodeURIComponent(id)}`, { body: patch });
   return r.review;
+}
+
+/** Текст отзыва на языке интерфейса: перевод сервера, если оригинал на другом языке.
+    `translated` — показали перевод (подпись «переведено»), `original` — для «показать оригинал». */
+export function reviewText(r: ReviewWire, lang: 'ru' | 'en'): { text: string; translated: boolean; original: string } {
+  const src = r.lang ?? (/[А-Яа-яЁё]/.test(r.text) ? 'ru' : 'en');
+  const tr = src !== lang ? r.translations?.[lang] : undefined;
+  return { text: tr ?? r.text, translated: !!tr, original: r.text };
+}
+export function replyText(r: ReviewWire, lang: 'ru' | 'en'): string | null {
+  if (!r.reply) return null;
+  const src = r.reply_lang ?? (/[А-Яа-яЁё]/.test(r.reply) ? 'ru' : 'en');
+  return (src !== lang ? r.reply_translations?.[lang] : undefined) ?? r.reply;
+}
+export function reviewName(r: ReviewWire, lang: 'ru' | 'en'): string {
+  const n = lang === 'en' ? r.name_en || r.name : r.name;
+  return r.demo ? `${lang === 'en' ? 'Example' : 'Пример'} · ${n}` : n;
 }

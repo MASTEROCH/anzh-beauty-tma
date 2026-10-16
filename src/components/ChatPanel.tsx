@@ -1,3 +1,5 @@
+import { useTeamView } from '../lib/teamLive';
+import { toast } from '../lib/ui';
 import { openModelProgram } from './ModelProgram';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from './Icon';
@@ -53,6 +55,7 @@ export function ChatPanel({
 }) {
   const lang = useLang();
   const ru = lang !== 'en';
+  const admin = useTeamView().find((m) => m.isAdmin);
   const studio = useStudio();
   const [who, setWho] = useState<Who>('ai');
   const [msgs, setMsgs] = useState<Msg[]>(() => [{ id: ++uid, role: 'ai', text: GREETING[lang === 'en' ? 'en' : 'ru'] }]);
@@ -167,9 +170,12 @@ export function ChatPanel({
         {who === 'admin' ? (
           <div className="cp-admin" key="admin">
             <div className="cp-who">
-              <span className="cp-ava" aria-hidden><Icon name="user" size={20} strokeWidth={1.7} /></span>
+              {/* Живой человек, а не иконка: администратор Дарья (Роч 16.10) */}
+              {admin?.photo
+                ? <img className="cp-ava cp-ava--photo" src={admin.photo.src} alt="" width={44} height={44} />
+                : <span className="cp-ava" aria-hidden><Icon name="user" size={20} strokeWidth={1.7} /></span>}
               <div className="cp-who-body">
-                <div className="cp-who-name">{ru ? 'Администратор студии' : 'Studio admin'}</div>
+                <div className="cp-who-name">{admin ? `${admin.name[ru ? 'ru' : 'en']} · ${ru ? 'администратор' : 'studio admin'}` : (ru ? 'Администратор студии' : 'Studio admin')}</div>
                 <div className={`cp-status ${openNow ? 'on' : 'off'}`}>
                   <span className="cp-dot" />
                   {openNow ? (ru ? 'сейчас на связи' : 'online now') : nextOpening()} · {studio.hours[lang === 'en' ? 'en' : 'ru']}
@@ -182,11 +188,15 @@ export function ChatPanel({
               <button className="cp-chip" onClick={() => { tap(); openTelegram(telegramUrl(draft || undefined)); }}>
                 <Icon name="send" size={15} strokeWidth={1.9} /> Telegram
               </button>
-              {wa && (
-                <button className="cp-chip cp-chip--wa" onClick={() => { tap(); openExternal(whatsappUrl(draft || undefined) ?? wa); }}>
-                  <Icon name="message" size={15} strokeWidth={1.9} /> WhatsApp
-                </button>
-              )}
+              {/* WhatsApp — всегда на виду. Номера ещё нет: говорим, куда написать
+                  сейчас, а не прячем кнопку (номер владелица вносит в «О студии») */}
+              <button className="cp-chip cp-chip--wa" onClick={() => {
+                tap();
+                if (wa) openExternal(whatsappUrl(draft || undefined) ?? wa);
+                else toast(ru ? 'WhatsApp студии скоро появится — пока напишите здесь или в Telegram' : 'Studio WhatsApp is coming soon — write here or in Telegram for now');
+              }}>
+                <Icon name="whatsapp" size={15} strokeWidth={1.9} /> WhatsApp
+              </button>
               {phone && (
                 <button className="cp-chip" onClick={() => { tap(); openExternal(phone); }}>
                   <Icon name="phone" size={15} strokeWidth={1.9} /> {ru ? 'Позвонить' : 'Call'}

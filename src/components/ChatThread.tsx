@@ -1,3 +1,4 @@
+import { tr, getLang } from '../lib/i18n';
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { openLightbox, toast } from '../lib/ui';
@@ -17,11 +18,11 @@ function dayLabel(at: number): string {
   const d = new Date(at);
   const today = new Date();
   const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
-  if (at >= start) return 'Сегодня';
-  if (at >= start - DAY) return 'Вчера';
-  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', ...(d.getFullYear() !== today.getFullYear() ? { year: 'numeric' } : {}) });
+  if (at >= start) return tr('Сегодня', 'Today');
+  if (at >= start - DAY) return tr('Вчера', 'Yesterday');
+  return d.toLocaleDateString(getLang() === 'en' ? 'en-US' : 'ru-RU', { day: 'numeric', month: 'long', ...(d.getFullYear() !== today.getFullYear() ? { year: 'numeric' } : {}) });
 }
-const timeOf = (at: number) => new Date(at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+const timeOf = (at: number) => new Date(at).toLocaleTimeString(getLang() === 'en' ? 'en-GB' : 'ru-RU', { hour: '2-digit', minute: '2-digit' });
 const srcOf = (a: NonNullable<ChatMsg['attachment']>) => (a.local ? a.url : apiUrl(a.url));
 
 function Attachment({ a }: { a: NonNullable<ChatMsg['attachment']> }) {
@@ -35,8 +36,8 @@ function Attachment({ a }: { a: NonNullable<ChatMsg['attachment']> }) {
     <button
       type="button"
       className={`ct-media ct-photo${ready ? ' ready' : ''}`}
-      onClick={() => { tap(); openLightbox(srcOf(a), undefined, { alt: 'Фото из переписки' }); }}
-      aria-label="Открыть фото"
+      onClick={() => { tap(); openLightbox(srcOf(a), undefined, { alt: tr('Фото из переписки', 'Photo from the chat') }); }}
+      aria-label={tr('Открыть фото', 'Open photo')}
     >
       <img src={srcOf(a)} alt="" loading="lazy" decoding="async" onLoad={() => setReady(true)} />
     </button>
@@ -77,7 +78,7 @@ export function ChatThread({
                 {m.attachment && <Attachment a={m.attachment} />}
                 {m.text && <div className="ct-text">{m.text}</div>}
                 <span className="ct-time">
-                  {m.state === 'sending' ? <span className="ct-spin" aria-label="отправляется" /> : timeOf(m.at)}
+                  {m.state === 'sending' ? <span className="ct-spin" aria-label={tr('отправляется', 'sending')} /> : timeOf(m.at)}
                   {side === 'me' && !m.state && (
                     <Icon name={m.read ? 'check-double' : 'check'} size={13} strokeWidth={2.2} className={`ct-tick${m.read ? ' read' : ''}`} />
                   )}
@@ -85,10 +86,10 @@ export function ChatThread({
               </div>
               {m.state === 'failed' && (
                 <button className="ct-failed" onClick={() => { tap(); onRetry?.(m.id); }}>
-                  <Icon name="warning" size={12} strokeWidth={2.2} /> не отправлено · повторить
+                  <Icon name="warning" size={12} strokeWidth={2.2} /> {tr('не отправлено · повторить', 'not sent · retry')}
                 </button>
               )}
-              {m === lastMine && m.read && <div className="ct-seen">прочитано</div>}
+              {m === lastMine && m.read && <div className="ct-seen">{tr('прочитано', 'read')}</div>}
             </div>
           </div>
         );
@@ -120,7 +121,7 @@ export function ChatComposer({
       const m = await prepareMedia(f);
       setMedia((old) => { if (old) URL.revokeObjectURL(old.preview); return m; });
     } catch (e) {
-      toast(e instanceof MediaError ? e.message : 'Не удалось прикрепить файл');
+      toast(e instanceof MediaError ? e.message : tr('Не удалось прикрепить файл', 'Couldn’t attach the file'));
     } finally {
       setPreparing(false);
       if (file.current) file.current.value = '';
@@ -139,14 +140,14 @@ export function ChatComposer({
     <div className="ct-compose">
       {(media || preparing) && (
         <div className="ct-attach">
-          {preparing && <span className="ct-attach-wait"><span className="ct-spin" /> Готовим файл…</span>}
+          {preparing && <span className="ct-attach-wait"><span className="ct-spin" /> {tr('Готовим файл…', 'Preparing the file…')}</span>}
           {media && (
             <>
               {media.kind === 'image'
                 ? <img className="ct-attach-thumb" src={media.preview} alt="" />
                 : <video className="ct-attach-thumb" src={media.preview} muted playsInline preload="metadata" />}
-              <span className="ct-attach-name">{media.kind === 'image' ? 'Фото' : 'Видео'} · {(media.blob.size / 1024 / 1024).toFixed(1)} МБ</span>
-              <button className="ct-attach-off" type="button" onClick={() => { URL.revokeObjectURL(media.preview); setMedia(null); }} aria-label="Убрать вложение">
+              <span className="ct-attach-name">{media.kind === 'image' ? tr('Фото', 'Photo') : tr('Видео', 'Video')} · {(media.blob.size / 1024 / 1024).toFixed(1)} {tr('МБ', 'MB')}</span>
+              <button className="ct-attach-off" type="button" onClick={() => { URL.revokeObjectURL(media.preview); setMedia(null); }} aria-label={tr('Убрать вложение', 'Remove attachment')}>
                 <Icon name="x" size={14} strokeWidth={2.4} />
               </button>
             </>
@@ -154,7 +155,7 @@ export function ChatComposer({
         </div>
       )}
       <form className="ct-bar" onSubmit={(e) => { e.preventDefault(); submit(); }}>
-        <button type="button" className="ct-clip" onClick={() => { tap(); file.current?.click(); }} aria-label="Прикрепить фото или видео" disabled={preparing}>
+        <button type="button" className="ct-clip" onClick={() => { tap(); file.current?.click(); }} aria-label={tr('Прикрепить фото или видео', 'Attach a photo or video')} disabled={preparing}>
           <Icon name="paperclip" size={21} strokeWidth={1.9} />
         </button>
         <input ref={file} type="file" accept={MEDIA_ACCEPT} hidden onChange={(e) => { void pick(e.target.files?.[0]); }} />
@@ -173,7 +174,7 @@ export function ChatComposer({
           }}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } }}
         />
-        <button className="ct-send" type="submit" disabled={preparing || (!draft.trim() && !media)} aria-label="Отправить">
+        <button className="ct-send" type="submit" disabled={preparing || (!draft.trim() && !media)} aria-label={tr('Отправить', 'Send')}>
           <Icon name="arrow-up-right" size={18} strokeWidth={2.4} />
         </button>
       </form>

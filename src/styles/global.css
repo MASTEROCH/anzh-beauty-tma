@@ -9329,3 +9329,5 @@ body[data-sheet-open] .lang-hud { display: none; }
 .sm-model-tag { display: inline-flex; margin-left: 8px; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; vertical-align: 2px; color: #1a1405; background: linear-gradient(180deg, var(--brand-gold-bright), var(--brand-gold)); }
 .sheet-slot { display: grid; gap: 8px; }
 .sheet-close::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; }
+.cp-ava--photo { object-fit: cover; object-position: 50% 20%; padding: 0; }
+.rb-orig { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; margin: -8px 0 8px; padding: 0; border: 0; background: none; font: inherit; font-size: 13px; color: var(--text-hint); cursor: pointer; }

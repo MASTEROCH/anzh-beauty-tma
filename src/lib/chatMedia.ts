@@ -1,3 +1,4 @@
+import { tr } from './i18n';
 // Вложения чата: подготовка файла на устройстве до отправки.
 //
 // Фото: перекодируем в JPEG ≤ 2048 px по длинной стороне, качество 0.85.
@@ -32,7 +33,7 @@ export interface PreparedMedia {
 export async function prepareMedia(file: File): Promise<PreparedMedia> {
   if (file.type.startsWith('image/')) return prepareImage(file);
   if (VIDEO_TYPES.includes(file.type) || /\.(mp4|mov|webm)$/i.test(file.name)) return prepareVideo(file);
-  throw new MediaError('type', 'Можно отправить фото или видео');
+  throw new MediaError('type', tr('Можно отправить фото или видео', 'You can send a photo or video'));
 }
 
 async function prepareImage(file: File): Promise<PreparedMedia> {
@@ -40,7 +41,7 @@ async function prepareImage(file: File): Promise<PreparedMedia> {
   try {
     bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
   } catch {
-    throw new MediaError('decode', 'Не удалось открыть снимок');
+    throw new MediaError('decode', tr('Не удалось открыть снимок', 'Couldn’t open the photo'));
   }
   const k = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
   const width = Math.round(bmp.width * k);
@@ -49,16 +50,16 @@ async function prepareImage(file: File): Promise<PreparedMedia> {
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new MediaError('decode', 'Не удалось подготовить снимок');
+  if (!ctx) throw new MediaError('decode', tr('Не удалось подготовить снимок', 'Couldn’t prepare the photo'));
   ctx.drawImage(bmp, 0, 0, width, height);
   bmp.close?.();
   const blob: Blob | null = await new Promise((ok) => canvas.toBlob(ok, 'image/jpeg', 0.85));
-  if (!blob) throw new MediaError('decode', 'Не удалось сжать снимок');
+  if (!blob) throw new MediaError('decode', tr('Не удалось сжать снимок', 'Couldn’t compress the photo'));
   return { kind: 'image', blob, preview: URL.createObjectURL(blob), width, height };
 }
 
 async function prepareVideo(file: File): Promise<PreparedMedia> {
-  if (file.size > VIDEO_MB * 1024 * 1024) throw new MediaError('too_large', `Видео больше ${VIDEO_MB} МБ — обрежьте его или отправьте в Telegram`);
+  if (file.size > VIDEO_MB * 1024 * 1024) throw new MediaError('too_large', tr(`Видео больше ${VIDEO_MB} МБ — обрежьте его или отправьте в Telegram`, `Video is over ${VIDEO_MB} MB — trim it or send it in Telegram`));
   const preview = URL.createObjectURL(file);
   const seconds = await new Promise<number>((ok) => {
     const v = document.createElement('video');
@@ -69,7 +70,7 @@ async function prepareVideo(file: File): Promise<PreparedMedia> {
   });
   if (seconds > VIDEO_SEC) {
     URL.revokeObjectURL(preview);
-    throw new MediaError('too_long', 'Видео длиннее 3 минут — обрежьте его или отправьте в Telegram');
+    throw new MediaError('too_long', tr('Видео длиннее 3 минут — обрежьте его или отправьте в Telegram', 'Video is longer than 3 minutes — trim it or send it in Telegram'));
   }
   const type = file.type || (/\.mov$/i.test(file.name) ? 'video/quicktime' : /\.webm$/i.test(file.name) ? 'video/webm' : 'video/mp4');
   return { kind: 'video', blob: file.type ? file : new Blob([file], { type }), preview };

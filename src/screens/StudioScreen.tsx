@@ -63,6 +63,10 @@ type ClientsTab = 'base' | 'money' | 'chats' | 'models';
    не даст. Код не удалён: включить — поднять флаг, когда появятся ручки.
    «Предложить другое время» тоже скрыто: статуса `offered` в проводе нет. */
 const SECOND_ROW = false;
+/* ИИ-ассистент кабинета («Какие записи сегодня?…») — ВЫКЛЮЧЕН по решению
+   Роча 16.10: «отключи пока что, не удаляй». Код StudioAsk на месте;
+   вернуть — поставить true. */
+const STUDIO_AI = false;
 
 const SEGMENTS: Array<['all' | 'due' | 'lapsed' | 'new', string]> = [
   ['all', 'Все'], ['due', 'Пора вернуть'], ['lapsed', 'Давно не была'], ['new', 'Новые'],
@@ -282,7 +286,7 @@ export function StudioScreen({ onExit }: { onExit: () => void }) {
             </div>
           )}
           <NextUp today={today} />
-          <StudioAsk queue={queue.visits} day={day.visits} history={history.visits} />
+          {STUDIO_AI && <StudioAsk queue={queue.visits} day={day.visits} history={history.visits} />}
         </>
       )}
 

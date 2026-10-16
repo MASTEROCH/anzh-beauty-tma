@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Icon } from './Icon';
 import { openSheet, closeSheet, toast } from '../lib/ui';
 import { notify } from '../lib/haptics';
-import { getStaffReviews, patchReview, type ReviewWire } from '../lib/api/reviews';
+import { getStaffReviews, patchReview, reviewText, reviewName, type ReviewWire } from '../lib/api/reviews';
 import { loadReviews } from '../lib/reviewsLive';
 import { findService, sTitle } from '../data/services';
 import { cabinetDenied } from '../lib/staff';
@@ -92,7 +92,7 @@ export function StudioReviews() {
               <div className="rv-head row row-between">
                 <div className="row" style={{ gap: 'var(--sp-sm)' }}>
                   <span className="rv-stars">{'★'.repeat(r.rating)}<span className="rv-stars-off">{'★'.repeat(5 - r.rating)}</span></span>
-                  <span className="rv-who">{r.name}</span>
+                  <span className="rv-who">{reviewName(r, 'ru')}</span>
                 </div>
                 {st === 'new' && <span className="chip chip-amber">новый</span>}
                 {st === 'hidden' && <span className="chip chip-quiet">скрыт</span>}
@@ -100,7 +100,7 @@ export function StudioReviews() {
               <div className="rv-svc">
                 {[svc ? sTitle(svc, 'ru') : null, when(r.created_at), r.verified ? 'была на процедуре' : null, r.publish_consent === false ? 'только для студии' : null].filter(Boolean).join(' · ')}
               </div>
-              <p className="rv-text">{r.text}</p>
+              <p className="rv-text">{reviewText(r, 'ru').text}{reviewText(r, 'ru').translated && <span className="faint"> · перевод, оригинал: «{r.text}»</span>}</p>
               {r.reply && <div className="rv-reply"><span className="rv-reply-k">Ответ студии</span>{r.reply}</div>}
               <div className="rv-actions">
                 {st !== 'published' && r.publish_consent !== false && (
@@ -110,7 +110,7 @@ export function StudioReviews() {
                   <button className="chip" disabled={busy === r.id} onClick={() => apply(r, { state: 'hidden' }, 'Отзыв скрыт')}>Скрыть</button>
                 )}
                 <button className="chip" onClick={() => openSheet({
-                  title: 'Ответ на отзыв', subtitle: `${r.name} · ${'★'.repeat(r.rating)}`,
+                  title: 'Ответ на отзыв', subtitle: `${reviewName(r, 'ru')} · ${'★'.repeat(r.rating)}`,
                   body: <ReplyForm review={r} onSave={(text) => { closeSheet(); void apply(r, { reply: text || null }, text ? 'Ответ сохранён' : 'Ответ убран'); }} />,
                 })}>
                   {r.reply ? 'Изменить ответ' : 'Ответить'}

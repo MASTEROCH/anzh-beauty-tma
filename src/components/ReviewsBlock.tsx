@@ -7,7 +7,7 @@ import { tap } from '../lib/haptics';
 import { useReviewsLive } from '../lib/reviewsLive';
 import { findService, sTitle } from '../data/services';
 import { openWriteReview } from './WriteReview';
-import type { ReviewWire } from '../lib/api/reviews';
+import { reviewText, replyText, reviewName, type ReviewWire } from '../lib/api/reviews';
 import type { Lang } from '../lib/i18n';
 
 /* ОТЗЫВЫ — только из приложения (сервер), публикует владелица.
@@ -88,18 +88,37 @@ function RatingHero({ avg, count, verified, lang }: { avg: number; count: number
   );
 }
 
+/** Текст отзыва в шторке: перевод на язык интерфейса + «показать оригинал» */
+function FullText({ r, lang }: { r: ReviewWire; lang: Lang }) {
+  const t = reviewText(r, lang);
+  const [orig, setOrig] = useState(false);
+  return (
+    <>
+      <p>{orig ? t.original : t.text}</p>
+      {t.translated && (
+        <button className="rb-orig" onClick={() => { tap(); setOrig(!orig); }}>
+          <Icon name="globe" size={13} strokeWidth={2} />
+          {orig
+            ? (lang === 'ru' ? 'Показать перевод' : 'Show translation')
+            : (lang === 'ru' ? 'Переведено автоматически · показать оригинал' : 'Translated automatically · show original')}
+        </button>
+      )}
+    </>
+  );
+}
+
 function openFull(r: ReviewWire, lang: Lang) {
   tap();
   const svc = r.service_slug ? findService(r.service_slug) : undefined;
   openSheet({
-    title: r.name,
+    title: reviewName(r, lang),
     subtitle: [svc ? sTitle(svc, lang) : null, dateOf(r.created_at, lang)].filter(Boolean).join(' · '),
     body: (
       <div className="rb-full">
         <div className="rb-card-stars" aria-label={`${r.rating} ${tr('из', 'of')} 5`}>{'★'.repeat(r.rating)}<span>{'★'.repeat(5 - r.rating)}</span></div>
-        <p>{r.text}</p>
+        <FullText r={r} lang={lang} />
         {r.verified && <div className="rb-verified"><Icon name="check" size={13} strokeWidth={2.6} /> {lang === 'ru' ? 'Была на процедуре в студии' : 'Had a treatment at the studio'}</div>}
-        {r.reply && <div className="rb-reply"><b>{lang === 'ru' ? 'Ответ студии' : 'Studio reply'}</b>{r.reply}</div>}
+        {r.reply && <div className="rb-reply"><b>{lang === 'ru' ? 'Ответ студии' : 'Studio reply'}</b>{replyText(r, lang)}</div>}
       </div>
     ),
   });
@@ -110,9 +129,9 @@ function ReviewCardLive({ r, lang, i }: { r: ReviewWire; lang: Lang; i: number }
   return (
     <button className="rb-card" style={{ ['--tilt' as string]: `${i % 2 ? 1.2 : -1.2}deg`, ['--glint-d' as string]: `${(i % 5) * 1.3}s` }} onClick={() => openFull(r, lang)}>
       <span className="rb-card-stars" aria-label={`${r.rating} ${tr('из', 'of')} 5`}>{'★'.repeat(r.rating)}<span>{'★'.repeat(5 - r.rating)}</span></span>
-      <span className="rb-card-text">{r.text}</span>
+      <span className="rb-card-text">{reviewText(r, lang).text}</span>
       <span className="rb-card-who">
-        <b>{r.name}</b>
+        <b>{reviewName(r, lang)}</b>
         {svc && <i>{sTitle(svc, lang)}</i>}
         {r.verified && <Icon name="check" size={12} strokeWidth={2.8} className="rb-card-ok" />}
       </span>
@@ -125,11 +144,12 @@ function Tldr({ list, lang }: { list: ReviewWire[]; lang: Lang }) {
   const [open, setOpen] = useState<string | null>(null);
   const ru = lang === 'ru';
   const groups = useMemo(() => {
-    const g = THEMES.map((t) => ({ ...t, items: list.filter((r) => t.re.test(r.text)) })).filter((t) => t.items.length > 0);
+    // Темы ищем и в оригинале, и в переводе: «результат» и «result» — одна тема
+    const g = THEMES.map((t) => ({ ...t, items: list.filter((r) => t.re.test(r.text) || t.re.test(reviewText(r, lang).text)) })).filter((t) => t.items.length > 0);
     const low = list.filter((r) => r.rating < 5);
     if (low.length) g.push({ id: 'low', ru: 'Что можно лучше', en: 'What could be better', re: /.^/, items: low });
     return g;
-  }, [list]);
+  }, [list, lang]);
   if (groups.length === 0) return null;
   const cur = groups.find((g) => g.id === open);
   return (
@@ -147,7 +167,7 @@ function Tldr({ list, lang }: { list: ReviewWire[]; lang: Lang }) {
         <div className="rb-quotes" key={cur.id}>
           {cur.items.slice(0, 4).map((r, i) => (
             <blockquote key={r.id} style={{ animationDelay: `${i * 70}ms` }} onClick={() => openFull(r, lang)}>
-              «{r.text.length > 160 ? `${r.text.slice(0, 157)}…` : r.text}» <cite>{r.name}</cite>
+              «{(() => { const x = reviewText(r, lang).text; return x.length > 160 ? `${x.slice(0, 157)}…` : x; })()}» <cite>{reviewName(r, lang)}</cite>
             </blockquote>
           ))}
         </div>
