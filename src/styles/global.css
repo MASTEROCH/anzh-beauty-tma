@@ -393,6 +393,11 @@ button { -webkit-tap-highlight-color: transparent; }
    экрана своя, фиксированное число разъезжалось бы на половине из них.
    Слой лежит МЕЖДУ контентом (z-index 1) и шапкой (--z-sticky). */
 .header-veil {
+  /* ВЫКЛЮЧЕНА (Роч 16.10, «тень не на месте»): отдельный слой вставал по
+     замеру --header-bottom, а замер во время смены экрана брал не ту шапку
+     и сбивался — полоса садилась на фото. Тень теперь — .header::after,
+     привязана к краю шапки без замеров. Правила ниже оставлены для истории. */
+  display: none !important;
   position: absolute;
   left: 0; right: 0;
   /* Начинается ровно под шапкой, а не от нуля. Под шапку класть нельзя:
@@ -9331,3 +9336,11 @@ body[data-sheet-open] .lang-hud { display: none; }
 .sheet-close::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; }
 .cp-ava--photo { object-fit: cover; object-position: 50% 20%; padding: 0; }
 .rb-orig { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; margin: -8px 0 8px; padding: 0; border: 0; background: none; font: inherit; font-size: 13px; color: var(--text-hint); cursor: pointer; }
+
+/* Тень под шапкой — часть самой шапки: всегда ровно под её краем, едет
+   и прячется вместе с ней (transform/opacity шапки), замер не нужен. */
+.header::after {
+  content: ''; position: absolute; left: 0; right: 0; top: 100%;
+  height: 22px; pointer-events: none;
+  background: linear-gradient(180deg, var(--bg-header), transparent);
+}

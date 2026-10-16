@@ -18,7 +18,9 @@ export function useHeaderHeight() {
     const root = document.documentElement;
 
     const measure = () => {
-      const header = document.querySelector('.header');
+      // Видимая шапка, а не первая в документе: при смене экрана в DOM бывают
+      // две, и первая — уходящая (замер давал 2 px вместо 65)
+      const header = [...document.querySelectorAll('.header')].find((h) => (h as HTMLElement).offsetParent !== null && h.getBoundingClientRect().height > 0);
       if (!header) return;
       /* --header-h — высота (по ней центрируются HUD и «выйти»);
          --header-bottom — низ шапки относительно .app: над шапкой бывает
@@ -36,12 +38,12 @@ export function useHeaderHeight() {
 
     // Шапка меняется при смене экрана и при повороте телефона
     const ro = new ResizeObserver(measure);
-    const header = document.querySelector('.header');
+    const header = [...document.querySelectorAll('.header')].find((h) => (h as HTMLElement).offsetParent !== null);
     if (header) ro.observe(header);
 
     // Экран сменился — шапка стала другим узлом, наблюдателя надо перевесить
     const mo = new MutationObserver(() => {
-      const next = document.querySelector('.header');
+      const next = [...document.querySelectorAll('.header')].find((h) => (h as HTMLElement).offsetParent !== null);
       if (next) { ro.disconnect(); ro.observe(next); measure(); }
     });
     mo.observe(document.body, { childList: true, subtree: true });
