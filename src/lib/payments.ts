@@ -83,9 +83,12 @@ interface TgWebAppPayments {
    записывает демо-сервер (POST /dev/purchase), доступ всё равно берётся из
    GET /me/purchases — тот же путь, что у настоящей. В боевой сборке оба
    флага ложны и ветка вырезается при сборке; внутри настоящего Telegram
-   (есть подписанная initData) демо-оплаты нет и в прототипе. */
+   демо-оплата в прототипе тоже включена — см. isDemoPay ниже. */
 const DEMO_PAY = import.meta.env.DEV || import.meta.env.VITE_DEMO === '1';
-export const isDemoPay = (): boolean => DEMO_PAY && !webApp()?.initData;
+/* Внутри Telegram прототип тоже платит понарошку: демо-сервер не умеет
+   выставлять настоящие счета (нет токена бота), и оплата падала — казалось,
+   что купить можно только пакет (Роч 16.10). Боевая сборка: флаг ложен. */
+export const isDemoPay = (): boolean => DEMO_PAY;
 
 function webApp(): TgWebAppPayments | undefined {
   if (typeof window === 'undefined') return undefined;

@@ -439,12 +439,22 @@ const COVER_RANK: Record<WorkHint, number> = {
   after: 0, process: 1, baked: 2, collage: 3, pairLr: 4, pairTb: 5, threeLr: 6, threeTb: 7, fourTb: 8,
 };
 
+/* Иллюстрации для процедур, у которых ещё нет своих кадров студии (Роч 16.10:
+   «в пилингах нет картинок — подходящие по смыслу на 100 %»). Это НЕ работы
+   мастера: только обложка карточки; в портфолио и «до/после» не попадают.
+   Карбон — чёрная угольная маска, очки, лазерная насадка; пилинги — кисть
+   и прозрачный кислотный раствор. Сгенерированы (Figma AI), 800×800. */
+const ILLUSTRATION: Record<string, { src: string; w: number; h: number }> = {
+  'carbon-peel': { src: '/photos/peel-carbon.webp', w: 800, h: 800 },
+  peeling: { src: '/photos/peel-chemical.webp', w: 800, h: 800 },
+};
+
 export const coverPhotoFor = (slug: string): { src: string; w: number; h: number } | null => {
   const pool: Array<{ src: string; w: number; h: number; hint: WorkHint }> = [
     ...PROCEDURE_PHOTOS.filter((p) => p.published && p.slug === slug),
     ...WORKS.filter((p) => p.published && p.slug === slug),
   ];
-  if (pool.length === 0) return null;
+  if (pool.length === 0) return ILLUSTRATION[slug] ?? null;
   const picked = COVER_PICK[slug];
   if (picked) {
     const hit = pool.find((p) => p.src === `/photos/works/${picked}.webp`);

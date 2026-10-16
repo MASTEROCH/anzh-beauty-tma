@@ -1,3 +1,4 @@
+import { useModels } from '../lib/modelsLive';
 import { ModelCard } from '../components/ModelProgram';
 import { usePriceMode } from '../lib/priceMode';
 import { useRate } from '../lib/rates';
@@ -51,6 +52,7 @@ export function CatalogScreen({
   const [cat, setCat] = useState<Service['category'] | 'all'>('all');
   const [q, setQ] = useState('');
   const lang = useLang();
+  const models = useModels();
   const priceMode = usePriceMode(); // перерисовка при смене валюты показа
   useRate();
   const ru = lang === 'ru';
@@ -226,6 +228,9 @@ export function CatalogScreen({
               </button>
               <div className="service-body" onClick={() => onOpen(s.id)} style={{ cursor: 'pointer' }}>
                 <h3 className="service-title">{sTitle(s, lang)}</h3>
+                {s.category === 'training' && models.program?.days.some((d) => d.course_slug === s.id) && (
+                  <span className="mdl-tag"><Icon name="sparkles" size={11} strokeWidth={2.2} /> {ru ? 'курсу нужны модели' : 'models needed'}</span>
+                )}
                 <p className="service-desc">{sShort(s, lang)}</p>
                 <div className="service-meta">
                   {price !== null && (

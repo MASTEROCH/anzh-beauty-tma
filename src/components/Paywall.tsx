@@ -507,8 +507,10 @@ function ReadyBuy({ id, stars, phase, termsVersion, lang, onBuy, onTicked, cta, 
     </span>
   ) : (
     <span className="pw-buy-label">
+      {/* Цена — всегда на кнопке, и в демо тоже: без неё казалось, что
+          продаётся только пакет «все 6» (Роч 16.10) */}
       {cta
-        ? `${cta[lang]} · ${isDemoPay() ? (ru ? 'демо' : 'demo') : `$${starsToUsd(stars)}`}`
+        ? `${cta[lang]} · $${starsToUsd(stars)}`
         : isDemoPay()
           ? (ru ? 'Открыть — демо без оплаты' : 'Open — demo, no charge')
           : (ru ? `Оплатить $${starsToUsd(stars)}` : `Pay $${starsToUsd(stars)}`)}
@@ -556,7 +558,7 @@ function ReadyBuy({ id, stars, phase, termsVersion, lang, onBuy, onTicked, cta, 
           {nudged && !ticked
             ? PAY_COPY.tickFirst[lang]
             : <>
-                {meta}{isDemoPay() ? (ru ? ' · демо' : ' · demo') : ''}
+                {meta}{isDemoPay() ? (ru ? ' · демо, без списания' : ' · demo, no charge') : ''}
                 {' · '}
                 <button type="button" className="pw-foot-link" onClick={() => openStarsInfo(lang, stars)}>{ru ? 'что такое Stars' : 'what are Stars'}</button>
               </>}

@@ -1,4 +1,4 @@
-import { ModelCard } from '../components/ModelProgram';
+import { ModelCard, openModelProgram } from '../components/ModelProgram';
 import { usePriceMode } from '../lib/priceMode';
 import { useRate } from '../lib/rates';
 import { findService, sTitle, servicePhoto } from '../data/services';
@@ -350,9 +350,17 @@ export function ServiceScreen({
     </div>
     <div className="bottom-cta">
       {course ? (
-        <button className="btn btn-primary btn-block" data-bottom-cta data-testid="course-write" onClick={writeAboutCourse}>
-          {ru ? 'Написать Анжелике' : 'Message Anjelika'} · {price}
-        </button>
+        /* У курса два пути: врачу — записаться на обучение, клиентке —
+           стать моделью этого курса (Роч 16.10: кнопки «стать моделью» не было
+           видно). Цена курса — в теле экрана, на кнопке не помещается рядом. */
+        <div className="cta-pair">
+          <button className="btn btn-secondary" onClick={() => openModelProgram(lang)}>
+            <Icon name="sparkles" size={15} strokeWidth={2} /> {ru ? 'Стать моделью' : 'Be a model'}
+          </button>
+          <button className="btn btn-primary" data-bottom-cta data-testid="course-write" onClick={writeAboutCourse}>
+            {ru ? 'Написать о курсе' : 'Ask about the course'}
+          </button>
+        </div>
       ) : (
         <button className="btn btn-primary btn-block" data-bottom-cta onClick={() => onBook(s.id)}>
           {t('service.pickTime', lang)} · {price}

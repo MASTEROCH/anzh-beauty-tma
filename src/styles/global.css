@@ -9344,3 +9344,5 @@ body[data-sheet-open] .lang-hud { display: none; }
   height: 22px; pointer-events: none;
   background: linear-gradient(180deg, var(--bg-header), transparent);
 }
+.cta-pair { display: grid; grid-template-columns: 1fr 1.25fr; gap: 8px; } .cta-pair .btn { gap: 6px; padding-left: 12px; padding-right: 12px; }
+.mdl-tag { display: inline-flex; align-items: center; gap: 4px; margin: 2px 0 4px; padding: 3px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; color: var(--brand-gold-bright); background: rgba(var(--gold-rgb), 0.12); border: 0.5px solid rgba(var(--gold-rgb), 0.35); }
