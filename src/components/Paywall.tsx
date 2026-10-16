@@ -1,3 +1,4 @@
+import { retrySession } from '../lib/session';
 import { openStarsInfo } from './StarsInfo';
 import { PriceDrop } from './PriceDrop';
 import { useId, useState } from 'react';
@@ -9,7 +10,7 @@ import { StarPrice } from './StarPrice';
 import { BUNDLE, PAID_QUIZZES, type Quiz } from '../data/quizzes';
 import { useLang, type Lang } from '../lib/i18n';
 import { g as gg, useGender, type Gender } from '../lib/gender';
-import { useMe } from '../lib/api';
+import { useMe, refreshMe } from '../lib/api';
 import { legalVersion } from '../lib/api/me';
 import { LegalLink, NOT_A_DIAGNOSIS } from './LegalFooter';
 
@@ -649,10 +650,23 @@ function PayUnavailable({ avail, lang }: { avail: Exclude<PayAvailability, 'read
     : avail === 'disabled' ? PAY_COPY.disabled[lang]
     : avail === 'checking' ? PAY_COPY.checking[lang]
     : PAY_COPY.noSession[lang];
+  const [busy, setBusy] = useState(false);
+  const canRetry = avail === 'no_session' || avail === 'checking';
   return (
-    <div className="stars-note" role="note" data-pay-unavailable={avail}>
-      <Icon name="info" size={14} strokeWidth={2} />
-      <span>{text}</span>
+    <div className="pw-unavail">
+      <div className="stars-note" role="note" data-pay-unavailable={avail}>
+        <Icon name="info" size={14} strokeWidth={2} />
+        <span>{avail === 'no_session' ? (lang === 'ru' ? 'Не удалось связаться с сервером — оплата пока недоступна.' : 'Couldn’t reach the server — payment is unavailable for now.') : text}</span>
+      </div>
+      {/* Не тупик «откройте заново»: вход повторяется одним нажатием */}
+      {canRetry && (
+        <button className="btn btn-amber btn-block" disabled={busy} aria-busy={busy} onClick={() => {
+          setBusy(true);
+          void retrySession().then(() => refreshMe()).finally(() => setBusy(false));
+        }}>
+          {busy ? (lang === 'ru' ? 'Подключаюсь…' : 'Connecting…') : (lang === 'ru' ? 'Повторить вход' : 'Try again')}
+        </button>
+      )}
     </div>
   );
 }

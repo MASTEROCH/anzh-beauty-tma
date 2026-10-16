@@ -491,3 +491,12 @@ async function ensureToken(): Promise<string | null> {
 export async function initSession(): Promise<'user' | 'guest'> {
   return (await ensureToken()) ? 'user' : 'guest';
 }
+
+/** Повторить вход по нажатию человека («Повторить»): сбой сети или холодный
+    старт сервера не должен оставлять экран в тупике «откройте заново».
+    Отказ сервера (refused) не повторяем — подпись не станет вернее. */
+export async function retrySession(): Promise<'user' | 'guest'> {
+  if (refused) return 'guest';
+  if (state.status === 'guest' && state.reason !== 'outside_telegram') logins = 0;
+  return initSession();
+}

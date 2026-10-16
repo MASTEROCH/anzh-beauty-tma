@@ -116,10 +116,17 @@ export type PayAvailability = 'ready' | 'outside_telegram' | 'checking' | 'no_se
 export function usePayAvailability(): PayAvailability {
   const session = useSession();
   const { me, loading } = useMe();
+  // Профиль не пришёл после входа — перечитать самим, а не ждать перезапуска
+  useEffect(() => {
+    if (session.status === 'user' && !me && !loading) void refreshMe();
+  }, [session.status, me, loading]);
   if (!canPayWithStars() && !isDemoPay()) return 'outside_telegram';
   if (session.status === 'pending') return 'checking';
   if (session.status === 'guest') return 'no_session';
-  if (!me) return loading ? 'checking' : 'no_session';
+  // Демо-оплате профиль не нужен: не держим кнопку, пока /me не пришёл
+  if (isDemoPay()) return 'ready';
+  // Вход есть, профиль не пришёл (сбой сети) — это «проверяю», а не «не удалось войти»
+  if (!me) return 'checking';
   return me.features?.stars === true ? 'ready' : 'disabled';
 }
 
